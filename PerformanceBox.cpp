@@ -3911,49 +3911,21 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 	}
 
-	// Accumulate the kernel-disk timers so the header % can use the
-	// system-wide busy fraction (NOT a simple per-disk average — that
-	// under-reports when one disk is idle and another is busy).
 	// The header pulls its value from one of these in priority order:
-	//   1. PDH _Total instance (matches Windows Task Manager exactly)
-	//   2. WMI _Total instance
-	//   3. NtQuerySystemInformation aggregate
-	//   4. Sum of kernel disk timers across all physical disks
-	//   5. Per-disk average (only when nothing else answered)
-
-	// what Windows Task Manager uses, and it correctly reflects system-wide
-	// disk activity (rather than masking a busy disk by averaging across an
-	// idle one). Fall back to the WMI _Total instance if PDH hasn't seen
-	// it yet, and finally to the per-disk average only when neither source
-	// reported an aggregate.
-	if(g_PdhDiskTotalReady)
-	{
-		double totalPct = g_PdhDiskTotalPct;
-		if(_finite(totalPct) == 0) totalPct = 0;
-		if(totalPct < 0)   totalPct = 0;
-		if(totalPct > 100) totalPct = 100;
-		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
-	}
-		else if(g_WmiDiskTotalReady)
-	{
-		double totalPct = g_WmiDiskTotalPct;
-		if(_finite(totalPct) == 0) totalPct = 0;
-		if(totalPct < 0)   totalPct = 0;
-		if(totalPct > 100) totalPct = 100;
-		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
-	}
-	else if(g_NtSysReady)
-	{
-		// Last-resort fallback: % computed by sampling kernel disk
-		// counters every 100 ms and tracking the busy fraction over a
-		// rolling 10 s window. Available on every Win7 build.
-		double totalPct = g_NtSysTotalPct;
-		if(_finite(totalPct) == 0) totalPct = 0;
-		if(totalPct < 0)   totalPct = 0;
-		if(totalPct > 100) totalPct = 100;
-		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
-	}
-	else if(SumTotalTime > 0)
+	//   1. Sum of kernel disk timers across all physical disks (PRIMARY).
+	//      This is what the original DBC source used and is a direct
+	//      kernel call via IOCTL_DISK_PERFORMANCE — works on every Win7
+	//      build with admin rights and does not depend on the WMI service,
+	//      PDH counter registration, or any perf counter DLL.
+	//   2. PDH _Total instance (only trusted when value > 0; the query
+	//      can return success-with-value-0 on Win7 systems where the perf
+	//      counter DLL is unregistered, which would otherwise pin the
+	//      header at 0% forever).
+	//   3. WMI _Total instance (same >0 guard).
+	//   4. NtQuerySystemInformation aggregate (same >0 guard).
+	//   5. Per-disk average (final fallback only when nothing else
+	//      answered).
+	if(SumTotalTime > 0)
 	{
 		// Kernel-timer sum: aggregate (ReadTime+WriteTime) / (IdleTime+RWTime)
 		// across all physical disks that responded to IOCTL_DISK_PERFORMANCE.
@@ -3961,6 +3933,37 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 		// of the per-disk kernel busy fractions combined into a system-wide
 		// busy fraction.
 		double totalPct = (double)SumRWTime / (double)SumTotalTime * 100.0;
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct < 0)   totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
+	}
+	else if(g_PdhDiskTotalReady && g_PdhDiskTotalPct > 0.0)
+	{
+		// PDH "_Total" instance — only trusted when it actually returns a
+		// non-zero value. On Win7 systems where the perf counter DLL is
+		// unregistered but the query itself returns success, this would
+		// otherwise pin TotalDiskUsage at 0% forever.
+		double totalPct = g_PdhDiskTotalPct;
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct < 0)   totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
+	}
+	else if(g_WmiDiskTotalReady && g_WmiDiskTotalPct > 0.0)
+	{
+		// WMI "_Total" instance — same value>0 guard as PDH above.
+		double totalPct = g_WmiDiskTotalPct;
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct < 0)   totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
+	}
+	else if(g_NtSysReady && g_NtSysTotalPct > 0.0)
+	{
+		// NtQuerySystemInformation aggregate — sampled kernel disk busy
+		// fraction over a rolling window.
+		double totalPct = g_NtSysTotalPct;
 		if(_finite(totalPct) == 0) totalPct = 0;
 		if(totalPct < 0)   totalPct = 0;
 		if(totalPct > 100) totalPct = 100;
