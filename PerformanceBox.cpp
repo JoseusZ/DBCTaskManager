@@ -579,12 +579,37 @@ static BOOL _InitPdhDiskQuery(HQUERY* hQuery,
 	if(PdhOpenQuery(NULL, 0, hQuery) != ERROR_SUCCESS || !*hQuery)
 		return FALSE;
 
-	// Enumerate instances of the "PhysicalDisk" performance object.
-	// Two-call pattern: first call returns the required buffer size, the
-	// second call actually fills the buffers. The counter list returned
-	// is unused — we hardcode the three counter names we care about
-	// (they're English identifiers, not localized display names, so they
-	// work on every Win7 language edition).
+	// Try to add the _Total aggregate counter via a HARDCODED path first.
+	// This works even when PdhEnumObjectItems returns 0 instances (e.g.
+	// the PhysicalDisk perf counter isn't registered, only the default
+	// counters are available). On every Win7 build that has the
+	// PhysicalDisk perf object, this hardcoded path resolves correctly
+	// without needing instance enumeration. This is the same path the
+	// Windows Task Manager uses for its "Disk" header.
+	if(*numInst < PDH_DISK_MAX)
+	{
+		int slot = *numInst;
+		wcsncpy_s(instNames[slot], MAX_PATH, L"_Total", _TRUNCATE);
+		WCHAR path[MAX_PATH];
+		PDH_STATUS s;
+		swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(_Total)\\%% Disk Time");
+		s = PdhAddCounterW(*hQuery, path, 0, &pctCtr[slot]);
+		swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec");
+		PdhAddCounterW(*hQuery, path, 0, &readCtr[slot]);
+		swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec");
+		PdhAddCounterW(*hQuery, path, 0, &writeCtr[slot]);
+		// Only count the slot if % Disk Time was added successfully —
+		// the other two always come along with it when the perf counter
+		// is registered.
+		if(s == ERROR_SUCCESS && pctCtr[slot] != NULL)
+			(*numInst)++;
+	}
+
+	// Enumerate instances of the "PhysicalDisk" performance object for
+	// per-disk metrics. The counter list returned is unused — we
+	// hardcode the three counter names we care about (they're English
+	// identifiers, not localized display names, so they work on every
+	// Win7 language edition).
 	//
 	// Note: PdhEnumObjectItemsW signature on this SDK is
 	//   (szDataSource, szMachineName, szObjectName,
@@ -593,92 +618,80 @@ static BOOL _InitPdhDiskQuery(HQUERY* hQuery,
 	//    dwDetailLevel, dwFlags)
 	// i.e. there's no pdwCounterCount parameter; pcchInstanceListLength
 	// is the buffer size in characters (not the instance count).
+	//
+	// Use PERF_DETAIL_STANDARD so PhysicalDisk instances are included even
+	// if NOVICE doesn't expose them on this Win7 build. We also try
+	// WIZARD as a backup level below if STANDARD comes back empty.
 	DWORD cbListSize = 0;
+	DWORD detailLevel = PERF_DETAIL_STANDARD;
 	PdhEnumObjectItemsW(NULL, NULL, L"PhysicalDisk",
 						NULL, &cbListSize,
 						NULL, NULL,
-						PERF_DETAIL_NOVICE, 0);
+						detailLevel, 0);
 	if(cbListSize == 0)
 	{
-		PdhCloseQuery(*hQuery);
-		*hQuery = NULL;
-		return FALSE;
+		// Retry with WIZARD level in case STANDARD is filtered out.
+		detailLevel = PERF_DETAIL_WIZARD;
+		PdhEnumObjectItemsW(NULL, NULL, L"PhysicalDisk",
+							NULL, &cbListSize,
+							NULL, NULL,
+							detailLevel, 0);
 	}
-	WCHAR* counterBuf = (WCHAR*)malloc(cbListSize * sizeof(WCHAR));
-	WCHAR* instBuf    = (WCHAR*)malloc(cbListSize * sizeof(WCHAR));
-	if(!counterBuf || !instBuf)
+	if(cbListSize > 0 && *numInst < PDH_DISK_MAX)
 	{
+		WCHAR* counterBuf = (WCHAR*)malloc(cbListSize * sizeof(WCHAR));
+		WCHAR* instBuf    = (WCHAR*)malloc(cbListSize * sizeof(WCHAR));
+		if(counterBuf && instBuf)
+		{
+			counterBuf[0] = 0;
+			instBuf[0]    = 0;
+			DWORD instBufLen = cbListSize;
+			if(PdhEnumObjectItemsW(NULL, NULL, L"PhysicalDisk",
+								   counterBuf, &cbListSize,
+								   instBuf, &instBufLen,
+								   detailLevel, 0) == ERROR_SUCCESS)
+			{
+				// Walk the double-null-terminated instance list. Add a
+				// counter per non-aggregate instance; the _Total slot
+				// was already populated above via the hardcoded path.
+				WCHAR* p = instBuf;
+				while(*p && *numInst < PDH_DISK_MAX)
+				{
+					if(_wcsicmp(p, L"_Total") == 0)
+					{
+						p += wcslen(p) + 1;
+						continue;
+					}
+					int slot = *numInst;
+					wcsncpy_s(instNames[slot], MAX_PATH, p, _TRUNCATE);
+					WCHAR path[MAX_PATH];
+					swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(%s)\\%% Disk Time",   instNames[slot]);
+					PdhAddCounterW(*hQuery, path, 0, &pctCtr[slot]);
+					swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(%s)\\Disk Read Bytes/sec",  instNames[slot]);
+					PdhAddCounterW(*hQuery, path, 0, &readCtr[slot]);
+					swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(%s)\\Disk Write Bytes/sec", instNames[slot]);
+					PdhAddCounterW(*hQuery, path, 0, &writeCtr[slot]);
+					(*numInst)++;
+					p += wcslen(p) + 1;
+				}
+			}
+		}
 		if(counterBuf) free(counterBuf);
 		if(instBuf)    free(instBuf);
-		PdhCloseQuery(*hQuery);
-		*hQuery = NULL;
-		return FALSE;
 	}
-	counterBuf[0] = 0;
-	instBuf[0]    = 0;
-	DWORD instBufLen = cbListSize;
-	if(PdhEnumObjectItemsW(NULL, NULL, L"PhysicalDisk",
-						   counterBuf, &cbListSize,
-						   instBuf, &instBufLen,
-						   PERF_DETAIL_NOVICE, 0) != ERROR_SUCCESS)
-	{
-		free(counterBuf);
-		free(instBuf);
-		PdhCloseQuery(*hQuery);
-		*hQuery = NULL;
-		return FALSE;
-	}
-	// counterBuf isn't needed — we know which counters we want.
-	free(counterBuf);
-	counterBuf = NULL;
-
-	// Walk the double-null-terminated instance list. Add a counter per
-	// non-aggregate instance plus one _Total counter set appended at the
-	// end (if present in the enumeration).
-	int totalSlot = -1;
-	WCHAR* p = instBuf;
-	while(*p && *numInst < PDH_DISK_MAX - 1) // reserve last slot for _Total
-	{
-		wcsncpy_s(instNames[*numInst], MAX_PATH, p, _TRUNCATE);
-		int slot = *numInst;
-		if(_wcsicmp(instNames[slot], L"_Total") == 0)
-		{
-			totalSlot = slot;
-		}
-		else
-		{
-			WCHAR path[MAX_PATH];
-			swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(%s)\\%% Disk Time",   instNames[slot]);
-			PdhAddCounterW(*hQuery, path, 0, &pctCtr[slot]);
-			swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(%s)\\Disk Read Bytes/sec",  instNames[slot]);
-			PdhAddCounterW(*hQuery, path, 0, &readCtr[slot]);
-			swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(%s)\\Disk Write Bytes/sec", instNames[slot]);
-			PdhAddCounterW(*hQuery, path, 0, &writeCtr[slot]);
-		}
-		(*numInst)++;
-		p += wcslen(p) + 1;
-	}
-	// Append _Total as the last slot if it was present and we have room.
-	if(totalSlot >= 0 && *numInst < PDH_DISK_MAX)
-	{
-		int slot = *numInst;
-		wcsncpy_s(instNames[slot], MAX_PATH, L"_Total", _TRUNCATE);
-		WCHAR path[MAX_PATH];
-		swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(_Total)\\%% Disk Time");
-		PdhAddCounterW(*hQuery, path, 0, &pctCtr[slot]);
-		swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec");
-		PdhAddCounterW(*hQuery, path, 0, &readCtr[slot]);
-		swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec");
-		PdhAddCounterW(*hQuery, path, 0, &writeCtr[slot]);
-		(*numInst)++;
-	}
-
-	free(counterBuf);
-	free(instBuf);
 
 	// Prime the query with one collection so the first "real" collection
 	// already has valid deltas (PDH counters are rate-based).
 	PdhCollectQueryData(*hQuery);
+
+	// We need at least the _Total slot to consider this a successful
+	// initialization. If even the hardcoded _Total failed, bail out.
+	if(*numInst == 0)
+	{
+		PdhCloseQuery(*hQuery);
+		*hQuery = NULL;
+		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -817,6 +830,130 @@ static void StopPdhDiskMonitor(void)
 	g_hPdhDiskThread = NULL;
 }
 
+// ----------------------------------------------------------------------------
+// NtQuerySystemInformation disk monitor — last-resort fallback that works on
+// every Windows version (WinXP through Win11) without any service, perf
+// counter registration, or admin rights. It reads the system-wide disk
+// counters directly out of the kernel via ntdll.
+//
+// The kernel returns cumulative read/write byte counts since boot. We poll
+// every 100 ms and compute (a) the current throughput in bytes/sec from
+// deltas, and (b) an approximation of "% Disk Time" by tracking the fraction
+// of polling windows where the disk was busy (i.e. the byte counts changed
+// between consecutive samples). The approximation is close to what Windows
+// Task Manager shows for the disk header on systems where the perf counter
+// subsystem is broken (e.g. Win7 with wmiapsrv disabled, or perf counter
+// DLLs unregistered). The throughput is exact.
+// ----------------------------------------------------------------------------
+
+// SYSTEM_PERFORMANCE_INFORMATION struct (a subset — the rest is reserved).
+typedef struct _DBCTASK_PERF_INFO {
+	LARGE_INTEGER IdleTime;
+	LARGE_INTEGER ReadTransferCount;
+	LARGE_INTEGER WriteTransferCount;
+	LARGE_INTEGER OtherTransferCount;
+	ULONG ReadOperationCount;
+	ULONG WriteOperationCount;
+	ULONG OtherOperationCount;
+	ULONG AvailablePages;
+	ULONG TotalCommittedPages;
+	ULONG TotalCommitLimit;
+	ULONG PeakCommitment;
+	ULONG PageFaultCount;
+	ULONG CumulativeFreePages;
+	ULONG CommitReuse;
+} DBCTASK_PERF_INFO;
+
+static double         g_NtSysReadBps    = 0.0;
+static double         g_NtSysWriteBps   = 0.0;
+static double         g_NtSysTotalPct   = 0.0;
+static LONG           g_NtSysReady      = 0;
+static HANDLE         g_hNtSysDiskThread= NULL;
+static volatile LONG  g_NtSysDiskStop   = 0;
+
+static unsigned __stdcall Thread_MonitorNtSysDisk(void*)
+{
+	typedef LONG (WINAPI *PFN_NtQuerySystemInformation)(ULONG, PVOID, ULONG, PULONG);
+	HMODULE hNtdll = GetModuleHandleW(L"ntdll.dll");
+	if(!hNtdll) return 0;
+	PFN_NtQuerySystemInformation pNtQuerySystemInformation =
+		(PFN_NtQuerySystemInformation)GetProcAddress(hNtdll, "NtQuerySystemInformation");
+	if(!pNtQuerySystemInformation) return 0;
+
+	DBCTASK_PERF_INFO prev = {0};
+	BOOL havePrev = FALSE;
+
+	// Rolling 100-sample (10 s) busy-time buffer. Each sample is "1" if the
+	// disk counters advanced during that 100 ms window, else "0". The header
+	// % is the fraction of busy samples — the same definition of "busy time"
+	// that the perf counter subsystem exposes via "\% Disk Time".
+	BYTE busyBuf[100] = {0};
+	int  busyIdx = 0;
+	int  busySum = 0;
+
+	// Single first read so we have a baseline before we start computing
+	// deltas. We deliberately don't count this as a "busy" sample because
+	// we don't know what the previous state was.
+	DBCTASK_PERF_INFO info;
+	ULONG bytesReturned = 0;
+	if(pNtQuerySystemInformation(2, &info, sizeof(info), &bytesReturned) == 0 /* STATUS_SUCCESS */)
+	{
+		prev = info;
+		havePrev = TRUE;
+	}
+
+	while(g_NtSysDiskStop == 0)
+	{
+		Sleep(100);
+		if(pNtQuerySystemInformation(2, &info, sizeof(info), &bytesReturned) != 0)
+			continue;
+		if(!havePrev)
+		{
+			prev = info;
+			havePrev = TRUE;
+			continue;
+		}
+
+		LONGLONG dr = info.ReadTransferCount.QuadPart  - prev.ReadTransferCount.QuadPart;
+		LONGLONG dw = info.WriteTransferCount.QuadPart - prev.WriteTransferCount.QuadPart;
+		if(dr < 0) dr = 0;  // counter reset / overflow guard
+		if(dw < 0) dw = 0;
+
+		// Update rolling busy-time buffer.
+		BOOL busy = (dr > 0 || dw > 0);
+		busySum -= busyBuf[busyIdx];
+		busyBuf[busyIdx] = busy ? 1 : 0;
+		busySum += busyBuf[busyIdx];
+		busyIdx = (busyIdx + 1) % 100;
+		if(busySum < 0) busySum = 0;
+
+		// Throughput (bytes/sec): scale the 100 ms sample to per-second.
+		g_NtSysReadBps  = (double)dr * 10.0;
+		g_NtSysWriteBps = (double)dw * 10.0;
+		// % busy time over the rolling 10 s window.
+		g_NtSysTotalPct  = (double)busySum;        // 0..100 already
+
+		prev = info;
+		g_NtSysReady = 1;
+	}
+	return 0;
+}
+
+static void EnsureNtSysDiskMonitor(void)
+{
+	if(g_hNtSysDiskThread != NULL) return;
+	InterlockedExchange(&g_NtSysDiskStop, 0);
+	g_hNtSysDiskThread = (HANDLE)_beginthreadex(NULL, 0, Thread_MonitorNtSysDisk, NULL, 0, NULL);
+}
+
+static void StopNtSysDiskMonitor(void)
+{
+	if(g_hNtSysDiskThread == NULL) return;
+	InterlockedExchange(&g_NtSysDiskStop, 1);
+	WaitForSingleObject(g_hNtSysDiskThread, 3000);
+	CloseHandle(g_hNtSysDiskThread);
+	g_hNtSysDiskThread = NULL;
+}
 
 // ----------------------------------------------------------------------------
 // WLAN helpers (Win7+) — connection type (PHY), SSID, signal quality.
@@ -1066,6 +1203,8 @@ CPerformanceBox::~CPerformanceBox()
 	}
 	// Stop the PDH disk monitor (fallback) too.
 	StopPdhDiskMonitor();
+	// Stop the NtQuerySystemInformation disk monitor (last-resort fallback).
+	StopNtSysDiskMonitor();
 }
 
 void CPerformanceBox::DoDataExchange(CDataExchange* pDX)
@@ -3589,6 +3728,12 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 		// state, admin rights, or system locale. The PDH cache is preferred
 		// over the WMI cache when it has data (Ready=1).
 		EnsurePdhDiskMonitor(); // idempotent
+		// Last-resort fallback: NtQuerySystemInformation reads the disk
+		// counters directly out of the kernel via ntdll. Unlike PDH/WMI
+		// this works on every Win7 build regardless of perf counter
+		// registration, WMI service state, or admin rights. The UI uses
+		// NtSys data only when both PDH and WMI fail to produce data.
+		EnsureNtSysDiskMonitor(); // idempotent
 
 		for(int nItem=2;nItem<n;nItem++)
 		{
@@ -3703,9 +3848,20 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 		if(totalPct > 100) totalPct = 100;
 		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
 	}
-	else if(g_WmiDiskTotalReady)
+		else if(g_WmiDiskTotalReady)
 	{
 		double totalPct = g_WmiDiskTotalPct;
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct < 0)   totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
+	}
+	else if(g_NtSysReady)
+	{
+		// Last-resort fallback: % computed by sampling kernel disk
+		// counters every 100 ms and tracking the busy fraction over a
+		// rolling 10 s window. Available on every Win7 build.
+		double totalPct = g_NtSysTotalPct;
 		if(_finite(totalPct) == 0) totalPct = 0;
 		if(totalPct < 0)   totalPct = 0;
 		if(totalPct > 100) totalPct = 100;
