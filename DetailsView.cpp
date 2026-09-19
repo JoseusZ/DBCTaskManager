@@ -47,7 +47,7 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 
 //
 	PROCESSENTRY32 pe32;
-	//ÔÚÊ¹ÓÃÕâ¸ö½á¹¹Ç°£¬ÏÈÉèÖÃËüµÄ´óÐ¡
+	//ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¹¹Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½Ð¡
 	pe32.dwSize = sizeof(pe32);
 	HANDLE hProcessSnap;
 
@@ -66,15 +66,15 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 		
 		TempMap_PidToData.insert(Map_PidToData.begin(),Map_PidToData.end());
 
-		//¸øÏµÍ³ÄÚËùÓÐµÄ½ø³ÌÅÄ¸ö¿ìÕÕ
+		//ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ÐµÄ½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½
 		 hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
-		if (hProcessSnap == INVALID_HANDLE_VALUE) //CreateToolhelp32Snapshot µ÷ÓÃÊ§°Ü
+		if (hProcessSnap == INVALID_HANDLE_VALUE) //CreateToolhelp32Snapshot ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½
 		{
 			Sleep(1000);
 			continue;
 		}
 
-		//±éÀú½ø³Ì¿ìÕÕ£¬ÂÖÁ÷ÏÔÊ¾Ã¿¸ö½ø³ÌµÄÐÅÏ¢
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¿ï¿½ï¿½Õ£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½Ï¢
 		BOOL bMore = ::Process32First(hProcessSnap,&pe32);		
 		int n =0;
 
@@ -82,7 +82,7 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 		while (bMore)
 		{			
 			map<DWORD,PVOID>::iterator Iter= TempMap_PidToData.find(pe32.th32ProcessID); 
-			if(Iter == TempMap_PidToData.end())// ²»´æÔÚ 
+			if(Iter == TempMap_PidToData.end())// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
 			{			
 				Dlg->mDetailsList.SetRedraw(0);
 				Dlg->AddNewProcessToList(pe32.th32ProcessID);
@@ -100,14 +100,14 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 
 		CString StrPID;
 
-		for (map<DWORD,PVOID>::iterator ProcToDel=TempMap_PidToData.begin(); ProcToDel!=TempMap_PidToData.end();  ProcToDel++ ) 
-		{  
-			 
+		for (map<DWORD,PVOID>::iterator ProcToDel=TempMap_PidToData.begin(); ProcToDel!=TempMap_PidToData.end();  ProcToDel++ )
+		{
+
 			 Dlg->_RemoveProcessFromList(ProcToDel->first);
 
 		}
 
-		 TempMap_PidToData.empty();
+		 TempMap_PidToData.clear();
 
 		Sleep(1000);
 	}
@@ -116,7 +116,7 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 
  
 
-	//Çå³ýµôsnapshot¶ÔÏó
+	//ï¿½ï¿½ï¿½ï¿½ï¿½snapshotï¿½ï¿½ï¿½ï¿½
 	::CloseHandle(hProcessSnap);
 	AfxEndThread(0,TRUE);
 	return 0;
@@ -142,8 +142,8 @@ static UINT Thread_SetAllListData(LPVOID pParam)
 
 	Dlg->SetAllListItemData(TRUE);
 	Dlg->FlagEnableRefresh = TRUE;
-	Dlg->ReSort(FALSE);//½ÃÕýÅÅÐò½á¹û
-	Dlg->PostMessage(UM_ALLINFO_OK); //Í¨Öª µÚÒ»Ò³ÁÐ±í¿ªÊ¼ÍêÉÆÊý¾Ý	 
+	Dlg->ReSort(FALSE);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	Dlg->PostMessage(UM_ALLINFO_OK); //Í¨Öª ï¿½ï¿½Ò»Ò³ï¿½Ð±ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½	 
 	Dlg->mDetailsList.Invalidate();
 	AfxEndThread(0,TRUE);
 	return 0;
@@ -157,8 +157,8 @@ static UINT Thread_ReloadAllListData(LPVOID pParam)
 	if(Dlg  == NULL) return -1; //
 
 	Dlg->SetAllListItemData(FALSE);	
-	Dlg->ReSort(FALSE);//½ÃÕýÅÅÐò½á¹û
-	Dlg->pTaskList->PostMessage(UM_ALLINFO_OK); //Í¨Öª µÚÒ»Ò³ÁÐ±í¿ªÊ¼ÍêÉÆÊý¾Ý	 
+	Dlg->ReSort(FALSE);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	Dlg->pTaskList->PostMessage(UM_ALLINFO_OK); //Í¨Öª ï¿½ï¿½Ò»Ò³ï¿½Ð±ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½	 
 	Dlg->mDetailsList.Invalidate();
 	AfxEndThread(0,TRUE);
 	return 0;
@@ -176,11 +176,11 @@ static UINT Thread_EndProcessTree(LPVOID pParam)
 }
 
 
-//****************** ÅÅÐòµÈ²Ù×÷ *****************************************************************************************************************
+//****************** ï¿½ï¿½ï¿½ï¿½È²ï¿½ï¿½ï¿½ *****************************************************************************************************************
 
 
 
-//ÅÅÐò   Éý½µ Ðø ÓÉ ÀàÖÐ SortType  ±äÁ¿¿ØÖÆ
+//ï¿½ï¿½ï¿½ï¿½   ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ SortType  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 int CALLBACK Sort_Details(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)  
 {
 
@@ -190,7 +190,7 @@ int CALLBACK Sort_Details(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 
 
 	int nCol =(int) lParamSort;
-	int result = 0;     //·µ»ØÖµ   
+	int result = 0;     //ï¿½ï¿½ï¿½ï¿½Öµ   
 
 	PROCLISTDATA * pData1 = NULL;
 	PROCLISTDATA * pData2 = NULL;
@@ -235,8 +235,8 @@ int CALLBACK Sort_Details(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 		Str1.Replace(L" KB",L"");Str2.Replace(L" KB",L"");
 		Data1 = _wtoi(Str1); Data2 = _wtoi(Str2); */
 		CString StrL1,StrL2;
-		StrL1.Format(L"%16s",Str1);//×ªÎªÍ¬Ñù³¤¶È×Ö·û´®Ç°Ãæ²¹¿Õ¸ñ
-		StrL2.Format(L"%16s",Str2);//×ªÎªÍ¬Ñù³¤¶È×Ö·û´®Ç°Ãæ²¹¿Õ¸ñ
+		StrL1.Format(L"%16s",Str1);//×ªÎªÍ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ç°ï¿½æ²¹ï¿½Õ¸ï¿½
+		StrL2.Format(L"%16s",Str2);//×ªÎªÍ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ç°ï¿½æ²¹ï¿½Õ¸ï¿½
 
 		result =lstrcmp(StrL1,StrL2);
 
@@ -247,7 +247,7 @@ int CALLBACK Sort_Details(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 
 
 
-	//µßµ¹ÅÅÐò½á¹û
+	//ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if( pList->FlagSortUp == FALSE)
 	{
 		result = -result;
@@ -261,7 +261,7 @@ int CALLBACK Sort_Details(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 
 
 
-//************ ÏÔÊ¾½ø³ÌÊôÐÔ¶Ô»°¿ò ***********************************************************************************************************************
+//************ ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶Ô»ï¿½ï¿½ï¿½ ***********************************************************************************************************************
 
 
 static UINT Thread_ShowProperties(LPVOID pParam)
@@ -470,7 +470,7 @@ void CPageDetails::OnSize(UINT nType, int cx, int cy)
 	}
 
 
-	mDetailsList._GetRedrawColumn();////ÖØÒª£¡£¡±ØÐëÂíÉÏ¸üÐÂ·ñÔòÏÔÊ¾¸ú²»ÉÏ£¡£¡£¡
+	mDetailsList._GetRedrawColumn();////ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 
@@ -482,7 +482,7 @@ void CPageDetails::InitList(void)
 
 
 
-	// Èç¹ûÏë×Ô»áÕâ¸öÐ§¹û ¾Í²»ÄÜÔÙÉèÖÃÁË £¡£¡£¡
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	//SetWindowTheme(mDetailsList.GetSafeHwnd(),L"explorer", NULL);
 
 
@@ -501,24 +501,24 @@ void CPageDetails::InitList(void)
 	}
 
 
-	//  ×î¼òµ¥µÄ¸Ä±äÐÐ¸ß·½Ê½
-	//  1 Í¨¹ý¶Ô»°¿ò±à¼­Æ÷ ÉèÖÃLVS_OWNERDRAWFIXED
-	//   È»ºó¸Ä»Ø	  mDetailsList.ModifyStyle( LVS_OWNERDRAWFIXED, 0, 0 );
-	//ÔÚÍ¨¹ý OnMeasureItem
+	//  ï¿½ï¿½òµ¥µÄ¸Ä±ï¿½ï¿½Ð¸ß·ï¿½Ê½
+	//  1 Í¨ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ï¿½à¼­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½LVS_OWNERDRAWFIXED
+	//   È»ï¿½ï¿½Ä»ï¿½	  mDetailsList.ModifyStyle( LVS_OWNERDRAWFIXED, 0, 0 );
+	//ï¿½ï¿½Í¨ï¿½ï¿½ OnMeasureItem
 
 
 
 	//-------------------
 	//   |LVS_EX_TWOCLICKACTIVATE  |LVS_EX_TRACKSELECT 
 
-	//±ØÐëÔÚ¶Ô»°¿ò±à¼­Æ÷ ½çÃæÀï Ò²ÉèÖÃ³É ×Ô»æÊôÐÔ Ë¢ÐÂËÙ¶È²ÅÄÜ¸ü¿ì £¡£¡£¡
+	//ï¿½ï¿½ï¿½ï¿½ï¿½Ú¶Ô»ï¿½ï¿½ï¿½à¼­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ò²ï¿½ï¿½ï¿½Ã³ï¿½ ï¿½Ô»ï¿½ï¿½ï¿½ï¿½ï¿½ Ë¢ï¿½ï¿½ï¿½Ù¶È²ï¿½ï¿½Ü¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-	//ÕûÌå·ç¸ñºÍ ~LVS_EX_INFOTIP ×ö ÓëÔËËã È¥µô ÏÔÊ¾²»È«Ê±µÄ¹¤¾ßÌáÊ¾
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ~LVS_EX_INFOTIP ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ È¥ï¿½ï¿½ ï¿½ï¿½Ê¾ï¿½ï¿½È«Ê±ï¿½Ä¹ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
 	mDetailsList.SetExtendedStyle( (mDetailsList.GetExtendedStyle()|LVS_EX_FULLROWSELECT|LVS_EX_SUBITEMIMAGES| LVS_OWNERDRAWFIXED|LVS_EX_DOUBLEBUFFER |LVS_EX_HEADERDRAGDROP)&(~LVS_EX_INFOTIP)   );  //| LVS_EX_GRIDLINES |LVS_EX_CHECKBOXES /
 
 	//---------------------------------------
 
-	mDetailsList.InitAllColumn(COL_SAT_DETAIL,STR_COLUMN_DETAILS,COL_COUNT_DETAIL);//×ÜÊý33  COL_COUNT_DETAIL
+	mDetailsList.InitAllColumn(COL_SAT_DETAIL,STR_COLUMN_DETAILS,COL_COUNT_DETAIL);//ï¿½ï¿½ï¿½ï¿½33  COL_COUNT_DETAIL
 
 	//-----------------------------------------------
 
@@ -531,9 +531,9 @@ void CPageDetails::InitList(void)
 
 	PreLoadProcesses();
 	
-	_StartProcessMon();//ÂíÉÏ¿ªÊ¼¼àÊÓ  ²»ÓÃµ£ÐÄ ´í¹ý½ø³Ì
+	_StartProcessMon();//ï¿½ï¿½ï¿½Ï¿ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-	//ReSort(FALSE); //²»ÒªÔÚ´ËÊ±ÅÅÐò ·ñÔò¿ÉÄÜÓÐÎÊÌâ£¡£¡£¡£¡£¡
+	//ReSort(FALSE); //ï¿½ï¿½Òªï¿½Ú´ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	AfxBeginThread(Thread_SetAllListData,this); 
 
@@ -552,7 +552,7 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 	StrSvchost = StrSystemDir+L"\\svchost.exe";
 
 
-	HANDLE hProcess = OpenProcess( PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE ,FALSE,PID);  //×¢Òâ PROCESS_ALL_ACCESS »áµ¼ÖÂ Çý¶¯¼¶±ðµÄÎÞ·¨»ñÈ¡ÐÅÏ¢  //PROCESS_TERMINATE  PROCESS_ALL_ACCESS| PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION   /PROCESS_VM_READ  PROCESS_QUERY_LIMITED_INFORMATION
+	HANDLE hProcess = OpenProcess( PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE ,FALSE,PID);  //×¢ï¿½ï¿½ PROCESS_ALL_ACCESS ï¿½áµ¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ï¢  //PROCESS_TERMINATE  PROCESS_ALL_ACCESS| PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION   /PROCESS_VM_READ  PROCESS_QUERY_LIMITED_INFORMATION
 	//Process name.
 
 	PROCLISTDATA *pPLdata = new PROCLISTDATA;
@@ -572,7 +572,7 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 	
 	CString StrProcessName=mProcInfo.GetFileName(StrProcessFullPathName);
 
-	pPLdata->Type = BKGPROC; //³õÊ¼ÈÏÎªÊÇ ºóÌ¨½ø³Ì
+	pPLdata->Type = BKGPROC; //ï¿½ï¿½Ê¼ï¿½ï¿½Îªï¿½ï¿½ ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½
 
 	pPLdata->PID = PID;
 	pPLdata->Name = StrProcessName;
@@ -582,7 +582,7 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 
 	mDetailsList.InsertItem(0,StrProcessName,pPLdata->IconIndex);
 	mDetailsList.SetItemData(0,(DWORD_PTR)pPLdata);
-	Map_PidToData[pPLdata->PID] = pPLdata; //Ìí¼Óµ½Ó³Éä
+	Map_PidToData[pPLdata->PID] = pPLdata; //ï¿½ï¿½ï¿½Óµï¿½Ó³ï¿½ï¿½
 
 		//----Parent PID-----
 	mProcInfo.GetParentPID(pPLdata);
@@ -591,7 +591,7 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 
 	CString StrTemp; StrTemp.Format(L"%d",pPLdata->PID);
 
-	//Ð´Èë³õÊ¼Êý¾Ý ÎªÁËÊÓ¾õÐ§¹û ²»Í£¶Ù
+	//Ð´ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ Îªï¿½ï¿½ï¿½Ó¾ï¿½Ð§ï¿½ï¿½ ï¿½ï¿½Í£ï¿½ï¿½
 
 
 	mDetailsList.SetItemText(0,DETAILLIST_PID,StrTemp);
@@ -600,24 +600,24 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 
 
 
-	//Ô¤ÏÈÌî³äSameNameID ·ÀÖ¹ ×î³õÁÐ±í´´½¨ºó SameNameID Î´Íê³É ÓÐÐÂ½ø³Ì´´½¨Ôì³É´íÎó
+	//Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½SameNameID ï¿½ï¿½Ö¹ ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SameNameID Î´ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Â½ï¿½ï¿½Ì´ï¿½ï¿½ï¿½ï¿½ï¿½É´ï¿½ï¿½ï¿½
 
 
 
 
 	map<CString,int>::iterator Iter = InstanceNameID.find(pPLdata->Name); 
 
-	if(Iter == InstanceNameID.end())//²»´æÔÚÓÚÁÐ±í ÔòÌí¼Ó
+	if(Iter == InstanceNameID.end())//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{
 		InstanceNameID[StrProcessName] = 0;
 		pPLdata->SameNameID = 0;
 	}
 	else
 	{
-		Iter->second = Iter->second++;
+		++Iter->second; // pre-increment; previous `Iter->second++` returned the OLD value and overwrote the increment
 		pPLdata->SameNameID = Iter->second;
 
-	}		
+	}
 
 
 	//-----------------------------------------------
@@ -629,7 +629,7 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 	pPLdata->SessionID = SessionID;
 
 
-	if(SessionID == 0) //ÅÐ¶ÏÊÇwindows½ø³ÌµÄ 
+	if(SessionID == 0) //ï¿½Ð¶ï¿½ï¿½ï¿½windowsï¿½ï¿½ï¿½Ìµï¿½ 
 	{
 		pPLdata->Type = WINPROC;
 	}
@@ -651,7 +651,7 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 	if(pServiceView!=NULL)pServiceView->PostMessage(UM_PROCSTART );
 
 
-	//²»ÄÜ¼Ó CloseHandle  £¡£¡£¡£¡
+	//ï¿½ï¿½ï¿½Ü¼ï¿½ CloseHandle  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 	PERFORMANCE_INFORMATION MyPMInfo;
@@ -660,7 +660,7 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 	GetPerformanceInfo(&MyPMInfo,sizeof(PERFORMANCE_INFORMATION));
 	theApp.PerformanceInfo.ProcessCount =MyPMInfo.ProcessCount ;
 
-	if(this->FlagEnableRefresh) //ÔÊÐíË¢ÐÂºóÔÚÌí¼ÓµÄ½ø³Ì²Å×Ô¶¯ÅÅÐò ÒòÎª³ÌÐò¸ÉÆô¶¯Ê±ºòÕýÔÚ»ñÈ¡ÐÅÏ¢Èç¹ûÕâÊ±ÅÅÐò¾Í»á²úÉúÎ»ÖÃ´íÂÒ£¡
+	if(this->FlagEnableRefresh) //ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½Âºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÓµÄ½ï¿½ï¿½Ì²ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½Ú»ï¿½È¡ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½Î»ï¿½Ã´ï¿½ï¿½Ò£ï¿½
 	{
 		ReSort(FALSE);
 	}
@@ -698,7 +698,7 @@ LRESULT CPageDetails::OnUMTimer(WPARAM wParam, LPARAM lParam)
 	int  ItemHight =rcItem.Height() ;
 
 
-	//if((DWORD)nCount > theApp.PerformanceInfo.ProcessCount)//É¾³ý´íÎóÏî
+	//if((DWORD)nCount > theApp.PerformanceInfo.ProcessCount)//É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	//{
 	//	i=nCount-1;
 	//	while (i>=0)
@@ -709,7 +709,7 @@ LRESULT CPageDetails::OnUMTimer(WPARAM wParam, LPARAM lParam)
 	//		{
 	//			//setwndtext(rand())
 	//			map<DWORD,PVOID>::iterator Iter= Map_PidToData.find	(pData->PID); 
-	//			if(Iter != Map_PidToData.end())// ´æÔÚ 
+	//			if(Iter != Map_PidToData.end())// ï¿½ï¿½ï¿½ï¿½ 
 	//			{		
 	//				Map_PidToData.erase(Iter);
 	//			}
@@ -772,7 +772,7 @@ void CPageDetails::UpdateProcessInfo(int nListID )
 
 	double ProcCpuTime;
 
-	//---------------------------------- ¼ÆËã ´Ë½ø³Ì CPU  Ê¹ÓÃÂÊ ---------------------------
+	//---------------------------------- ï¿½ï¿½ï¿½ï¿½ ï¿½Ë½ï¿½ï¿½ï¿½ CPU  Ê¹ï¿½ï¿½ï¿½ï¿½ ---------------------------
 
 	if( COL_SAT_DETAIL[DETAILLIST_CPU].Redraw)
 	{
@@ -794,7 +794,7 @@ void CPageDetails::UpdateProcessInfo(int nListID )
 
 
 
-	//----------------------------------------  ÄÚ´æ-------------------------------
+	//----------------------------------------  ï¿½Ú´ï¿½-------------------------------
 
 
 	double OldPF = pPLData->Mem_PageFaults;
@@ -890,7 +890,7 @@ void CPageDetails::UpdateProcessInfo(int nListID )
 
 	//--------------------------------------Status -----------------------
 
-	//µ¥¶ÀÉèÖÃ
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 	//------------------------------------ Handles----------------------------------
@@ -1029,7 +1029,7 @@ void CPageDetails::UpdateProcessInfo(int nListID )
 
 	//-------------------------------------------------------------
 
-	//ÓÅÏÈ¼¶
+	//ï¿½ï¿½ï¿½È¼ï¿½
 
 	mProcInfo.GetPriority(pPLData->hProcess,&StrTemp);
 	mDetailsList.SetItemText(nListID,DETAILLIST_BP, StrTemp);  //Handles
@@ -1081,7 +1081,7 @@ void CPageDetails::OnHdnItemclickProcesslist(NMHDR *pNMHDR, LRESULT *pResult)
 
 
 	mDetailsList.CurrentSortColumn =  phdr->iItem;
-	//ÉèÖÃ»Øµ÷º¯ÊýµÄ²ÎÊýºÍÈë¿ÚµØÖ·   
+	//ï¿½ï¿½ï¿½Ã»Øµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½Ö·   
 	mDetailsList.SortItems(Sort_Details, phdr->iItem);
 
 	*pResult = 0;
@@ -1199,10 +1199,10 @@ void CPageDetails::_RemoveProcessFromList( DWORD PID)
 				
 
 			map<CString,int>::iterator Iter = InstanceNameID.find(pListData->Name); 
-			if(Iter != InstanceNameID.end())//´æÔÚ,InstanceNameID¼ÇÂ¼¼õÉÙ
+			if(Iter != InstanceNameID.end())//ï¿½ï¿½ï¿½ï¿½,InstanceNameIDï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½
 			{
-				Iter->second = Iter->second--;	
-				if(Iter->second == 0) 
+				--Iter->second;
+				if(Iter->second <= 0)
 				{
 					InstanceNameID.erase(Iter);
 				}
@@ -1226,12 +1226,12 @@ void CPageDetails::_RemoveProcessFromList( DWORD PID)
 
 
 				map<DWORD,PVOID>::iterator Iter= Map_PidToData.find	(pListData->PID); //xxxxxxxxx
-				if(Iter != Map_PidToData.end())// ´æÔÚ 
+				if(Iter != Map_PidToData.end())// ï¿½ï¿½ï¿½ï¿½ 
 				{		
 					Map_PidToData.erase(Iter);
 				}
-				//·ÅÔÚ×îºó ·ñÔò pListDataÓÐ¿ÉÄÜÔÚ PostMessageW Ö®ºó ±äÎªNULL
-				theApp.m_pMainWnd->PostMessageW(UM_PROCEXIT,0,(LPARAM)pListData); //ÏòÖ÷´°¿Ú·¢ËÍÉ¾³ýÏûÏ¢	Ö÷´°¿ÚÍ³Ò»´¦Àí·ÅÔÚ Itemdata ßÂÌáÇ°É¾³ý		
+				//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ pListDataï¿½Ð¿ï¿½ï¿½ï¿½ï¿½ï¿½ PostMessageW Ö®ï¿½ï¿½ ï¿½ï¿½ÎªNULL
+				theApp.m_pMainWnd->PostMessageW(UM_PROCEXIT,0,(LPARAM)pListData); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú·ï¿½ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½Ï¢	ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í³Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Itemdata ï¿½ï¿½ï¿½ï¿½Ç°É¾ï¿½ï¿½		
  
 
 			}
@@ -1256,7 +1256,7 @@ void CPageDetails::_RemoveProcessFromList( DWORD PID)
 
 
 
-	//¸üÐÂ×Ü ½ø³ÌÊýÁ¿ !!!!!!!!!
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ !!!!!!!!!
 
 	PERFORMANCE_INFORMATION MyPMInfo;
 
@@ -1267,14 +1267,14 @@ void CPageDetails::_RemoveProcessFromList( DWORD PID)
 	GetPerformanceInfo(&MyPMInfo,sizeof(PERFORMANCE_INFORMATION));
 	theApp.PerformanceInfo.ProcessCount =MyPMInfo.ProcessCount ;
 
-	//·¢ËÍÏûÏ¢¸ø·þÎñÁÐ±í
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½
 	if(pServiceView!=NULL)pServiceView->PostMessage(UM_PROCEXIT );
 
 
 	//ReSort(FALSE);
 }
 
-void CPageDetails::_AddToTaskList( PROCLISTDATA *pListData)  //Ìí¼Óµ½µÚÒ»Ò³ÁÐ±í
+void CPageDetails::_AddToTaskList( PROCLISTDATA *pListData)  //ï¿½ï¿½ï¿½Óµï¿½ï¿½ï¿½Ò»Ò³ï¿½Ð±ï¿½
 {
 
 
@@ -1301,7 +1301,7 @@ void CPageDetails::OnNMRClickDetailslist(NMHDR *pNMHDR, LRESULT *pResult)
 	CMenu PopMenu;
 	CMenu *pMenu;
 	PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_BASE) );
-	pMenu = PopMenu.GetSubMenu(3);  //3ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+	pMenu = PopMenu.GetSubMenu(3);  //3ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 
 	CPoint CurPos ;
 	GetCursorPos(&CurPos); 
@@ -1380,7 +1380,7 @@ BOOL CPageDetails::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 		CHeaderCtrl* pHeader = mDetailsList.GetHeaderCtrl();  
 		if(pWnd && (pWnd->GetSafeHwnd() == pHeader->GetSafeHwnd()))  
 		{  
-			//-------------¿É¼ì²â ÔÚÄÄÁÐ°´ÓÒ¼ü--------------
+			//-------------ï¿½É¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ð°ï¿½ï¿½Ò¼ï¿½--------------
 			HDHITTESTINFO info = {0};  
 			info.pt = pt;  
 			pHeader->SendMessage(HDM_HITTEST, 0, (LPARAM)&info); 
@@ -1391,7 +1391,7 @@ BOOL CPageDetails::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 			CMenu PopMenu;
 			CMenu *pMenu;
 			PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_COLUMN) );
-			pMenu = PopMenu.GetSubMenu(2);  //3ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+			pMenu = PopMenu.GetSubMenu(2);  //3ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 
 			pMenu->TrackPopupMenu(TPM_LEFTALIGN,pt2.x,pt2.y,this);
 
@@ -1464,15 +1464,17 @@ CString  CPageDetails::GetProcessInfoUseWMI(DWORD PID,PROCLISTDATA * pData)
 	while (pEnumerator)
 	{
 		HRESULT hr = pEnumerator->Next(WBEM_INFINITE, 1,    &pclsObj, &uReturn);
-		if(0 == uReturn)  { break; }
+		if(0 == uReturn || FAILED(hr))  { break; }
 		VARIANT vtProp;
+		VariantInit(&vtProp);
 
 		// Get the value of the Name property
 
 		hr = pclsObj->Get(L"Caption", 0, &vtProp, 0, 0);
-		StrTemp= vtProp.bstrVal;
-
-		SysFreeString(vtProp.bstrVal);
+		if(SUCCEEDED(hr) && V_VT(&vtProp) == VT_BSTR && vtProp.bstrVal != NULL)
+		{
+			StrTemp = vtProp.bstrVal;
+		}
 
 		VariantClear(&vtProp);
 		pclsObj->Release();
@@ -1492,7 +1494,7 @@ void CPageDetails::OnPop_GotoService()
 {
 	// TODO: Add your command handler code here
 	theApp.pMainTab->SetCurSel(4);
-	//--------------´¥·¢Êµ¼Ê¶¯×÷---------- 
+	//--------------ï¿½ï¿½ï¿½ï¿½Êµï¿½Ê¶ï¿½ï¿½ï¿½---------- 
 	NMHDR nmhdr; 
 	nmhdr.code = TCN_SELCHANGE;  
 	nmhdr.hwndFrom = theApp.pMainTab->GetSafeHwnd();  
@@ -1507,7 +1509,7 @@ void CPageDetails::PreLoadProcesses(void)
 	
 
 	PROCESSENTRY32 ProcEntry;	
-	ProcEntry.dwSize = sizeof(ProcEntry);	//ÔÚÊ¹ÓÃÕâ¸ö½á¹¹Ç° ÏÈÉèÖÃ´óÐ¡
+	ProcEntry.dwSize = sizeof(ProcEntry);	//ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¹¹Ç° ï¿½ï¿½ï¿½ï¿½ï¿½Ã´ï¿½Ð¡
 
 	HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
 	
@@ -1537,7 +1539,7 @@ void CPageDetails::PreLoadProcesses(void)
 		PROCLISTDATA *pPLdata = new PROCLISTDATA;
 
 		pPLdata->hProcess = NULL;
-		HANDLE hProcess = OpenProcess( PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE  ,FALSE,PID);  //×¢Òâ PROCESS_ALL_ACCESS »áµ¼ÖÂ Çý¶¯¼¶±ðµÄÎÞ·¨»ñÈ¡ÐÅÏ¢  //PROCESS_TERMINATE  PROCESS_ALL_ACCESS| PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION   /PROCESS_VM_READ  PROCESS_QUERY_LIMITED_INFORMATION
+		HANDLE hProcess = OpenProcess( PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE  ,FALSE,PID);  //×¢ï¿½ï¿½ PROCESS_ALL_ACCESS ï¿½áµ¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ï¢  //PROCESS_TERMINATE  PROCESS_ALL_ACCESS| PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION   /PROCESS_VM_READ  PROCESS_QUERY_LIMITED_INFORMATION
 
 		if(hProcess > 0) 
 		{
@@ -1551,11 +1553,11 @@ void CPageDetails::PreLoadProcesses(void)
 		CString StrProcessName= ProcEntry.szExeFile;
 
 
-		//£¡£¡£¡£¡£¡£¡£¡ÕâÊÇÒ»¸öÌØÊâÇé¿ö ¿ªÊ¼ PID == 4 µÄ½ø³ÌÃûÊÇ¿Õ°× ÒªÈË¹¤ÌîÉÏ ·ñÔòÓ°Ïì×î³õµÄÅÅÐò!!!!!!!!!!!
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê¼ PID == 4 ï¿½Ä½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿Õ°ï¿½ Òªï¿½Ë¹ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ó°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½!!!!!!!!!!!
 		if(PID == 4){StrProcessName = L"System" ;}
 
 
-		pPLdata->Type = BKGPROC; //³õÊ¼ÈÏÎªÊÇ ºóÌ¨½ø³Ì
+		pPLdata->Type = BKGPROC; //ï¿½ï¿½Ê¼ï¿½ï¿½Îªï¿½ï¿½ ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½
 		pPLdata->PID = PID;
 		pPLdata->Name = StrProcessName;
 
@@ -1569,36 +1571,36 @@ void CPageDetails::PreLoadProcesses(void)
 		pPLdata->IconIndex = 0;
 
 
-		Map_PidToData[pPLdata->PID] = pPLdata; //Ìí¼Óµ½Ó³Éä
-		mDetailsList.InsertItem(0,StrProcessName,pPLdata->IconIndex); //Êµ¼Ê²åÈë
+		Map_PidToData[pPLdata->PID] = pPLdata; //ï¿½ï¿½ï¿½Óµï¿½Ó³ï¿½ï¿½
+		mDetailsList.InsertItem(0,StrProcessName,pPLdata->IconIndex); //Êµï¿½Ê²ï¿½ï¿½ï¿½
 		mDetailsList.SetItemData(0,(DWORD_PTR)pPLdata);
 	
 
 		StrTemp.Format(L"%d",pPLdata->PID);
 
-		//Ð´Èë³õÊ¼Êý¾Ý ÎªÁËÊÓ¾õÐ§¹û ²»Í£¶Ù
+		//Ð´ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ Îªï¿½ï¿½ï¿½Ó¾ï¿½Ð§ï¿½ï¿½ ï¿½ï¿½Í£ï¿½ï¿½
 		mDetailsList.SetItemText(0,DETAILLIST_PID,StrTemp);
 		mDetailsList.SetItemText(0,DETAILLIST_CPU,L"00");
 		mDetailsList.SetItemText(0,DETAILLIST_STATUS,L"Running");
 
 
-		//Ô¤ÏÈÌî³äSameNameID ·ÀÖ¹ ×î³õÁÐ±í´´½¨ºó SameNameID Î´Íê³É ÓÐÐÂ½ø³Ì´´½¨Ôì³É´íÎó
+		//Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½SameNameID ï¿½ï¿½Ö¹ ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SameNameID Î´ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Â½ï¿½ï¿½Ì´ï¿½ï¿½ï¿½ï¿½ï¿½É´ï¿½ï¿½ï¿½
 
 
 
 		map<CString,int>::iterator Iter = InstanceNameID.find(pPLdata->Name); 
 
-		if(Iter == InstanceNameID.end())//²»´æÔÚÓÚÁÐ±í ÔòÌí¼Ó
+		if(Iter == InstanceNameID.end())//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 			InstanceNameID[StrProcessName] = 0;
 			pPLdata->SameNameID = 0;
 		}
 		else
 		{
-			Iter->second = Iter->second++;
+			++Iter->second; // pre-increment; previous `Iter->second++` returned the OLD value and overwrote the increment
 			pPLdata->SameNameID = Iter->second;
 
-		}		
+		}
 
 
 
@@ -1625,17 +1627,17 @@ void CPageDetails::PreLoadProcesses(void)
 			IsSystemFolder = (StrProcessFullPathName.CompareNoCase(L"windows\\system32") == 0);
 
 		}
-		else//ÎÞÂ·¾¶µÄÈÏÎªÊÇwindows½ø³Ì
+		else//ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½windowsï¿½ï¿½ï¿½ï¿½
 		{
 			IsSystemFolder = TRUE;
 		}
 
  	
-		if(_IsAppProcess(pPLdata->PID))  //ÏÈÅÐ¶ÏÊÇ²»ÊÇÓÐ´°¿Ú
+		if(_IsAppProcess(pPLdata->PID))  //ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½
 		{
 			pPLdata->Type = APP;
 		}
-		else  if( IsSystemFolder ) //ÅÐ¶ÏÊÇwindows½ø³ÌµÄ 
+		else  if( IsSystemFolder ) //ï¿½Ð¶ï¿½ï¿½ï¿½windowsï¿½ï¿½ï¿½Ìµï¿½ 
 		{
 			pPLdata->Type = WINPROC;
 		}
@@ -1646,7 +1648,7 @@ void CPageDetails::PreLoadProcesses(void)
 
 
 
-		//ÏÂÒ»¸ö½ø³Ì
+		//ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 		bMore = ::Process32Next(hProcessSnap,&ProcEntry);
 
@@ -1665,7 +1667,7 @@ void CPageDetails::PreLoadProcesses(void)
 	mDetailsList.SetRedraw(1);
 
 
-	//×î¿ªÊ¼_´¦µ÷ÓÃ StartProcessMon();ÂíÉÏ¿ªÊ¼¼àÊÓ ·ñÔò¿ÉÄÜ´í¹ý½ø³Ì
+	//ï¿½î¿ªÊ¼_ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ StartProcessMon();ï¿½ï¿½ï¿½Ï¿ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 	InvalidateIfVisible(&mDetailsList);
@@ -1772,8 +1774,8 @@ void CPageDetails::_FillAllDataOfItem(int Index,PROCLISTDATA *pInputdata,BOOL Ne
 
 
 
-	ULONGLONG  NewOtherIO;
-	pPLdata->DiskIO =   mProcInfo.GetDiskIO(hProcess,&NewOtherIO);	
+	ULONGLONG  NewOtherIO = 0;
+	pPLdata->DiskIO =   mProcInfo.GetDiskIO(hProcess, PID, &NewOtherIO);
 
 	//	pPLdata->CurrentID = 0;
 
@@ -1804,7 +1806,7 @@ void CPageDetails::_FillAllDataOfItem(int Index,PROCLISTDATA *pInputdata,BOOL Ne
 		pPLdata->Name=L"System";
 
 		StrTemp = L"System";
-		pPLdata->Description = L"NT Kernel && System";  // ×Ö·û & ±ØÐëÐ´³É && ²ÅÄÜÊä³ö & 
+		pPLdata->Description = L"NT Kernel && System";  // ï¿½Ö·ï¿½ & ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ && ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ & 
 	}
 
 
@@ -1814,13 +1816,13 @@ void CPageDetails::_FillAllDataOfItem(int Index,PROCLISTDATA *pInputdata,BOOL Ne
 
 
 
-	// --------²»ÐèÒªÏÔÊ¾-------------
+	// --------ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½Ê¾-------------
 
 
 	CString StrPDHProcessName;
 	StrPDHProcessName = pPLdata->Name;
 
-	if(StrPDHProcessName.Right(4).CompareNoCase(L".exe") == 0)  //exeÈ¥µô .dllÔò²»È¥µô Pdh ÒªÇóÕâÑù¸ñÊ½
+	if(StrPDHProcessName.Right(4).CompareNoCase(L".exe") == 0)  //exeÈ¥ï¿½ï¿½ .dllï¿½ï¿½È¥ï¿½ï¿½ Pdh Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½
 	{	
 		StrPDHProcessName=StrPDHProcessName.Left(StrPDHProcessName.GetLength()-4);
 	}
@@ -1839,7 +1841,7 @@ void CPageDetails::_FillAllDataOfItem(int Index,PROCLISTDATA *pInputdata,BOOL Ne
 	StrPDHProcessName = StrTemp;
 
 
-	//ÌØÊâµÄ 
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ 
 
 
 	if(PID == 0){	StrPDHProcessName = L"Idle";	}
@@ -1858,9 +1860,9 @@ void CPageDetails::_FillAllDataOfItem(int Index,PROCLISTDATA *pInputdata,BOOL Ne
 	{
 
 
-		//----------------------------------Ìí¼Ó»ñÈ¡  Working Set - Private µÄ¼ÆÊýÆ÷ ----------------
+		//----------------------------------ï¿½ï¿½ï¿½Ó»ï¿½È¡  Working Set - Private ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ ----------------
 
-		// ´ò¿ªÒ»¸ö²éÑ¯¶ÔÏó
+		// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½
 		PdhOpenQuery (0, 0,   &pPLdata->hQueryMem );
 		pPLdata->hCounterMem= NULL;
 
@@ -1870,25 +1872,25 @@ void CPageDetails::_FillAllDataOfItem(int Index,PROCLISTDATA *pInputdata,BOOL Ne
 
 
 
-		//----------------------------------Ìí¼Ó»ñÈ¡  IO  µÄ¼ÆÊýÆ÷ ----------------
+		//----------------------------------ï¿½ï¿½ï¿½Ó»ï¿½È¡  IO  ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ ----------------
 
-		//// ´ò¿ªÒ»¸ö²éÑ¯¶ÔÏó
+		//// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½
 		//PdhOpenQuery (0, 0,   &pPLdata->hQueryIO );
 		//pPLdata->hCounterIO= NULL;
 		//Str.Format(L"\\Process(%s)\\IO Data Bytes/sec", StrPDHProcessName );
 		//PdhAddCounter(pPLdata->hQueryIO,Str, 0, & pPLdata->hCounterIO);
 
-		//----------------------------------Ìí¼Ó»ñÈ¡   Thread   µÄ¼ÆÊýÆ÷ ----------------
+		//----------------------------------ï¿½ï¿½ï¿½Ó»ï¿½È¡   Thread   ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ ----------------
 
-		// ´ò¿ªÒ»¸ö²éÑ¯¶ÔÏó
+		// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½
 		/*PdhOpenQuery (0, 0,   &pPLdata->hQueryThread );
 		pPLdata->hCounterThread= NULL;
 		Str.Format(L"\\Process(%s)\\Thread Count", StrPDHProcessName );
 		PdhAddCounter(pPLdata->hQueryThread,Str, 0, & pPLdata->hCounterThread);*/
 
-		//----------------------------------Ìí¼Ó»ñÈ¡  Working Set  µÄ¼ÆÊýÆ÷ ----------------
+		//----------------------------------ï¿½ï¿½ï¿½Ó»ï¿½È¡  Working Set  ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ ----------------
 
-		// ´ò¿ªÒ»¸ö²éÑ¯¶ÔÏó
+		// ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½
 		PdhOpenQuery (0, 0,   &pPLdata->hQueryWs );
 		pPLdata->hCounterWs= NULL;
 		Str.Format(L"\\Process(%s)\\Working Set", StrPDHProcessName );
@@ -1952,7 +1954,7 @@ void CPageDetails::_FillAllDataOfItem(int Index,PROCLISTDATA *pInputdata,BOOL Ne
 	mDetailsList.SetItemText(Index,DETAILLIST_STATUS,L"Running");
 
 
-	//------------- WSPrivate ÏÈÍêÕû»ñÈ¡Ò»´Î ÒòÎªÒÔºó²»±äµÄ¾Í²»ÔÙË¢ÐÂÁË ---------------
+	//------------- WSPrivate ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡Ò»ï¿½ï¿½ ï¿½ï¿½Îªï¿½Ôºó²»±ï¿½Ä¾Í²ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½ ---------------
 
 	double  MemUsage;
 	MemUsage = mProcInfo.GetWsPrivate_PDH(pPLdata) ;
@@ -1987,7 +1989,7 @@ void CPageDetails::_FillAllDataOfItem(int Index,PROCLISTDATA *pInputdata,BOOL Ne
 
 	///------------------------------------------------------------------------------
 
-	//ÓÅÏÈ¼¶
+	//ï¿½ï¿½ï¿½È¼ï¿½
 	mProcInfo.GetPriority(pPLdata->hProcess,&StrTemp);
 	mDetailsList.SetItemText(Index,DETAILLIST_BP,StrTemp); //
 
@@ -1998,14 +2000,14 @@ void CPageDetails::_FillAllDataOfItem(int Index,PROCLISTDATA *pInputdata,BOOL Ne
 BOOL CPageDetails::_IsAppProcess(int PID)
 {
 
-	//±¾½ø³ÌÖ±½Ó·µ»Ø TRUE
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½Ó·ï¿½ï¿½ï¿½ TRUE
 	if(theApp.CurrentPID == PID)
 	{
 		return TRUE;
 	}
 
 
-	//-----------------------------------------------ÅÐ¶ÏÊÇ·ñÎª Ç°Ì¨½ø³Ì----------------------------
+	//-----------------------------------------------ï¿½Ð¶ï¿½ï¿½Ç·ï¿½Îª Ç°Ì¨ï¿½ï¿½ï¿½ï¿½----------------------------
 
 
 
@@ -2022,7 +2024,7 @@ BOOL CPageDetails::_IsAppProcess(int PID)
 	while( pAppWnd!=NULL)
 	{
 		DWORD  WndExStyle =  pAppWnd->GetExStyle(); 
-		if(pAppWnd->IsWindowVisible()&& (!(WndExStyle&WS_EX_TOOLWINDOW))   )  //      WS_CAPTION   && (pAppWnd->GetExStyle()&(WS_EX_APPWINDOW)  )  0x200000 ÊÇwin 10µÄ Windows Shell Experience Host
+		if(pAppWnd->IsWindowVisible()&& (!(WndExStyle&WS_EX_TOOLWINDOW))   )  //      WS_CAPTION   && (pAppWnd->GetExStyle()&(WS_EX_APPWINDOW)  )  0x200000 ï¿½ï¿½win 10ï¿½ï¿½ Windows Shell Experience Host
 		{
 			GetWindowThreadProcessId(pAppWnd->m_hWnd,&WindowPID);
 			if( (WindowPID == PID)    )
@@ -2044,8 +2046,8 @@ BOOL CPageDetails::_IsAppProcess(int PID)
 
 void CPageDetails::_AddToSimpleList(PROCLISTDATA *pListData)
 {
-	// Ìí¼Óµ½simple list  ×¢Òâ ²»ÄÜÓÃ UM_PROCSTART ÒòÎª Õâ¸öÏûÏ¢Ïò¶à¸öÁÐ±í·¢ËÍ 
-	// ¶¼»á±»Ö÷¶Ô»°¿ò·´¸´½ÓÊÕÔì³ÉÖØ¸´Ìí¼Ó
+	// ï¿½ï¿½ï¿½Óµï¿½simple list  ×¢ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ UM_PROCSTART ï¿½ï¿½Îª ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ 
+	// ï¿½ï¿½ï¿½á±»ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ò·´¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	if(pListData->Type == APP) 
 	{
@@ -2086,12 +2088,12 @@ void CPageDetails::SetProcessStatusInfo(DWORD PID,int Status)
 void CPageDetails::ReSort(BOOL SkipStaticColumn)
 {
 
-	//×¢ÒâÔö¼õ½ø³ÌÊ±ºòÒªÂíÉÏµ÷ÓÃÒ»´Î±¾º¯Êý SkipStaticColumn ÒªÉèÎª FALSE·ñÔò¾²Ì¬ÁÐ²»»á×Ô¶¯ÅÅÐò£¡£¡£¡
+	//×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Òªï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½Ò»ï¿½Î±ï¿½ï¿½ï¿½ï¿½ï¿½ SkipStaticColumn Òªï¿½ï¿½Îª FALSEï¿½ï¿½ï¿½ï¿½Ì¬ï¿½Ð²ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ò£¡£ï¿½ï¿½ï¿½
 
 	if(SkipStaticColumn)
 	{
 		switch(mDetailsList.CurrentSortColumn)
-		{//ÒÔÏÂÁÐ ÄÚÈÝ Ïà¶ÔÓÚ½ø³Ì ¹Ì¶¨ ²»ÐèÒªÃ¿´ÎË¢ÐÂÖØÐÂÅÅÐò
+		{//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½ ï¿½Ì¶ï¿½ ï¿½ï¿½ï¿½ï¿½ÒªÃ¿ï¿½ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		case DETAILLIST_NAME:
 		case DETAILLIST_TYPE:
 		case DETAILLIST_PID:
@@ -2169,11 +2171,11 @@ void CPageDetails::OnBnClickedBtnEndProcess()
 void CPageDetails::_SetSelItemPriority(DWORD Priority)
 {
 
-	//ABOVE_NORMAL_PRIORITY_CLASS(0x00008000) ¸ßÓÚ±ê×¼
-	//BELOW_NORMAL_PRIORITY_CLASS(0x00004000) µÍÓÚ±ê×¼
-	//HIGH_PRIORITY_CLASS(0x00000080) ¸ß
-	//IDLE_PRIORITY_CLASS(0x00000040) µÍ
-	//NORMAL_PRIORITY_CLASS(0x00000020) ±ê×¼
+	//ABOVE_NORMAL_PRIORITY_CLASS(0x00008000) ï¿½ï¿½ï¿½Ú±ï¿½×¼
+	//BELOW_NORMAL_PRIORITY_CLASS(0x00004000) ï¿½ï¿½ï¿½Ú±ï¿½×¼
+	//HIGH_PRIORITY_CLASS(0x00000080) ï¿½ï¿½
+	//IDLE_PRIORITY_CLASS(0x00000040) ï¿½ï¿½
+	//NORMAL_PRIORITY_CLASS(0x00000020) ï¿½ï¿½×¼
 	//REALTIME_PRIORITY_CLASS(0x00000100) ÊµÊ±
 
 
@@ -2187,7 +2189,7 @@ void CPageDetails::_SetSelItemPriority(DWORD Priority)
 
 	if(theApp.Global_ShowOperateTip(pData->Name,STR_SETPRIORITY_MAINTIP,STR_SETPRIORITY_CONTENT,STR_SETPRIORITY_BTN)==IDOK)
 	{
-		HANDLE hProcess = OpenProcess( PROCESS_SET_INFORMATION ,FALSE, pData->PID );  //×¢Òâ PPROCESS_SET_INFORMATION ÒªÌõÓÅÏÈ¼¶ ÒªÕâ¸öÈ¨ÏÞ
+		HANDLE hProcess = OpenProcess( PROCESS_SET_INFORMATION ,FALSE, pData->PID );  //×¢ï¿½ï¿½ PPROCESS_SET_INFORMATION Òªï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ Òªï¿½ï¿½ï¿½È¨ï¿½ï¿½
 		BOOL Ret=SetPriorityClass( hProcess, Priority );
 		CloseHandle(hProcess);
 		if(!Ret)
@@ -2280,15 +2282,15 @@ void CPageDetails::GetThreadsConutAllItem(void)
 
  
 	PROCESSENTRY32 ProcessEntry;
-	//ÔÚÊ¹ÓÃÕâ¸ö½á¹¹Ç°£¬ÏÈÉèÖÃËüµÄ´óÐ¡
+	//ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¹¹Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½Ð¡
 	ProcessEntry.dwSize = sizeof(ProcessEntry);
-	//¸øÏµÍ³ÄÚËùÓÐµÄ½ø³ÌÅÄ¸ö¿ìÕÕ
+	//ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ÐµÄ½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½
 	HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
 	if (hProcessSnap == INVALID_HANDLE_VALUE)
 	{	
 		return ;
 	}
-	//±éÀú½ø³Ì¿ìÕÕ£¬ÂÖÁ÷ÏÔÊ¾Ã¿¸ö½ø³ÌµÄÐÅÏ¢
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¿ï¿½ï¿½Õ£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½Ï¢
 	BOOL bMore = ::Process32First(hProcessSnap,&ProcessEntry);
 	CString Str,StrT;
 
@@ -2299,7 +2301,7 @@ void CPageDetails::GetThreadsConutAllItem(void)
 	{		
 
 		Iter= Map_PidToData.find(ProcessEntry.th32ProcessID);			 
-		if(Iter != Map_PidToData.end())// ´æÔÚ 
+		if(Iter != Map_PidToData.end())// ï¿½ï¿½ï¿½ï¿½ 
 		{	
 			pData = (PROCLISTDATA *)(Iter->second);
 			pData->ThreadsCount =  ProcessEntry.cntThreads;
@@ -2309,7 +2311,7 @@ void CPageDetails::GetThreadsConutAllItem(void)
 		bMore = ::Process32Next(hProcessSnap,&ProcessEntry);
 
 	}
-	//²»ÒªÍü¼ÇÇå³ýµôsnapshot¶ÔÏó
+	//ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½snapshotï¿½ï¿½ï¿½ï¿½
  
 	::CloseHandle(hProcessSnap);
 
@@ -2519,7 +2521,7 @@ void CPageDetails::OnFileSaveList()
 
 	StrDefaultFileName = L"DBCTaskman_";
 
-	CString str;//»ñÈ¡ÏµÍ³Ê±¼ä
+	CString str;//ï¿½ï¿½È¡ÏµÍ³Ê±ï¿½ï¿½
 	
 	CTime tm;
 	tm=CTime::GetCurrentTime();
@@ -2554,7 +2556,7 @@ void CPageDetails::OnFileSaveList()
 
 void CPageDetails::SaveHtmlFile(CString StrFileName)
 {
-	CString StrTime;//»ñÈ¡ÏµÍ³Ê±¼ä
+	CString StrTime;//ï¿½ï¿½È¡ÏµÍ³Ê±ï¿½ï¿½
 	CTime tm;
 	tm=CTime::GetCurrentTime();
 	StrTime=tm.Format("(%Y-%m-%d %X)");
@@ -2663,7 +2665,7 @@ void CPageDetails::SaveHtmlFile(CString StrFileName)
 
 
 	char* old_locale;
-	if(theApp.IsChineseEdition)//ÖÐÎÄ
+	if(theApp.IsChineseEdition)//ï¿½ï¿½ï¿½ï¿½
 	{
 		old_locale=_strdup(setlocale(LC_CTYPE,NULL));
 		setlocale( LC_CTYPE, ("chs"));
@@ -2675,11 +2677,11 @@ void CPageDetails::SaveHtmlFile(CString StrFileName)
 	ListFile.Seek(0,CFile::end);
 	ListFile.WriteString( StrOut ); 
 
-	//¹Ø±ÕÎÄ¼þ 
+	//ï¿½Ø±ï¿½ï¿½Ä¼ï¿½ 
 	ListFile.Close(); 
 //----------------
 
-	if(theApp.IsChineseEdition)//ÖÐÎÄ
+	if(theApp.IsChineseEdition)//ï¿½ï¿½ï¿½ï¿½
 	{
 		setlocale(LC_CTYPE,old_locale);
 		free(old_locale);
@@ -2717,7 +2719,7 @@ void CPageDetails::SaveTxtFile(CString StrFileName)
 			lvColumn.mask   = LVCF_TEXT;
 			mDetailsList.GetColumn(i,&lvColumn);
 			StrItem=lvColumn.pszText;		
-			StrTemp.Format(L"%-60s",StrItem);//×ªÎªÍ¬Ñù³¤¶È×Ö·û´®Ç°Ãæ²¹¿Õ¸ñ
+			StrTemp.Format(L"%-60s",StrItem);//×ªÎªÍ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ç°ï¿½æ²¹ï¿½Õ¸ï¿½
 			StrLine =StrLine+StrTemp;
 
 		}
@@ -2739,7 +2741,7 @@ void CPageDetails::SaveTxtFile(CString StrFileName)
 			{
 				StrItem=mDetailsList.GetItemText(i,x);
 				if(StrItem==L"")StrItem =L"----------";
-				StrTemp.Format(L"%-60s",StrItem);//×ªÎªÍ¬Ñù³¤¶È×Ö·û´®Ç°Ãæ²¹¿Õ¸ñ			
+				StrTemp.Format(L"%-60s",StrItem);//×ªÎªÍ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ç°ï¿½æ²¹ï¿½Õ¸ï¿½			
 				StrLine =StrLine+StrTemp;
 			}
 
@@ -2753,7 +2755,7 @@ void CPageDetails::SaveTxtFile(CString StrFileName)
 
 
 	char* old_locale;
-	if(theApp.IsChineseEdition)//ÖÐÎÄ
+	if(theApp.IsChineseEdition)//ï¿½ï¿½ï¿½ï¿½
 	{
 		old_locale=_strdup(setlocale(LC_CTYPE,NULL));
 		setlocale( LC_CTYPE, ("chs"));
@@ -2770,11 +2772,11 @@ void CPageDetails::SaveTxtFile(CString StrFileName)
 	ListFile.WriteString( StrOut ); 
 
 		
-	//¹Ø±ÕÎÄ¼þ 
+	//ï¿½Ø±ï¿½ï¿½Ä¼ï¿½ 
 	ListFile.Close(); 
 
 
-	if(theApp.IsChineseEdition)//ÖÐÎÄ
+	if(theApp.IsChineseEdition)//ï¿½ï¿½ï¿½ï¿½
 	{
 		setlocale(LC_CTYPE,old_locale);
 		free(old_locale);
@@ -2785,7 +2787,7 @@ void CPageDetails::SaveTxtFile(CString StrFileName)
 
 void CPageDetails::ClearSelecet(void)
 {
-	//ÓÉÓÚÔÊÐí¶àÑ¡ ËùÒÔÒªÏÈÇå³ýÖ®Ç°Ñ¡ÖÐµÄ 
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½Ö®Ç°Ñ¡ï¿½Ðµï¿½ 
 
 	if(mDetailsList.GetSelectedCount()>0)
 	{
@@ -2793,7 +2795,7 @@ void CPageDetails::ClearSelecet(void)
 		while (SelPos)
 		{
 			int iItem = mDetailsList.GetNextSelectedItem(SelPos);
-			mDetailsList.SetItemState(iItem,NULL,LVIS_SELECTED|LVIS_FOCUSED);//Çå³ýÑ¡ÖÐ 
+			mDetailsList.SetItemState(iItem,NULL,LVIS_SELECTED|LVIS_FOCUSED);//ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ 
 		}
 	}
 }

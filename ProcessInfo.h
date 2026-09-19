@@ -202,6 +202,14 @@ struct THREADLISTDATA
 
 
 
+// Non-admin per-process I/O cache accessor implemented in PerformanceBox.cpp.
+// Returns TRUE and fills *pDiskBytes (ReadXfer+WriteXfer) and *pOther if the
+// PID was seen in the NtQuerySystemInformation(SystemProcessInformation)
+// snapshot. Used by CProcess::GetDiskIO as a Win7 non-admin fallback when
+// GetProcessIoCounters is denied (ERROR_ACCESS_DENIED on a handle that wasn't
+// obtained with PROCESS_QUERY_INFORMATION by an admin).
+extern "C" BOOL ApiGetProcessDiskIoFromCache(DWORD pid, ULONGLONG* pDiskBytes, ULONGLONG* pOther);
+
 class CProcess
 {
 public:
@@ -221,7 +229,7 @@ public:
 
 
 	 CString GetFileName(CString FullPathName);
-	 ULONGLONG GetDiskIO(HANDLE hProcess,ULONGLONG * pOther);
+	 ULONGLONG GetDiskIO(HANDLE hProcess, DWORD pid, ULONGLONG * pOther);
 	 double GetIOUsage(CString SrtProcessNameID,HQUERY   hQuery, HCOUNTER hCounter);
 	 
 	//void GetProcessAllInfo(UINT dwPID);

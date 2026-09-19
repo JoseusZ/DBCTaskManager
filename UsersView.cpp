@@ -5,7 +5,7 @@
 #include "DBCTaskman.h"
 #include "UsersView.h"
 //
-#include <lm.h>   // LPUSER_INFO_0  µÈ 
+#include <lm.h>   // LPUSER_INFO_0  ï¿½ï¿½ 
 #pragma comment(lib,"Netapi32.lib") 
 
 #include <Wtsapi32.h>   //WTSQuerySessionInformation 
@@ -29,13 +29,13 @@ static  CPageUsers *pThisPage;
 
 
 
-//ÅÅÐòµÄ»Øµ÷º¯Êý--ÉýÐò Ê¹ÓÃ ÐéÄâÁÐ±íÎÞÐ§ 
+//ï¿½ï¿½ï¿½ï¿½Ä»Øµï¿½ï¿½ï¿½ï¿½ï¿½--ï¿½ï¿½ï¿½ï¿½ Ê¹ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½Ð§ 
 int CALLBACK Sort_Users(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)  
 {  
 	CCoolListCtrl* pList= &( ((CPageUsers*)theApp.pSelPage)->mUserList);
 
 	int nCol =(int) lParamSort;
-	int result = 0;     //·µ»ØÖµ   
+	int result = 0;     //ï¿½ï¿½ï¿½ï¿½Öµ   
 
 	USERLISTDATA * pData1 = (USERLISTDATA * )lParam1;
 	USERLISTDATA * pData2 = (USERLISTDATA * )lParam2;
@@ -58,19 +58,19 @@ int CALLBACK Sort_Users(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 	case USERLIST_CLIENTNAME:
 	case USERLIST_STATUS:
 
-		//ËùÓÐÁÐ¶¼Òª ÏÈ°´ User  ÅÅÁÐ ·ñÔòµ«×ÓÏîÕ¹¿ªºóÅÅÐò×ÓÏîÓë¸¸ÏîÓÐ¿ÉÄÜ´í¿ª£¡£¡£¡£¡		
+		//ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½Òª ï¿½È°ï¿½ User  ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë¸¸ï¿½ï¿½ï¿½Ð¿ï¿½ï¿½Ü´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½		
 
 		result=lstrcmp(( (PROCLISTDATA *) pData1->pPData)->User,( (PROCLISTDATA *) pData2->pPData)->User);
 		if(result==0)
 		{
-			result = (pData1->SubType  - pData2->SubType);  //È·¶¨×ÓÏîºÍ¸¸Ïî¹ØÏµ£¬×ÓÏî SubType Öµ×î´ó£¡
+			result = (pData1->SubType  - pData2->SubType);  //È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SubType Öµï¿½ï¿½ï¿½
 			if(result==0)
 			{
 				result =lstrcmp(Str1,Str2);
 			}
 			else
 			{
-				if( pList->FlagSortUp == FALSE)//Èç¹ûÓÐ¸¸×ÓÖ®·Ö ¸ù¾ÝÇé¿öÔ¤ÏÈµßµ¹·ÀÖ¹±»×îºó×ÜµÄµßµ¹Ëùµßµ¹
+				if( pList->FlagSortUp == FALSE)//ï¿½ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½Ö®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½Èµßµï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÜµÄµßµï¿½ï¿½ï¿½ï¿½ßµï¿½
 				{
 					result = -result;
 				}
@@ -83,21 +83,21 @@ int CALLBACK Sort_Users(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 
 	
 		CString StrL1,StrL2;
-		StrL1.Format(L"%16s",Str1);//×ªÎªÍ¬Ñù³¤¶È×Ö·û´®Ç°Ãæ²¹¿Õ¸ñ
-		StrL2.Format(L"%16s",Str2);//×ªÎªÍ¬Ñù³¤¶È×Ö·û´®Ç°Ãæ²¹¿Õ¸ñ
+		StrL1.Format(L"%16s",Str1);//×ªÎªÍ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ç°ï¿½æ²¹ï¿½Õ¸ï¿½
+		StrL2.Format(L"%16s",Str2);//×ªÎªÍ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ç°ï¿½æ²¹ï¿½Õ¸ï¿½
 
-		//ËùÓÐÁÐ¶¼Òª ÏÈ°´ User  ÅÅÁÐ ·ñÔòµ«×ÓÏîÕ¹¿ªºóÅÅÐò×ÓÏîÓë¸¸ÏîÓÐ¿ÉÄÜ´í¿ª£¡£¡£¡£¡		
+		//ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½Òª ï¿½È°ï¿½ User  ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë¸¸ï¿½ï¿½ï¿½Ð¿ï¿½ï¿½Ü´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½		
 		result=lstrcmp(( (PROCLISTDATA *) pData1->pPData)->User,( (PROCLISTDATA *) pData2->pPData)->User);
 		if(result==0)
 		{
-			result = (pData1->SubType  - pData2->SubType);  //È·¶¨×ÓÏîºÍ¸¸Ïî¹ØÏµ£¬×ÓÏî SubType Öµ×î´ó£¡
+			result = (pData1->SubType  - pData2->SubType);  //È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¸ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ SubType Öµï¿½ï¿½ï¿½
 			if(result==0)
 			{
 				result =lstrcmp(StrL1,StrL2);
 			}	
 			else
 			{
-				if( pList->FlagSortUp == FALSE)//Èç¹ûÓÐ¸¸×ÓÖ®·Ö ¸ù¾ÝÇé¿öÔ¤ÏÈµßµ¹·ÀÖ¹±»×îºó×ÜµÄµßµ¹Ëùµßµ¹
+				if( pList->FlagSortUp == FALSE)//ï¿½ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½Ö®ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½Èµßµï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÜµÄµßµï¿½ï¿½ï¿½ï¿½ßµï¿½
 				{
 					result = -result;
 				}
@@ -111,7 +111,7 @@ int CALLBACK Sort_Users(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 
 
 
-	//µßµ¹ÅÅÐò½á¹û
+	//ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if( pList->FlagSortUp == FALSE)
 	{
 		result = -result;
@@ -209,12 +209,12 @@ void CPageUsers::InitList(void)
 	
 	mUserList.IsProcList = FALSE;
 
-	mUserList.DrawAllColForSubItem = TRUE; //ÉèÖÃ×ÓÁÐ±íÏîÈÔÈ»»æÖÆÈ«²¿ ÁÐ  ÕâÊÇÓëµÚÒ»Ò³µÄ²»Í¬Ö®´¦
+	mUserList.DrawAllColForSubItem = TRUE; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»Ò³ï¿½Ä²ï¿½Í¬Ö®ï¿½ï¿½
 //-------------------
 	
-	mUserList.InitAllColumn(COL_SAT_USER,STR_COLUMN_USERS,COL_COUNT_USER);  //9 ÊÇÈ«²¿µÄÁÐ Êý 5 ÊÇ»ÆÉ«ÆðÊ¼Ïî
+	mUserList.InitAllColumn(COL_SAT_USER,STR_COLUMN_USERS,COL_COUNT_USER);  //9 ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ 5 ï¿½Ç»ï¿½É«ï¿½ï¿½Ê¼ï¿½ï¿½
 
-	//ÉèÖÃÔÚ×ÓÏîÖÐÔÊÐíÏÔÊ¾Êý¾ÝµÄÁÐ£¬Ä¬ÈÏÖ»ÓÐµÚ0ÁÐÏÔÊ¾
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Ýµï¿½ï¿½Ð£ï¿½Ä¬ï¿½ï¿½Ö»ï¿½Ðµï¿½0ï¿½ï¿½ï¿½ï¿½Ê¾
 	mUserList.pColStatusArray[USERLIST_CPU].DrawInSubItem = TRUE;
 	mUserList.pColStatusArray[USERLIST_MEMORY].DrawInSubItem = TRUE;
 	mUserList.pColStatusArray[USERLIST_DISK].DrawInSubItem = TRUE;
@@ -222,7 +222,7 @@ void CPageUsers::InitList(void)
 //-----------------------------------------------------------------
 
 	
-	mUserList.SetImageList(theApp.mImagelist.m_hImageList);  //¾ö¶¨ÁË¿ÉÒÔ×Ô»æ±íÍ· ±ØÐë·ÅÔÚInsertColumnÖ®ºó!!!!!!!!!
+	mUserList.SetImageList(theApp.mImagelist.m_hImageList);  //ï¿½ï¿½ï¿½ï¿½ï¿½Ë¿ï¿½ï¿½ï¿½ï¿½Ô»ï¿½ï¿½Í· ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½InsertColumnÖ®ï¿½ï¿½!!!!!!!!!
 
 	ListUsers();
 
@@ -260,7 +260,7 @@ void CPageUsers::OnSize(UINT nType, int cx, int cy)
 	}
 
 
-	mUserList._GetRedrawColumn();//ÖØÒª£¡£¡±ØÐëÂíÉÏ¸üÐÂ·ñÔòÏÔÊ¾¸ú²»ÉÏ
+	mUserList._GetRedrawColumn();//ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 }
@@ -318,7 +318,7 @@ int CPageUsers::ListUsers(void)
 				mUserList.SetItemText(nItem,USERLIST_ID,StrTemp);
 
 				pUserData= new USERLISTDATA;
-				pProcListData = new PROCLISTDATA; //²»ÔÊÐíÎª¿Õ ÇÒÅÅÐòÐèÒª£¡£¡£¡£¡
+				pProcListData = new PROCLISTDATA; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 				pProcListData->User = strUserName;
 
 				pUserData->iImage = -1;
@@ -440,7 +440,7 @@ int CPageUsers::AddUserItem(int nItem, UINT SessionID)
 
 	
 		 
-		//Ò»¶¨ÒªÔÚ×îÇ°Ãæ£¡ ·ñÔòInsertItemÊ±ºòÐ§¹ûÒÑ¾­ÏÔÊ¾
+		//Ò»ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Ç°ï¿½æ£¡ ï¿½ï¿½ï¿½ï¿½InsertItemÊ±ï¿½ï¿½Ð§ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½Ê¾
 	   pUserData->CoolUsageArray[USERLIST_CPU]=pUserData->CoolUsageArray[USERLIST_MEMORY]=pUserData->CoolUsageArray[USERLIST_DISK]=pUserData->CoolUsageArray[USERLIST_NETWORK]=0;
 
 		mUserList.SetItemData(0, (DWORD_PTR)pUserData);
@@ -601,7 +601,7 @@ BOOL CPageUsers::PreTranslateMessage(MSG* pMsg)
 		CMenu PopMenu;
 		CMenu *pMenu = NULL;
 		PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_COLUMN) );
-		pMenu = PopMenu.GetSubMenu(1);  //1ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+		pMenu = PopMenu.GetSubMenu(1);  //1ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 	
 
 		if(pMenu->GetMenuItemID(0) == ID_USERS_ID )
@@ -673,7 +673,7 @@ int CPageUsers::AddProcessItem(PVOID pListData, int nID)
 
 	USERLISTDATA *pUserListData = new USERLISTDATA;
 
-	//Ò»¶¨ÒªÔÚ×îÇ°Ãæ£¡ ·ñÔòInsertItemÊ±ºòÐ§¹ûÒÑ¾­ÏÔÊ¾
+	//Ò»ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Ç°ï¿½æ£¡ ï¿½ï¿½ï¿½ï¿½InsertItemÊ±ï¿½ï¿½Ð§ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½Ê¾
 	pUserListData->CoolUsageArray[USERLIST_CPU]=pUserListData->CoolUsageArray[USERLIST_MEMORY]=pUserListData->CoolUsageArray[USERLIST_DISK]=pUserListData->CoolUsageArray[USERLIST_NETWORK]=0;
 
 
@@ -682,7 +682,7 @@ int CPageUsers::AddProcessItem(PVOID pListData, int nID)
 	pUserListData->pPData = pData;
 	pUserListData->SubType = SUB_ITEM;
 	pUserListData->iImage = pData->IconIndex;
-	pUserListData->ItemType = APP ; //²»ÄÜÊÇ·Ö×é±êÌâ·ñÔòÎÄ×ÖÖ»»æÖÆµÚÒ»ÁÐ
+	pUserListData->ItemType = APP ; //ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½Æµï¿½Ò»ï¿½ï¿½
 
 	IO_COUNTERS  IOCounter;
 	GetProcessIoCounters(pData->hProcess,&IOCounter);	
@@ -691,7 +691,7 @@ int CPageUsers::AddProcessItem(PVOID pListData, int nID)
 	CString StrItem=pData->Description;
 	StrItem.Remove(L' ');
 
-	if(StrItem.Compare(L"")==0)//ÃèÊöÎª¿ÕÓÃ½ø³ÌÃû´úÌæ
+	if(StrItem.Compare(L"")==0)//ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{
 		pUserListData->StrTitle = pData->Name.Left(pData->Name.GetLength()-4);
 	}
@@ -703,11 +703,11 @@ int CPageUsers::AddProcessItem(PVOID pListData, int nID)
 
 	mUserList.InsertItem(nID,pUserListData->StrTitle);
 
-	//Ð´Èë³õÊ¼Êý¾Ý ÎªÁËÊÓ¾õÐ§¹û ²»Í£¶Ù
-	mUserList.SetItemText(nID,USERLIST_CPU,L"0.00%");
-	mUserList.SetItemText(nID,USERLIST_MEMORY,L"0.00 MB");
-	mUserList.SetItemText(nID,USERLIST_DISK,L"0.00 MB/s");
-	mUserList.SetItemText(nID,USERLIST_NETWORK,L"0.00 KB/s");
+	//Ð´ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ Îªï¿½ï¿½ï¿½Ó¾ï¿½Ð§ï¿½ï¿½ ï¿½ï¿½Í£ï¿½ï¿½
+	mUserList.SetItemText(nID,USERLIST_CPU,L"0%");
+	mUserList.SetItemText(nID,USERLIST_MEMORY,L"0 MB");
+	mUserList.SetItemText(nID,USERLIST_DISK,L"0 MB/s");
+	mUserList.SetItemText(nID,USERLIST_NETWORK,L"0 KB/s");
 
 	
 
@@ -731,7 +731,7 @@ int CPageUsers::_CloseSubList(int ID,BOOL Lock )
 
 	if(Lock)mUserList.SetRedraw(0);
 
-	while(nDelID <mUserList.GetItemCount())  //iµÄÎ»ÖÃ×Ü²»±ä ÒòÎªÊÇÉ¾³ý ºóÃæ»áÉÏÀ´
+	while(nDelID <mUserList.GetItemCount())  //iï¿½ï¿½Î»ï¿½ï¿½ï¿½Ü²ï¿½ï¿½ï¿½ ï¿½ï¿½Îªï¿½ï¿½É¾ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{
 		
 		pData = (USERLISTDATA *) mUserList.GetItemData(nDelID);
@@ -809,8 +809,13 @@ LRESULT  CPageUsers::OnUMTimer(WPARAM wParam, LPARAM lParam)
 			//((CPageDetails *)pPageDetails)->_GetCpuUsage( (PROCLISTDATA*)pListData->pPData );
 			mProcInfo.GetCpuUsage((PROCLISTDATA*)pListData->pPData);
 
-			StrItem.Format(L"%0.2f%%", ( (PROCLISTDATA*)pListData->pPData )->CPU_Usage );
-			pListData->CoolUsageArray[USERLIST_CPU]= ((PROCLISTDATA*)pListData->pPData )->CPU_Usage/100; //ÓÃÓÚ±äÉ«ÏÔÊ¾£¡£¡£¡
+			// User format: idle shows "0%", non-idle uses one decimal ("0.1%").
+			double CpuUse = ((PROCLISTDATA*)pListData->pPData )->CPU_Usage;
+			if(CpuUse == 0.0)
+				StrItem = L"0%";
+			else
+				StrItem.Format(L"%0.1f%%", CpuUse);
+			pListData->CoolUsageArray[USERLIST_CPU]= ((PROCLISTDATA*)pListData->pPData )->CPU_Usage/100; //ï¿½ï¿½ï¿½Ú±ï¿½É«ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			mUserList.SetItemText(i,USERLIST_CPU,StrItem);
 
 
@@ -833,13 +838,17 @@ LRESULT  CPageUsers::OnUMTimer(WPARAM wParam, LPARAM lParam)
 
 		
        //---------------------disk---------------------------------
-		 
-		double OtherBytePerSec;
-		double DiskUsageBytePerSec;
-		double DiskUsageMBPerSec;
-		ULONGLONG NewOtherIO;
 
-		ULONGLONG NewIO = mProcInfo.GetDiskIO(((PROCLISTDATA*)pListData->pPData)->hProcess,&NewOtherIO);
+		double OtherBytePerSec = 0;
+		double DiskUsageBytePerSec = 0;
+		double DiskUsageMBPerSec = 0;
+		// Bug fix Win7 non-admin: zero-init before call so a failure in the
+		// underlying NtQuery returns 0 instead of stack garbage.
+		ULONGLONG NewOtherIO = 0;
+
+		ULONGLONG NewIO = mProcInfo.GetDiskIO(((PROCLISTDATA*)pListData->pPData)->hProcess,
+											 ((PROCLISTDATA*)pListData->pPData)->PID,
+											 &NewOtherIO);
 		DiskUsageBytePerSec =  ((double) (NewIO - ((PROCLISTDATA*)pListData->pPData)->DiskIO ))/theApp.AppSettings.TimerStep;
 		OtherBytePerSec  =   ((double) (NewOtherIO - ((PROCLISTDATA*)pListData->pPData)->OtherIO ))/theApp.AppSettings.TimerStep;
 		((PROCLISTDATA*)pListData->pPData)->OtherIO = NewOtherIO;
@@ -850,15 +859,20 @@ LRESULT  CPageUsers::OnUMTimer(WPARAM wParam, LPARAM lParam)
 
 			DiskUsageMBPerSec = ((double)(NewIO-((PROCLISTDATA*)pListData->pPData)->DiskIO))/1048576/theApp.AppSettings.TimerStep ;
 
-			if(DiskUsageMBPerSec<0.01) DiskUsageMBPerSec = 0;
-			
+			if(_finite(DiskUsageMBPerSec) == 0) DiskUsageMBPerSec = 0;
+			if(DiskUsageMBPerSec<0) DiskUsageMBPerSec = 0;
+			if(DiskUsageMBPerSec >= 1024.0*1024.0) DiskUsageMBPerSec = 0;
 
-			StrItem.Format(L"%.2f MB/s",DiskUsageMBPerSec);    //  ³ýÒÔ1024/1024/0.5
+			// User format: idle shows "0 MB/s", non-idle uses one decimal ("0.1 MB/s").
+			if(DiskUsageMBPerSec == 0.0)
+				StrItem = L"0 MB/s";
+			else
+				StrItem.Format(L"%0.1f MB/s",DiskUsageMBPerSec);    //  ï¿½ï¿½ï¿½ï¿½1024/1024/0.5
 			mUserList.SetItemText(i,USERLIST_DISK,StrItem);
 			((PROCLISTDATA*)pListData->pPData)->DiskIO = NewIO;
 
 
-			
+
 		}
 
 
@@ -870,7 +884,7 @@ LRESULT  CPageUsers::OnUMTimer(WPARAM wParam, LPARAM lParam)
 
 		if(COL_SAT_USER[USERLIST_NETWORK].Redraw)
 		{
-			double NetUsage;
+			double NetUsage = 0;
 			//double IOUsage = mProcInfo.GetIOUsage(NULL,((PROCLISTDATA*)pListData->pPData)->hQueryIO,((PROCLISTDATA*)pListData->pPData)->hCounterIO);
 
 
@@ -879,25 +893,39 @@ LRESULT  CPageUsers::OnUMTimer(WPARAM wParam, LPARAM lParam)
 
 
 			IO_COUNTERS  IOCounter;
-			GetProcessIoCounters(((PROCLISTDATA*)pListData->pPData)->hProcess,&IOCounter);		
-			ULONGLONG CurrentIO = IOCounter.ReadTransferCount+IOCounter.WriteTransferCount - pListData->IOLast;
-			NetUsage =(double)((CurrentIO/theApp.AppSettings.TimerStep )-DiskUsageBytePerSec)*0.9;
-			pListData->IOLast = IOCounter.ReadTransferCount+IOCounter.WriteTransferCount;	
+			// Bug fix Win7 non-admin: zero IOCounter before the call so a failed
+			// handle does not leak stack data into the network column display.
+			memset(&IOCounter, 0, sizeof(IOCounter));
+			if(GetProcessIoCounters(((PROCLISTDATA*)pListData->pPData)->hProcess,&IOCounter))
+			{
+				ULONGLONG CurrentIO = IOCounter.ReadTransferCount+IOCounter.WriteTransferCount - pListData->IOLast;
+				NetUsage =(double)((CurrentIO/theApp.AppSettings.TimerStep )-DiskUsageBytePerSec)*0.9;
+				pListData->IOLast = IOCounter.ReadTransferCount+IOCounter.WriteTransferCount;
+			}
+			else
+			{
+				pListData->IOLast = 0;
+			}
 
-			if(NetUsage<0.001) NetUsage = 0;  //·ÀÖ¹ÏÔÊ¾´íÂÒµÄ Êý¾Ý
+			if(_finite(NetUsage) == 0) NetUsage = 0;
+			if(NetUsage < 0) NetUsage = 0;
+			if(NetUsage > 1024.0*1024.0*1024.0) NetUsage = 0; // clamp insane values
+			if(NetUsage<0.001) NetUsage = 0;  //ï¿½ï¿½Ö¹ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Òµï¿½ ï¿½ï¿½ï¿½ï¿½
 
 
 
 			CString StrOut;
-			StrItem.Format(L"%0.2f",  NetUsage/1024 );
+						// User format: idle shows "0 KB/s", non-idle uses one decimal ("0.1 KB/s").
+						if(NetUsage == 0.0)
+							StrItem = L"0 KB/s";
+						else
+							StrItem.Format(L"%0.1f KB/s",  NetUsage/1024 );
 
-		
-			StrItem=StrItem+L" KB/s";
-			mUserList.SetItemText(i,USERLIST_NETWORK,StrItem);
+						mUserList.SetItemText(i,USERLIST_NETWORK,StrItem);
 		}
 
 
-	//-------------------ËùÓÐ¸üÐÂÍê³É----------------------
+	//-------------------ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½----------------------
 	
 		i++;
 
@@ -933,9 +961,15 @@ LRESULT  CPageUsers::OnUMTimer(WPARAM wParam, LPARAM lParam)
 
 	if(COL_SAT_USER[USERLIST_DISK].Redraw)
 	{
-		StrColheaderTemp.Format(L"%.0f%%",theApp.PerformanceInfo.TotalDiskUsage);
+		double DiskPct = theApp.PerformanceInfo.TotalDiskUsage;
+		// Bug fix Win7 non-admin: clamp NaN/Inf before formatting so the disk
+		// header never prints "-nan%" or "inf%".
+		if(_finite(DiskPct) == 0) DiskPct = 0;
+		if(DiskPct < 0) DiskPct = 0;
+		if(DiskPct > 100) DiskPct = 100;
+		StrColheaderTemp.Format(L"%.0f%%",DiskPct);
 		StringCchCopy(COL_SAT_USER[USERLIST_DISK].StrItem,5,StrColheaderTemp);
-		COL_SAT_USER[USERLIST_DISK].Percents = (float)theApp.PerformanceInfo.TotalDiskUsage;
+		COL_SAT_USER[USERLIST_DISK].Percents = (float)DiskPct;
 		FlagRedrawHeacerCtrl++;
 	}
 
@@ -958,7 +992,7 @@ LRESULT  CPageUsers::OnUMTimer(WPARAM wParam, LPARAM lParam)
 
 }
 
-void CPageUsers::_SetMemUsage(PVOID pData, int nID,BOOL Update) // Update ±íÊ¾Ç¿ÖÆ¸üÐÂ²»ÂÛÊÇ·ñÓÐ±ä»¯
+void CPageUsers::_SetMemUsage(PVOID pData, int nID,BOOL Update) // Update ï¿½ï¿½Ê¾Ç¿ï¿½Æ¸ï¿½ï¿½Â²ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Ð±ä»¯
 {
 	CProcess mProcInfo;
 
@@ -970,21 +1004,22 @@ void CPageUsers::_SetMemUsage(PVOID pData, int nID,BOOL Update) // Update ±íÊ¾Ç¿
 	{
 
 		pListData->Mem_PrivateWS = MemUsage;
-	
+
 		{
-			//CString StrOut;
-			StrItem.Format(L"%.1f",  MemUsage/1024/1024);
-			//   wprintf(_T("%n KB"),MemUsage);
-			//GetNumberFormat(LOCALE_USER_DEFAULT,LOCALE_NOUSEROVERRIDE,StrItem,NULL, StrOut.GetBuffer(MAX_PATH),MAX_PATH);
-			//StrOut.ReleaseBuffer();
-			//StrItem = StrOut;
-			//StrItem=StrItem.Left(StrItem.GetLength()-3);
-			StrItem=StrItem+L" MB";
+			double MemMb = MemUsage/1024/1024;
+			// User format: idle shows "0 MB", non-idle uses one decimal ("0.1 MB").
+			if(MemMb == 0.0)
+				StrItem = L"0 MB";
+			else
+			{
+				StrItem.Format(L"%.1f",  MemMb);
+				StrItem = StrItem + L" MB";
+			}
 		}
-	
+
 
 		mUserList.SetItemText(nID,USERLIST_MEMORY,StrItem);
-	}		
+	}
 }
 
 
@@ -1048,13 +1083,13 @@ void CPageUsers::OnNMRClickUserlist(NMHDR *pNMHDR, LRESULT *pResult)
 
 	if(pData->SubType == SUB_ITEM)
 	{
-		pMenu = PopMenu.GetSubMenu(0);  //2ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+		pMenu = PopMenu.GetSubMenu(0);  //2ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 		pMenu->DeleteMenu(ID_PROCESSESLIST_EXPAND,MF_BYCOMMAND);
 		 
 	}
 	else
 	{
-		pMenu = PopMenu.GetSubMenu(2);  //2ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+		pMenu = PopMenu.GetSubMenu(2);  //2ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 	
 	}
 	
@@ -1117,7 +1152,7 @@ BOOL CPageUsers::OnCommand(WPARAM wParam, LPARAM lParam)
 			CMenu PopMenu;
 			CMenu *pMenu;
 			PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_COLUMN) );
-			pMenu = PopMenu.GetSubMenu(1);  //1ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+			pMenu = PopMenu.GetSubMenu(1);  //1ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 
 			int nItem = pMenu->GetMenuItemCount();
 			int iClick = -1;
@@ -1186,8 +1221,8 @@ void CPageUsers::Sort(int nCol,BOOL InvertSort)
 			LastParentItemID = i;
 		}	
 
-		//ÓÉÓÚ×ÓÏîºÜ¶àÁÐÎÞÊý¾ÝËùÒÔ ¶ÔÓÚÎÞÊý¾ÝÁÐ  ÅÅÐòÊ±Ìî³ä×ÓÏî¶ÔÓ¦ÁÐ ¶ÔÓÚÓÐÊý¾ÝµÄÁÐÔò²»ÒªÌî³ä 
-		//×¢Òâ²»¿ÉÔÚÅÅÐò¹ý³ÌÖÐ ÒòÎªÄÇÊ±id ¿ÉÄÜÒÑ¾­±äÁË
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ 
+		//×¢ï¿½â²»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Îªï¿½ï¿½Ê±id ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½
 		if(pListData->SubType == SUB_ITEM && (nCol != USERLIST_USER)) 
 		{
 			if(nCol<USERLIST_CPU )
@@ -1222,7 +1257,7 @@ void CPageUsers::Sort(int nCol,BOOL InvertSort)
 	mUserList.CurrentSortColumn =  nCol;
 
 
-	//ÉèÖÃ»Øµ÷º¯ÊýµÄ²ÎÊýºÍÈë¿ÚµØÖ·   
+	//ï¿½ï¿½ï¿½Ã»Øµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½Ö·   
 	mUserList.SortItems(Sort_Users, nCol);
 }
 
@@ -1305,7 +1340,7 @@ void CPageUsers::OnPop_Disconnect()
 void CPageUsers::OnPop_Gotodetails()
 {
 
-	//ÓÉÓÚÔÊÐí¶àÑ¡ ËùÒÔÒªÏÈÇå³ýÖ®Ç°Ñ¡ÖÐµÄ 
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½Ö®Ç°Ñ¡ï¿½Ðµï¿½ 
 
 	((CPageDetails*)pPageDetails)->ClearSelecet();
 	
@@ -1340,7 +1375,7 @@ void CPageUsers::OnPop_Gotodetails()
 
 	int PageID=3;
 	theApp.pMainTab->SetCurSel(PageID);
-	//--------------´¥·¢Êµ¼Ê¶¯×÷---------- 
+	//--------------ï¿½ï¿½ï¿½ï¿½Êµï¿½Ê¶ï¿½ï¿½ï¿½---------- 
 	NMHDR nmhdr; 
 	nmhdr.code = TCN_SELCHANGE;  
 	nmhdr.hwndFrom = theApp.pMainTab->GetSafeHwnd();  

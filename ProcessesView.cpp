@@ -12,7 +12,7 @@
 
 
 
-//  ==========================================    ×î³õÉú³ÉÁÐ±í ===================================
+//  ==========================================    ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ ===================================
 
 static UINT Thread_FillAllItemsData(LPVOID pParam);
 static UINT Thread_GenProcesses(LPVOID pParam)
@@ -31,7 +31,7 @@ static UINT Thread_GenProcesses(LPVOID pParam)
 
 
 
-///---------------- ÍêÉÆÆäËûÊý¾Ý   -------------
+///---------------- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   -------------
 
 UINT Thread_FillAllItemsData(LPVOID pParam)
 {
@@ -95,7 +95,7 @@ typedef struct tagWNDINFO
 
 
 
-//  ==========================================     ÅÅÐò  ===================================
+//  ==========================================     ï¿½ï¿½ï¿½ï¿½  ===================================
 
 
 
@@ -103,13 +103,13 @@ typedef struct tagWNDINFO
 
 
 
-//ÅÅÐò   Éý½µ Ðø ÓÉ ÀàÖÐ SortType  ±äÁ¿¿ØÖÆ
+//ï¿½ï¿½ï¿½ï¿½   ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ SortType  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)  
 {
 	CCoolListCtrl* pList= &( ((CPageProcesses*)theApp.pSelPage)->mTaskList);
 
 	int iCol =(int) lParamSort;
-	int result = 0;     //·µ»ØÖµ   
+	int result = 0;     //ï¿½ï¿½ï¿½ï¿½Öµ   
 
 
 	APPLISTDATA * pData1 = NULL;
@@ -142,7 +142,7 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 	case PROCLIST_PNAME:
 	case PROCLIST_CMDLINE:
 
-		//ËùÓÐÁÐ¶¼ÒªÏÈ°´ pidÅÅÁÐ ·ñÔòµ«×ÓÏîÕ¹¿ªºóÅÅÐò×ÓÏîÓë¸¸ÏîÓÐ¿ÉÄÜ´í¿ª£¡£¡£¡£¡
+		//ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½Òªï¿½È°ï¿½ pidï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë¸¸ï¿½ï¿½ï¿½Ð¿ï¿½ï¿½Ü´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 		result =lstrcmp(Str1,Str2);
@@ -154,11 +154,11 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 				result=PID1-PID2;
 		}		
 		break;
-	case PROCLIST_NAME: //µÚÒ»ÁÐÌØÊâ´¦Àí
+	case PROCLIST_NAME: //ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½â´¦ï¿½ï¿½
 
-		if(theApp.AppSettings.GroupByType) //·Ö×éÏÔÊ¾
+		if(theApp.AppSettings.GroupByType) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
 			result = pData1->ItemType - pData2->ItemType;
-		else//²»·Ö×éÏÔÊ¾Ê±ºöÂÔ
+		else//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ê±ï¿½ï¿½ï¿½ï¿½
 			result = 0; 
 
 		//------------------------------
@@ -167,7 +167,7 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 		{
 			goto SORTOK;
 		}
-		else //ÏàÍ¬Ê± °´ÃèÊöÅÅÐò //°üº¬Ö÷´°¿ÚµÄ ÅÅÐò ´°¿ÚÏî PID¶¼ÏàÍ¬ËùÒÔÏÈ°´PID ·Ö×éÈ»ºó ÔÚ°´ SUBType ÓÉÓÚÕ¹¿ªµÄ ×ÓÏîsubtype ÊÇ1 ¶ø¸¸ÏîÊÇ0ÊôÓÚ»áÅÅÁÐÕýÈ·£¡£¡£¡
+		else //ï¿½ï¿½Í¬Ê± ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ PIDï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½È°ï¿½PID ï¿½ï¿½ï¿½ï¿½È»ï¿½ï¿½ ï¿½Ú°ï¿½ SUBType ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½subtype ï¿½ï¿½1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½Ú»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 			CString  StrDescription1=L"";
 			CString  StrDescription2=L"";
@@ -199,7 +199,7 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 			{
 				goto SORTOK;
 			}
-			else //Èç¹û ½ø³ÌÃûÏàÍ¬ÔòÏÈ°´PIDÇø·Ö
+			else //ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½È°ï¿½PIDï¿½ï¿½ï¿½ï¿½
 			{
 				int PID1,PID2;
 				if(pData1->pPData == NULL ) PID1 =  0 ; else PID1 = ((PROCLISTDATA *) pData1->pPData)->PID;
@@ -220,11 +220,11 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 
 
 		CString StrL1,StrL2;
-		StrL1.Format(L"%16s",Str1);//×ªÎªÍ¬Ñù³¤¶È×Ö·û´®Ç°Ãæ²¹¿Õ¸ñ
-		StrL2.Format(L"%16s",Str2);//×ªÎªÍ¬Ñù³¤¶È×Ö·û´®Ç°Ãæ²¹¿Õ¸ñ
+		StrL1.Format(L"%16s",Str1);//×ªÎªÍ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ç°ï¿½æ²¹ï¿½Õ¸ï¿½
+		StrL2.Format(L"%16s",Str2);//×ªÎªÍ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ç°ï¿½æ²¹ï¿½Õ¸ï¿½
 
 		result =lstrcmp(StrL1,StrL2);
-		if(result==0)//ËùÓÐÁÐ¶¼Òª°´ pidÅÅÁÐ ·ñÔòµ«×ÓÏîÕ¹¿ªºóÅÅÐò×ÓÏîÓë¸¸ÏîÓÐ¿ÉÄÜ´í¿ª£¡£¡£¡£¡
+		if(result==0)//ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½Òªï¿½ï¿½ pidï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë¸¸ï¿½ï¿½ï¿½Ð¿ï¿½ï¿½Ü´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 			int PID1,PID2;
 			if(pData1->pPData == NULL ) PID1 =  0 ; else PID1 = ((PROCLISTDATA *) pData1->pPData)->PID;
@@ -240,16 +240,16 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 SORTOK:
 	if(result == 0)
 	{							
-		result = (pData1->SubType  - pData2->SubType);  //×ÓÏîSubType Öµ×î´ó£¡
+		result = (pData1->SubType  - pData2->SubType);  //ï¿½ï¿½ï¿½ï¿½SubType Öµï¿½ï¿½ï¿½
 
 		if(result != 0)
 		{
-			return result;   //²»ÒªÔÙ´Î·´×ªÁË
+			return result;   //ï¿½ï¿½Òªï¿½Ù´Î·ï¿½×ªï¿½ï¿½
 		}
-		else  //×îºó °´´°¿Ú±êÌâÇø·Ö ¸¸Ïî´°¿Ú±êÌâÎª¿Õ
+		else  //ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½î´°ï¿½Ú±ï¿½ï¿½ï¿½Îªï¿½ï¿½
 		{
 			result =  lstrcmp(pData1->StrWnd,pData2->StrWnd);
-			//µßµ¹ÅÅÐò½á¹û
+			//ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			if( pList->FlagSortUp == FALSE)
 			{
 				result = -result;
@@ -262,7 +262,7 @@ SORTOK:
 
 
 
-	//µßµ¹ÅÅÐò½á¹û
+	//ï¿½ßµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if( pList->FlagSortUp == FALSE)
 	{
 		result = -result;
@@ -400,7 +400,7 @@ void CPageProcesses::OnSize(UINT nType, int cx, int cy)
 
 	PlaceAllCtrl();
 
-	mTaskList._GetRedrawColumn();////ÖØÒª£¡£¡±ØÐëÂíÉÏ¸üÐÂ·ñÔòÏÔÊ¾¸ú²»ÉÏ
+	mTaskList._GetRedrawColumn();////ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 
@@ -408,14 +408,14 @@ void CPageProcesses::OnSize(UINT nType, int cx, int cy)
 
 void CPageProcesses::InitList(void)
 { 
-	// Èç¹ûÏë×Ô»áÕâ¸öÐ§¹û ¾Í²»ÄÜÔÙÉèÖÃÁË £¡£¡£¡
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	//SetWindowTheme(mTaskList.GetSafeHwnd(),L"explorer", NULL);
 
 
 	mTaskList.SetExtendedStyle(mTaskList.GetExtendedStyle()|LVS_EX_FULLROWSELECT| LVS_OWNERDRAWFIXED|LVS_EX_DOUBLEBUFFER |LVS_EX_HEADERDRAGDROP );  //| LVS_EX_GRIDLINES |LVS_EX_CHECKBOXES
 
 	mTaskList.ModifyStyle (0, LVS_SHAREIMAGELISTS, 0);
-	mTaskList.FullColumnCount= 11; //Õâ¸öÊÇÈ«²¿µÄÁÐ Êý
+	mTaskList.FullColumnCount= 11; //ï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½
 
 	if(!theApp.FlagThemeActive)
 	{
@@ -425,10 +425,10 @@ void CPageProcesses::InitList(void)
 
 	//---------------------------------------------------------------------
 
-	mTaskList.pColStatusArray = COL_SAT_PROC;//¼ÇÂ¼ÁÐÒþÏÖµÄÊý×é
+	mTaskList.pColStatusArray = COL_SAT_PROC;//ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½
 
 
-	mTaskList.InitAllColumn(COL_SAT_PROC,STR_COLUMN_PROCESS,COL_COUNT_PROC);//11 ÊÇÈ«²¿µÄÁÐÊý
+	mTaskList.InitAllColumn(COL_SAT_PROC,STR_COLUMN_PROCESS,COL_COUNT_PROC);//11 ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 
@@ -440,13 +440,13 @@ void CPageProcesses::InitList(void)
 
 
 
-	mTaskList.SetImageList(theApp.mImagelist.m_hImageList);  //¾ö¶¨ÁË¿ÉÒÔ×Ô»æ±íÍ· ±ØÐë·ÅÔÚInsertColumnÖ®ºó!!!!!!!!!
+	mTaskList.SetImageList(theApp.mImagelist.m_hImageList);  //ï¿½ï¿½ï¿½ï¿½ï¿½Ë¿ï¿½ï¿½ï¿½ï¿½Ô»ï¿½ï¿½Í· ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½InsertColumnÖ®ï¿½ï¿½!!!!!!!!!
 
 
 	//--------------------------------------------------------
 
 
-	//ListProcesses(); //´Ëº¯Êý×ªÈë¶ÀÁ¢Ïß³ÌÖÐ ÒÔÌá¸ßÆô¶¯ËÙ¶È£¡£¡£¡
+	//ListProcesses(); //ï¿½Ëºï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ù¶È£ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 
@@ -472,7 +472,7 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 	int nCount = mTaskList.GetItemCount();
 	APPLISTDATA * pData = (APPLISTDATA *)mTaskList.GetItemData(nCount-1);
-	if(pData->SubType == -1) //×îºóÒ»ÏîÈç¹ûÊÇ·Ö×é±êÌâÔòËµÃ÷ÊÇÒì³£×´Ì¬
+	if(pData->SubType == -1) //ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ì³£×´Ì¬
 	{
 		
 
@@ -516,14 +516,14 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 	 
 
-		if( (pListData == NULL) || (pListData->pPData == NULL ))  //×¢ÒâÅÅ³ý·Ö×é±êÌâ
+		if( (pListData == NULL) || (pListData->pPData == NULL ))  //×¢ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{ 		
 
 			i++; continue ;  
 		} 
 
 
-		if(  pListData->SubType == SUB_ITEM)    //×¢ÒâÅÅ³ý×ÓÏî  ×ÓÏî Ö»Ðè¸üÐÂ´°¿Ú±êÌâ //ºÍ×´Ì¬
+		if(  pListData->SubType == SUB_ITEM)    //×¢ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½ Ö»ï¿½ï¿½ï¿½ï¿½Â´ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ //ï¿½ï¿½×´Ì¬
 		{
 
 
@@ -558,7 +558,7 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 
 
-		//----------------ÒÔÉÏÅÅ³ý±êÌâºÍ×ÓÏî-------------
+		//----------------ï¿½ï¿½ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-------------
 
 
 
@@ -580,13 +580,13 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 
 
-		if( (pListData->ItemType != WINPROC)  &&  UpdateWndList) //UpdateWndList±êÖ¾×Å ´°¿ÚÁÐ±íÓÐ±ä»¯
+		if( (pListData->ItemType != WINPROC)  &&  UpdateWndList) //UpdateWndListï¿½ï¿½Ö¾ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½Ð±ä»¯
 		{
 
 			ListItemWindows(i,pListData);	
 		} 
 
-		//ÒÔÉÏÎªÎÞÂÛÊÇ·ñ»æÖÆ¶¼±ØÐë×öµÄ
+		//ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 		if( !RedrawItem ) {i++;continue ; } 
 
@@ -603,10 +603,14 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 			mProcInfo.GetCpuUsage( (PROCLISTDATA*)pListData->pPData );
 			double Usage = ( (PROCLISTDATA*)pListData->pPData )->CPU_Usage;
 
-			if(Usage>=0 && Usage<=100) //·ÀÖ¹ÏÔÊ¾´íÂÒµÄ Êý¾Ý
+			if(Usage>=0 && Usage<=100) //ï¿½ï¿½Ö¹ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Òµï¿½ ï¿½ï¿½ï¿½ï¿½
 			{
-				StrItem.Format(L"%0.2f%%",Usage );
-				pListData->CoolUsageArray[PROCLIST_CPU]= Usage/100; //ÓÃÓÚ±äÉ«ÏÔÊ¾£¡£¡£¡
+				// User format: idle shows "0" (no decimals), non-idle uses one decimal ("0.1%").
+				if(Usage == 0.0)
+					StrItem = L"0%";
+				else
+					StrItem.Format(L"%0.1f%%",Usage );
+				pListData->CoolUsageArray[PROCLIST_CPU]= Usage/100; //ï¿½ï¿½ï¿½Ú±ï¿½É«ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 				mTaskList.MySetItemText(i,PROCLIST_CPU,StrItem);
 			}
 
@@ -634,11 +638,17 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 
 
-		double OtherBytePerSec;
-		double DiskUsageBytePerSec;
-		double DiskUsageMBPerSec;
-		ULONGLONG NewOtherIO;
-		ULONGLONG NewIO = mProcInfo.GetDiskIO(((PROCLISTDATA*)pListData->pPData)->hProcess,&NewOtherIO);
+		double OtherBytePerSec = 0;
+		double DiskUsageBytePerSec = 0;
+		double DiskUsageMBPerSec = 0;
+		// Bug fix Win7 non-admin: NewOtherIO was previously uninitialised when
+		// the underlying call couldn't open the process (hProcess==NULL on system
+		// processes under non-admin). That produced the huge "phantom" KB/s
+		// values shown on the disk/network columns of idle processes.
+		ULONGLONG NewOtherIO = 0;
+		ULONGLONG NewIO = mProcInfo.GetDiskIO(((PROCLISTDATA*)pListData->pPData)->hProcess,
+											 ((PROCLISTDATA*)pListData->pPData)->PID,
+											 &NewOtherIO);
 		DiskUsageBytePerSec =  ((double) (NewIO - ((PROCLISTDATA*)pListData->pPData)->DiskIO ))/theApp.AppSettings.TimerStep;
 		OtherBytePerSec  =   ((double) (NewOtherIO - ((PROCLISTDATA*)pListData->pPData)->OtherIO ))/theApp.AppSettings.TimerStep;
 		((PROCLISTDATA*)pListData->pPData)->OtherIO = NewOtherIO;
@@ -648,14 +658,25 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 		{
 			DiskUsageMBPerSec = ((double)(NewIO-((PROCLISTDATA*)pListData->pPData)->DiskIO))/1048576/theApp.AppSettings.TimerStep ;
 
-			if(DiskUsageMBPerSec>=0 )//·ÀÖ¹ÏÔÊ¾´íÂÒµÄ Êý¾Ý
+			if(_finite(DiskUsageMBPerSec) == 0) DiskUsageMBPerSec = 0;
+			if(DiskUsageMBPerSec>=0 && DiskUsageMBPerSec < 1024.0*1024.0)//ï¿½ï¿½Ö¹ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Òµï¿½ ï¿½ï¿½ï¿½ï¿½
 			{
 
-				StrItem.Format(L"%.2f MB/s",DiskUsageMBPerSec);    //  ³ýÒÔ1024/1024/0.5
+				// User format: idle shows "0 MB/s", non-idle uses one decimal ("0.1 MB/s").
+				if(DiskUsageMBPerSec == 0.0)
+					StrItem = L"0 MB/s";
+				else
+					StrItem.Format(L"%0.1f MB/s",DiskUsageMBPerSec);    //  ï¿½ï¿½ï¿½ï¿½1024/1024/0.5
 				mTaskList.MySetItemText(i,PROCLIST_DISK,StrItem);
 				((PROCLISTDATA*)pListData->pPData)->DiskIO = NewIO;
-				
-			}			
+
+			}
+			else
+			{
+				// Out-of-range (NaN, Inf, or ridiculous counter) - clamp to 0.
+				mTaskList.MySetItemText(i,PROCLIST_DISK,L"0 MB/s");
+				((PROCLISTDATA*)pListData->pPData)->DiskIO = NewIO;
+			}
 
 		}
 
@@ -665,40 +686,56 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 		if(COL_SAT_PROC[PROCLIST_NETWORK].Redraw)
 		{
-			double NetUsage;
-			
+			double NetUsage = 0;
+
 			//double IOUsage = mProcInfo.GetIOUsage(NULL,((PROCLISTDATA*)pListData->pPData)->hQueryIO,((PROCLISTDATA*)pListData->pPData)->hCounterIO);
 			//NetUsage = IOUsage-DiskUsageBytePerSec-OtherBytePerSec;
 
 
 			IO_COUNTERS  IOCounter;
-			GetProcessIoCounters(((PROCLISTDATA*)pListData->pPData)->hProcess,&IOCounter);		
-			ULONGLONG CurrentIO = IOCounter.ReadTransferCount+IOCounter.WriteTransferCount - pListData->IOLast;
-			NetUsage =(double)((CurrentIO/theApp.AppSettings.TimerStep )-DiskUsageBytePerSec)*0.9;
-			pListData->IOLast = IOCounter.ReadTransferCount+IOCounter.WriteTransferCount;
+			// Bug fix Win7 non-admin: GetProcessIoCounters returns FALSE without
+			// zeroing IOCounter when hProcess is NULL/invalid. Zero first so we
+			// never read uninitialised stack memory into the display.
+			memset(&IOCounter, 0, sizeof(IOCounter));
+			BOOL bIoOk = GetProcessIoCounters(((PROCLISTDATA*)pListData->pPData)->hProcess,&IOCounter);
+			if(bIoOk)
+			{
+				ULONGLONG CurrentIO = IOCounter.ReadTransferCount+IOCounter.WriteTransferCount - pListData->IOLast;
+				NetUsage =(double)((CurrentIO/theApp.AppSettings.TimerStep )-DiskUsageBytePerSec)*0.9;
+				pListData->IOLast = IOCounter.ReadTransferCount+IOCounter.WriteTransferCount;
+			}
+			else
+			{
+				pListData->IOLast = 0;
+			}
 
-			
 
-			if(NetUsage<0.001) NetUsage = 0;  //·ÀÖ¹ÏÔÊ¾´íÂÒµÄ Êý¾Ý
+
+			if(_finite(NetUsage) == 0) NetUsage = 0;        // NaN / Inf guard
+			if(NetUsage < 0) NetUsage = 0;
+			if(NetUsage > 1024.0*1024.0*1024.0) NetUsage = 0; // clamp insane values
+
+			if(NetUsage<0.001) NetUsage = 0;  //ï¿½ï¿½Ö¹ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Òµï¿½ ï¿½ï¿½ï¿½ï¿½
 
 
 			CString StrOut;
-			StrItem.Format(L"%0.2f",  NetUsage/1024 );
+						// User format: idle shows "0 KB/s", non-idle uses one decimal ("0.1 KB/s").
+						if(NetUsage == 0.0)
+							StrItem = L"0 KB/s";
+						else
+							StrItem.Format(L"%0.1f KB/s",  NetUsage/1024 );
 
-			
-
-			StrItem=StrItem+L" KB/s";
-			mTaskList.MySetItemText(i,PROCLIST_NETWORK,StrItem);
+						mTaskList.MySetItemText(i,PROCLIST_NETWORK,StrItem);
 
 
 
 		}
 
 
-		//-------------------ËùÓÐ¸üÐÂÍê³É----------------------
+		//-------------------ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½----------------------
 
 
-		i++; //×¢Òâ²»¿ÉÉ¾³ý£¡£¡£¡
+		i++; //×¢ï¿½â²»ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 	}
@@ -733,10 +770,17 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 	if(COL_SAT_PROC[PROCLIST_DISK].Redraw)
 	{
 		//double UsePercents = pPerformanceMon->GetTotalDiskIO();
-		StrColheaderTemp.Format(L"%.0f%%", (float)theApp.PerformanceInfo.TotalDiskUsage   );
+		double DiskPct = theApp.PerformanceInfo.TotalDiskUsage;
+		// Bug fix Win7 non-admin: TotalDiskUsage can be NaN/Inf when the disk
+		// counter failed. Clamp before formatting so the header never prints
+		// "-nan%" or "inf%".
+		if(_finite(DiskPct) == 0) DiskPct = 0;
+		if(DiskPct < 0) DiskPct = 0;
+		if(DiskPct > 100) DiskPct = 100;
+		StrColheaderTemp.Format(L"%.0f%%", DiskPct);
 
 		StringCchCopy(COL_SAT_PROC[PROCLIST_DISK].StrItem,5,StrColheaderTemp);
-		COL_SAT_PROC[PROCLIST_DISK].Percents = (float)theApp.PerformanceInfo.TotalDiskUsage ;
+		COL_SAT_PROC[PROCLIST_DISK].Percents = (float)DiskPct;
 		FlagRedrawHeacerCtrl++;
 	}
 
@@ -850,7 +894,7 @@ BOOL CPageProcesses::PreTranslateMessage(MSG* pMsg)
 {
 	// TODO: Add your specialized code here and/or call the base class
 
-	//	if(pMsg->message == UM_PROCEXIT) ÉÏÒ»¼¶×ÜÌå´¦Àí±ÜÃâÊý¾ÝÉ¾³ýÊ±»ú²»¶ÔÔì³É´íÎó
+	//	if(pMsg->message == UM_PROCEXIT) ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½å´¦ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É´ï¿½ï¿½ï¿½
 
 
 	if(pMsg->message == UM_PROCSTART)
@@ -883,7 +927,7 @@ BOOL CPageProcesses::PreTranslateMessage(MSG* pMsg)
 		}
 
 
-		//--------------------¼°Ê±¸üÐÂ ·Ö×éÊýÁ¿ÐÅÏ¢ -------------------
+		//--------------------ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ -------------------
 		UpdateGroupText();
 
 
@@ -901,7 +945,7 @@ BOOL CPageProcesses::PreTranslateMessage(MSG* pMsg)
 
 	//---------------------------------------------------
 
-	if(pMsg->message == UM_BASELISTOK) //ÏêÏ¸ÁÐ±í »ù±¾ÐÅÏ¢ ÁÐ¾ÙÍê³É  ¿ÉÒÔ¿ªÊ¼Éú³ÉµÚÒ»Ò³µÄ ¸ß¼¶ÁÐ±í
+	if(pMsg->message == UM_BASELISTOK) //ï¿½ï¿½Ï¸ï¿½Ð±ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ ï¿½Ð¾ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½Ô¿ï¿½Ê¼ï¿½ï¿½ï¿½Éµï¿½Ò»Ò³ï¿½ï¿½ ï¿½ß¼ï¿½ï¿½Ð±ï¿½
 	{
 		AfxBeginThread(Thread_GenProcesses,this);
 
@@ -909,7 +953,7 @@ BOOL CPageProcesses::PreTranslateMessage(MSG* pMsg)
 
 	//---------------------------------------------------
 
-	if(pMsg->message == UM_ALLINFO_OK) //ÏêÏ¸ÁÐ±í¾ßÓÐÍêÕûÐÅÏ¢  ¿ÉÒÔ¿ªÊ¼ÍêÉÆ µÚÒ»Ò³µÄ ¸ß¼¶ÁÐ±í
+	if(pMsg->message == UM_ALLINFO_OK) //ï¿½ï¿½Ï¸ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢  ï¿½ï¿½ï¿½Ô¿ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ò»Ò³ï¿½ï¿½ ï¿½ß¼ï¿½ï¿½Ð±ï¿½
 	{
 		AfxBeginThread(Thread_FillAllItemsData,this);
 
@@ -948,7 +992,7 @@ BOOL CPageProcesses::PreTranslateMessage(MSG* pMsg)
 	if(pMsg->message == UM_HEADER_LCLICK)
 	{
 		int n=(int)pMsg->wParam;
-		if(FlagEnableRefresh)//¸üÐÂÍê±ÏÇ°²»ÔÊÐíµã»÷ÅÅÐò
+		if(FlagEnableRefresh)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 			Sort(n);
 		}
@@ -963,7 +1007,7 @@ BOOL CPageProcesses::PreTranslateMessage(MSG* pMsg)
 		CMenu PopMenu;
 		CMenu *pMenu = NULL;
 		PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_COLUMN) );
-		pMenu = PopMenu.GetSubMenu(0);  //0ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+		pMenu = PopMenu.GetSubMenu(0);  //0ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 
 
 		//MSB_S (L"DDDDDD")
@@ -973,7 +1017,7 @@ BOOL CPageProcesses::PreTranslateMessage(MSG* pMsg)
 
 			int nItem = pMenu->GetMenuItemCount();
 
-			if(nItem>3) //±£Ö¤Ö»¶ÔµÚÒ»¼¶²Ëµ¥ÓÐÐ§
+			if(nItem>3) //ï¿½ï¿½Ö¤Ö»ï¿½Ôµï¿½Ò»ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½Ð§
 			{
 				for(i=1;i<11;i++)
 				{
@@ -1012,9 +1056,9 @@ BOOL CPageProcesses::PreTranslateMessage(MSG* pMsg)
 APPLISTDATA* CPageProcesses::AddNewItem(PROCLISTDATA * pDetailData, int ID,BOOL SetBaseInfoOnly)
 {
 
-	//²»±ØÔÙ ÅÐ¶Ï¡¢Éè¶¨ Ã¿Ïî¶¼ ·ÖÀà Ö»Ðè°´·ÖÀà ·Ö×é¼´¿É£¡£¡£¡£¡£¡
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ð¶Ï¡ï¿½ï¿½è¶¨ Ã¿ï¿½î¶¼ ï¿½ï¿½ï¿½ï¿½ Ö»ï¿½è°´ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½é¼´ï¿½É£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-	//¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 
@@ -1025,7 +1069,7 @@ APPLISTDATA* CPageProcesses::AddNewItem(PROCLISTDATA * pDetailData, int ID,BOOL 
 	CString StrItem;
 
 
-	//Ò»¶¨ÒªÔÚ×îÇ°Ãæ£¡ ·ñÔòInsertItemÊ±ºòÐ§¹ûÒÑ¾­ÏÔÊ¾
+	//Ò»ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Ç°ï¿½æ£¡ ï¿½ï¿½ï¿½ï¿½InsertItemÊ±ï¿½ï¿½Ð§ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½Ê¾
 	pNewAppListData->CoolUsageArray[PROCLIST_CPU]=pNewAppListData->CoolUsageArray[PROCLIST_MEMORY]=pNewAppListData->CoolUsageArray[PROCLIST_DISK]=pNewAppListData->CoolUsageArray[PROCLIST_NETWORK]=0;
 
 
@@ -1033,7 +1077,7 @@ APPLISTDATA* CPageProcesses::AddNewItem(PROCLISTDATA * pDetailData, int ID,BOOL 
 
 	StrItem.Remove(L' ');
 
-	if(StrItem.Compare(L"")==0)//ÃèÊöÎª¿ÕÓÃ½ø³ÌÃû´úÌæ
+	if(StrItem.Compare(L"")==0)//ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{
 		pNewAppListData->StrTitle = pDetailData->Name.Left(pDetailData->Name.GetLength()-4);
 	}
@@ -1126,18 +1170,18 @@ APPLISTDATA* CPageProcesses::AddNewItem(PROCLISTDATA * pDetailData, int ID,BOOL 
 
 	if(SetBaseInfoOnly)
 	{
-		//Ð´Èë³õÊ¼Êý¾Ý ÎªÁËÊÓ¾õÐ§¹û ²»Í£¶Ù
-		mTaskList.SetItemText(ID,PROCLIST_CPU,L"0.00%");
+		//Ð´ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ Îªï¿½ï¿½ï¿½Ó¾ï¿½Ð§ï¿½ï¿½ ï¿½ï¿½Í£ï¿½ï¿½
+		mTaskList.SetItemText(ID,PROCLIST_CPU,L"0%");
 		if(theApp.AppSettings.ProcList_MemPercents)
 		{
 			mTaskList.SetItemText(ID,PROCLIST_MEMORY,L"0%");
 		}
 		else
 		{
-			mTaskList.SetItemText(ID,PROCLIST_MEMORY,L"0.0 MB");
+			mTaskList.SetItemText(ID,PROCLIST_MEMORY,L"0 MB");
 		}
-		mTaskList.SetItemText(ID,PROCLIST_DISK,L"0.00 MB/s");
-		mTaskList.SetItemText(ID,PROCLIST_NETWORK,L"0.00 KB/s");
+		mTaskList.SetItemText(ID,PROCLIST_DISK,L"0 MB/s");
+		mTaskList.SetItemText(ID,PROCLIST_NETWORK,L"0 KB/s");
 
 		return pNewAppListData;
 	}
@@ -1155,11 +1199,11 @@ APPLISTDATA* CPageProcesses::AddNewItem(PROCLISTDATA * pDetailData, int ID,BOOL 
 
 	//-----------------------------------CPU-----------------------------------
 
-	mTaskList.SetItemText(ID,PROCLIST_CPU,L"0.00%");
+	mTaskList.SetItemText(ID,PROCLIST_CPU,L"0%");
 
 
 
-	//---------------------------------ÄÚ´æ------------------------
+	//---------------------------------ï¿½Ú´ï¿½------------------------
 
 	_GetMemDataAndSetItemText(ID,(APPLISTDATA*)pNewAppListData );
 	
@@ -1184,12 +1228,12 @@ APPLISTDATA* CPageProcesses::AddNewItem(PROCLISTDATA * pDetailData, int ID,BOOL 
 	//---------------------------------------Disk----------------------------------
 
 
-	mTaskList.SetItemText(ID,PROCLIST_DISK,L"0.00 MB/s");
+	mTaskList.SetItemText(ID,PROCLIST_DISK,L"0 MB/s");
 
 	//-----------------------------------Network----------------------------------
 
 
-	mTaskList.SetItemText(ID,PROCLIST_NETWORK,L"0.00 KB/s");
+	mTaskList.SetItemText(ID,PROCLIST_NETWORK,L"0 KB/s");
 
 
 
@@ -1294,7 +1338,7 @@ int CPageProcesses::_CloseSubList(int ID,BOOL LockDraw)
 
 	int Pos = ID+1;
 	if(LockDraw)mTaskList.SetRedraw(0);
-	while(1)  //×¢ÒâÉ¾³ýºó »áÔì³ÉÎ»ÖÃ±ä»¯ËùÒÔÖ»ÐèÒªÉ¾³ýÍ¬ÒÔÎ»ÖÃÏî¼´¿É
+	while(1)  //×¢ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½Ã±ä»¯ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ÒªÉ¾ï¿½ï¿½Í¬ï¿½ï¿½Î»ï¿½ï¿½ï¿½î¼´ï¿½ï¿½
 	{
 
 		pDelData = (APPLISTDATA * )mTaskList.GetItemData(Pos);
@@ -1360,7 +1404,7 @@ int CPageProcesses::ListItemWindows(int nItem,APPLISTDATA * pListData )
 	while( pAppWnd!=NULL)
 	{
 		
-		GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID); // »ñµÃÕÒµ½´°¿ÚËùÊôµÄ½ø³Ì 
+		GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID); // ï¿½ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä½ï¿½ï¿½ï¿½ 
 
 		if(WindowPID ==PID)
 		{
@@ -1388,7 +1432,7 @@ int CPageProcesses::ListItemWindows(int nItem,APPLISTDATA * pListData )
 
 	if(nAppWnd>0 )
 	{
-		if(pData->ItemType!=APP) //Àà±ð¸Ä±äÉ¾³ýÕ¹¿ªÏî
+		if(pData->ItemType!=APP) //ï¿½ï¿½ï¿½Ä±ï¿½É¾ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½
 		{
 			_CloseSubList(nItem,FALSE);
 			mTaskList.SetItemText(nItem,PROCLIST_TYPE,L"App");
@@ -1408,7 +1452,7 @@ int CPageProcesses::ListItemWindows(int nItem,APPLISTDATA * pListData )
 	else 
 	{
 
-		if(pData->ItemType!=BKGPROC) //Àà±ð¸Ä±äÉ¾³ýÕ¹¿ªÏî
+		if(pData->ItemType!=BKGPROC) //ï¿½ï¿½ï¿½Ä±ï¿½É¾ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½
 		{
 			_CloseSubList(nItem,FALSE);
 			pData->ItemType = BKGPROC;
@@ -1440,9 +1484,9 @@ int CPageProcesses::ListItemWindows(int nItem,APPLISTDATA * pListData )
 	}
 
 
-	((PROCLISTDATA *)pData->pPData)->Type = pData->ItemType;// Ò»¶¨Òª¸üÐÂÕâ¸ö ·ñÊÇ ÅÅÐò»á´í£¡£¡£¡
+	((PROCLISTDATA *)pData->pPData)->Type = pData->ItemType;// Ò»ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-	//ÖØÉèÎÄ×Ö
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
  
 
@@ -1498,7 +1542,7 @@ BOOL CPageProcesses::CheckWndChange(void)
 			StrTemp.Format(L"%x",hWndNum);
 			StrTemp=StrTemp+StrWndCaption;
 
-			if(pAppWnd->IsWindowVisible()&&(pAppWnd->GetParent()==NULL)&& (!(WndExStyle & 0x200000)) )  //º¬ÓÐ0x200000±ê¼ÇÊÓÎªºóÌ¨´°¿Ú
+			if(pAppWnd->IsWindowVisible()&&(pAppWnd->GetParent()==NULL)&& (!(WndExStyle & 0x200000)) )  //ï¿½ï¿½ï¿½ï¿½0x200000ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½
 			{				 
 				StrTemp = StrTemp+L"{APP}";
 			}
@@ -1517,7 +1561,7 @@ BOOL CPageProcesses::CheckWndChange(void)
 
 	BOOL Ret = TRUE;
 
-	//if(StrNewWndList.Compare(StrWndList) ==0 ) //Ã»±ä»¯ ·µ»ØFALSE
+	//if(StrNewWndList.Compare(StrWndList) ==0 ) //Ã»ï¿½ä»¯ ï¿½ï¿½ï¿½ï¿½FALSE
 	if(	wcscmp(StrNewWndList,StrWndList)==0)
 	{
 		Ret =FALSE;
@@ -1546,7 +1590,7 @@ BOOL CPageProcesses::CheckWndChange(void)
 //		CHeaderCtrl* pHeader = mTaskList.GetHeaderCtrl();  
 //		if(pWnd && (pWnd->GetSafeHwnd() == pHeader->GetSafeHwnd()))  
 //		{  
-//			//----------×¢ÊÍ´úÂë ¿É¼ì²â ÔÚÄÄÁÐ°´ÓÒ¼ü
+//			//----------×¢ï¿½Í´ï¿½ï¿½ï¿½ ï¿½É¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ð°ï¿½ï¿½Ò¼ï¿½
 //			//HDHITTESTINFO info = {0};  
 //			//info.pt = pt;  
 //			//pHeader->SendMessage(HDM_HITTEST, 0, (LPARAM)&info);  
@@ -1643,7 +1687,7 @@ void CPageProcesses::PlaceAllCtrl(void)
 	rc.InflateRect(1,1);
 
 
-	//²»ÓÃ¹ÜheaderCtrl
+	//ï¿½ï¿½ï¿½Ã¹ï¿½headerCtrl
 
 
 	rc.bottom-=50;
@@ -1688,7 +1732,7 @@ void CPageProcesses::OnNMRClickProcesslist(NMHDR *pNMHDR, LRESULT *pResult)
 
 	APPLISTDATA *pData =(APPLISTDATA *)mTaskList.GetItemData(nSel);
 
-	if(pData->pPData == NULL )return ; //·Ö×é±êÌâ²»µ¯³ö²Ëµ¥£¡£¡£¡
+	if(pData->pPData == NULL )return ; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â²»ï¿½ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 	CMenu PopMenu;
@@ -1698,11 +1742,11 @@ void CPageProcesses::OnNMRClickProcesslist(NMHDR *pNMHDR, LRESULT *pResult)
 
 	if(pData->SubType==SUB_ITEM)
 	{
-		pMenu = PopMenu.GetSubMenu(6);  //6ÊÇ ×ÓÏîÓÒ¼ü ¶ÔÓ¦µÄ ²Ëµ¥  
+		pMenu = PopMenu.GetSubMenu(6);  //6ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ò¼ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½  
 	}
 	else
 	{
-		pMenu = PopMenu.GetSubMenu(0);  //0ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥  
+		pMenu = PopMenu.GetSubMenu(0);  //0ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½  
 	}
 
 
@@ -1731,19 +1775,19 @@ void CPageProcesses::PreListItems(void)
 	nApp=nBkg=nWin=0;
 	/*
 
-	Tips !  ·½°¸1    /
+	Tips !  ï¿½ï¿½ï¿½ï¿½1    /
 
-	ËùÓÐµÄÅÅÐòÒþº¬¶¼ÏÈ°´ÌõÄ¿ ÀàÐÍÓÅÏÈ °üÀ¨·Ö×éµÄ ±êÌâ ÀàÐÍ £¨¾ÍÊÇ APP/Background Processes /Windows Processes Èý×é£©
+	ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È°ï¿½ï¿½ï¿½Ä¿ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ APP/Background Processes /Windows Processes ï¿½ï¿½ï¿½é£©
 
-	ÌõÄ¿ÀàÐÍÉèÖÃÈçÏÂ£º£¨ÔÝ¶¨£©
+	ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½ï¿½ï¿½ï¿½Ý¶ï¿½ï¿½ï¿½
 
-	APP·Ö×éµÄ±êÌâ           0, 6               APP¾ßÌåÏîÄ¿          1  
-	BGKProc ·Ö×éµÄ±êÌâ       2 , 4              BGKProc¾ßÌåÏîÄ¿       3
-	WinProc ·Ö×éµÄ±êÌâ       4  ,2                WinProc¾ßÌåÏîÄ¿      5
+	APPï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½           0, 6               APPï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿          1  
+	BGKProc ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½       2 , 4              BGKProcï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿       3
+	WinProc ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½       4  ,2                WinProcï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿      5
 
 
 
-	ËùÓÐ ·Ö×éµÄ±êÌâ        iImage =-1; 
+	ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½        iImage =-1; 
 
 
 
@@ -1754,7 +1798,7 @@ void CPageProcesses::PreListItems(void)
 	PROCLISTDATA *pDetailListData = NULL;
 
 
-	mTaskList.SetRedraw(0); //±ØÐëµÄ ÒòÎªÔÚÏß³ÌÖÐ
+	mTaskList.SetRedraw(0); //ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Îªï¿½ï¿½ï¿½ß³ï¿½ï¿½ï¿½
 
 	for(int  i= 0;i<pPageDetails->mDetailsList.GetItemCount() ;i++)
 	{	 
@@ -1762,7 +1806,7 @@ void CPageProcesses::PreListItems(void)
 
 		if(pDetailListData!=NULL)
 		{
-			if(pDetailListData->PID == 0) //²»°üº¬´ËÏî sis idle
+			if(pDetailListData->PID == 0) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ sis idle
 			{
 
 				continue  ;
@@ -1795,7 +1839,7 @@ void CPageProcesses::PreListItems(void)
 
 
 
-	//-------------·Ö×é±êÌâ -------------
+	//-------------ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ -------------
 
 	_AddGroupItem();
 
@@ -1804,7 +1848,7 @@ void CPageProcesses::PreListItems(void)
 
 	//------------------------------------------------------------------------
 
-	//ÅÅÐò
+	//ï¿½ï¿½ï¿½ï¿½
 
 	mTaskList.FlagSortUp = TRUE;
 	mTaskList.CurrentSortColumn = PROCLIST_NAME;
@@ -1843,7 +1887,7 @@ void CPageProcesses::FillAllItemData(BOOL LoadAllTrueData)
 	CString StrItem;
 
 
-	// ÊýÁ¿ÅÐ¶Ï ·ÀÖ¹¹ý³ÌÖÐÓÐÔö¼õ½ø³Ì
+	// ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	for( int i =0;i<mTaskList.GetItemCount() ;i++)
 	{	 
 		pData = ( APPLISTDATA *) mTaskList.GetItemData(i);
@@ -1878,14 +1922,14 @@ void CPageProcesses::FillAllItemData(BOOL LoadAllTrueData)
      	mTaskList.SetItem(i,0, LVIF_IMAGE, NULL,pDetailListData->IconIndex,0,0,0); 
 		
 
-		//--------------------------------  µÚÒ»ÁÐ Title  ---------------------------
+		//--------------------------------  ï¿½ï¿½Ò»ï¿½ï¿½ Title  ---------------------------
 		if(	pData->SubType != SUB_ITEM )
 		{
 			CString StrTemp=pDetailListData->Description;
 
 			StrTemp.Remove(L' ');
 
-			if(StrTemp.Compare(L"")==0)//ÃèÊöÎª¿ÕÓÃ½ø³ÌÃû´úÌæ
+			if(StrTemp.Compare(L"")==0)//ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ã½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			{
 				pData->StrTitle = pDetailListData->Name.Left(pDetailListData->Name.GetLength()-4);
 				mTaskList.SetItemText(i,PROCLIST_NAME, pData->StrTitle);
@@ -1930,11 +1974,11 @@ void CPageProcesses::FillAllItemData(BOOL LoadAllTrueData)
 
 		//-----------------------------------CPU-----------------------------------
 
-		mTaskList.SetItemText(i,PROCLIST_CPU,L"0.00%");
-		pDetailListData->CPU_Usage = 0; //·ÀÖ¹´íÂÒ
+		mTaskList.SetItemText(i,PROCLIST_CPU,L"0%");
+		pDetailListData->CPU_Usage = 0; //ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½
 		pData->CoolUsageArray[PROCLIST_CPU] = 0;
 
-		//---------------------------------ÄÚ´æ------------------------
+		//---------------------------------ï¿½Ú´ï¿½------------------------
 
 
 		_GetMemDataAndSetItemText(i,pData);
@@ -1946,12 +1990,12 @@ void CPageProcesses::FillAllItemData(BOOL LoadAllTrueData)
 		//---------------------------------------Disk----------------------------------
 
 
-		mTaskList.SetItemText(i,PROCLIST_DISK,L"0.00 MB/s");
+		mTaskList.SetItemText(i,PROCLIST_DISK,L"0 MB/s");
 
 		//-----------------------------------Network----------------------------------
 
 
-		mTaskList.SetItemText(i,PROCLIST_NETWORK,L"0.00 KB/s");
+		mTaskList.SetItemText(i,PROCLIST_NETWORK,L"0 KB/s");
 
 	
 
@@ -1964,7 +2008,7 @@ void CPageProcesses::FillAllItemData(BOOL LoadAllTrueData)
 
 
 
-	//ÅÅÐò
+	//ï¿½ï¿½ï¿½ï¿½
 
 	ReSort(FALSE);
 
@@ -1989,9 +2033,9 @@ void CPageProcesses::DeleteProcessItem(PROCLISTDATA * pDetailsListData)
 
 		if(pListData == NULL) continue;
 
-		if( pListData->SubType != -1) //²»ÊÇ·Ö×é±êÌâ
+		if( pListData->SubType != -1) //ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
-			if( (pListData->pPData ==  pDetailsListData)  || ( (pListData->pPData==NULL) && (pListData->SubType<SUB_ITEM) ) ) //SubType<SUB_ITEM) ÊÇÅÅ³ý×ÓÏîÒòÎªËû²»ÓÃ¶ÀÁ¢´¦Àí »á×Ô¶¯Ëæ¸¸ÏîÉ¾³ý  || ( (pListData->pPData==NULL) && (pListData->SubType<SUB_ITEM) )
+			if( (pListData->pPData ==  pDetailsListData)  || ( (pListData->pPData==NULL) && (pListData->SubType<SUB_ITEM) ) ) //SubType<SUB_ITEM) ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½Ã¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½æ¸¸ï¿½ï¿½É¾ï¿½ï¿½  || ( (pListData->pPData==NULL) && (pListData->SubType<SUB_ITEM) )
 			{
 
 				switch(pListData->ItemType)
@@ -2092,7 +2136,7 @@ BOOL CPageProcesses::OnCommand(WPARAM wParam, LPARAM lParam)
 		CMenu PopMenu;
 		CMenu *pMenu;
 		PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_COLUMN) );
-		pMenu = PopMenu.GetSubMenu(0);  //0ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+		pMenu = PopMenu.GetSubMenu(0);  //0ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 
 		//		if((HMENU)(pMsg->wParam)  == pMenu->m_hMenu) MSBOX(999)
 
@@ -2137,16 +2181,16 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 
 
 
-	if(nCol == PROCLIST_NAME )//µã»÷µÚ PROCLIST_NAME ÁÐ
+	if(nCol == PROCLIST_NAME )//ï¿½ï¿½ï¿½ï¿½ï¿½ PROCLIST_NAME ï¿½ï¿½
 	{
-		if(mTaskList.CurrentSortColumn  == PROCLIST_NAME  ) //Ä¿Ç°Ò²ÊÇ°´´ËÁÐÅÅÐò
+		if(mTaskList.CurrentSortColumn  == PROCLIST_NAME  ) //Ä¿Ç°Ò²ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 			BYTE  ResetType ;
 			if(InvertSort)
 			{
 				nCount = mTaskList.GetItemCount();
 
-				if(mTaskList.FlagSortUp)//Ä¿Ç°ÊÇÉýÐòÅÅÁÐ ±êÌâtype·Ö±ðÎª 0,2,4×ªÎª½µÐò2,4,6
+				if(mTaskList.FlagSortUp)//Ä¿Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½typeï¿½Ö±ï¿½Îª 0,2,4×ªÎªï¿½ï¿½ï¿½ï¿½2,4,6
 				{
 					ResetType = 2;
 					for(int i=0;i<nCount;i++)
@@ -2160,7 +2204,7 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 						}
 					}
 				}
-				else//Ä¿Ç°ÊÇ½µÐòÅÅÁÐ ±êÌâtype·Ö±ðÎª 2,4,6×ªÎªÉýÐò 0,2,4 //×¢Òâ´ËÊ±´óµÄÔÚÉÏÃæ£¡£¡£¡
+				else//Ä¿Ç°ï¿½Ç½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½typeï¿½Ö±ï¿½Îª 2,4,6×ªÎªï¿½ï¿½ï¿½ï¿½ 0,2,4 //×¢ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ£¡ï¿½ï¿½ï¿½ï¿½
 				{
 					ResetType = 4;
 					for(int i=0;i<nCount;i++) //
@@ -2183,10 +2227,10 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 
 
 		}
-		else //Ä¿Ç°²»ÊÇÊÇ°´µÚ0ÁÐÅÅÐò
+		else //Ä¿Ç°ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 
-			//-------------Ìí¼Ó ·Ö×é±êÌâ -------------
+			//-------------ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ -------------
 			if(theApp.AppSettings.GroupByType)
 			_AddGroupItem();
 
@@ -2194,7 +2238,7 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 		}
 
 	}
-	else //²»°´µÚ0ÁÐÅÅÐò ÒÆ³ý·Ö×é±êÌâÏî
+	else //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Æ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{
 		if(theApp.AppSettings.GroupByType)
 		_RemoveGroupTitle();
@@ -2204,21 +2248,21 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 
 
 	//-------------------------------------------------
-	//   ±ØÐë·ÅÔÚ   ÒÆ³ý/Ìí¼Ó ·Ö×é±êÌâ     Ôö¼õÁÐ±íÏîÖ®ºó
+	//   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½Æ³ï¿½/ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½     ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½Ö®ï¿½ï¿½
 
 	int LastParentItemID = -1 ;
 	nCount = mTaskList.GetItemCount();
 	for(int i= 0;i<nCount;i++)
 	{
 		pListData = (APPLISTDATA *) mTaskList.GetItemData(i);
-		//mDetailsList.SetItemData(i,(DWORD_PTR)i);  //ÁÐ±íÏîÏà¹ØÏîÉèÎªÏîºÅ
+		//mDetailsList.SetItemData(i,(DWORD_PTR)i);  //ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½
 
 		if(pListData->SubType == PARENT_ITEM_OPEN)
 		{
 			LastParentItemID = i;
 		}	
 
-		if(pListData->SubType == SUB_ITEM && (nCol != PROCLIST_NAME)) //ÓÉÓÚ×ÓÏîºÜ¶àÁÐÎÞÊý¾ÝËùÒÔ ÅÅÐòÊÇÌî³ä×ÓÏî¶ÔÓ¦ÁÐ ×¢Òâ²»¿ÉÔÚÅÅÐò¹ý³ÌÖÐ ÒòÎªÄÇÊ±id ¿ÉÄÜÒÑ¾­±äÁË
+		if(pListData->SubType == SUB_ITEM && (nCol != PROCLIST_NAME)) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ ×¢ï¿½â²»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Îªï¿½ï¿½Ê±id ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 			CString StrItemText;
 			StrItemText=mTaskList.GetItemText(LastParentItemID,nCol);
@@ -2245,7 +2289,7 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 	mTaskList.CurrentSortColumn =  nCol;
 
 
-	//ÉèÖÃ»Øµ÷º¯ÊýµÄ²ÎÊýºÍÈë¿ÚµØÖ·   
+	//ï¿½ï¿½ï¿½Ã»Øµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½Ö·   
 	mTaskList.SortItems(Sort_Processes, nCol);
 
 
@@ -2255,12 +2299,12 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 
 void CPageProcesses::ReSort(BOOL SkipStaticColumn)
 {
-	//×¢ÒâÔö¼õ½ø³ÌÊ±ºòÒªÂíÉÏµ÷ÓÃÒ»´Î±¾º¯Êý SkipStaticColumn ÒªÉèÎª FALSE·ñÔò¾²Ì¬ÁÐ²»»á×Ô¶¯ÅÅÐò£¡£¡£¡
+	//×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Òªï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½Ò»ï¿½Î±ï¿½ï¿½ï¿½ï¿½ï¿½ SkipStaticColumn Òªï¿½ï¿½Îª FALSEï¿½ï¿½ï¿½ï¿½Ì¬ï¿½Ð²ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ò£¡£ï¿½ï¿½ï¿½
 
 	if(mTaskList)
 	{
 		switch(mTaskList.CurrentSortColumn)
-		{//ÒÔÏÂÁÐ ÄÚÈÝ Ïà¶ÔÓÚ½ø³Ì ¹Ì¶¨ ²»ÐèÒªÃ¿´ÎË¢ÐÂÖØÐÂÅÅÐò
+		{//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½ ï¿½Ì¶ï¿½ ï¿½ï¿½ï¿½ï¿½ÒªÃ¿ï¿½ï¿½Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 		case PROCLIST_TYPE:
 		case PROCLIST_PUB:
@@ -2313,7 +2357,7 @@ void CPageProcesses::OnPop_ProcesseslistGotoDetails()
 	pData = (APPLISTDATA *)mTaskList.GetItemData(nSel);
 
 
-	//ÓÉÓÚÔÊÐí¶àÑ¡ ËùÒÔÒªÏÈÇå³ýÖ®Ç°Ñ¡ÖÐµÄ 
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¡ ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½Ö®Ç°Ñ¡ï¿½Ðµï¿½ 
 
 	pPageDetails->ClearSelecet();
 
@@ -2345,7 +2389,7 @@ void CPageProcesses::OnPop_ProcesseslistGotoDetails()
 
 	int PageID=3;
 	theApp.pMainTab->SetCurSel(PageID);
-	//--------------´¥·¢Êµ¼Ê¶¯×÷---------- 
+	//--------------ï¿½ï¿½ï¿½ï¿½Êµï¿½Ê¶ï¿½ï¿½ï¿½---------- 
 	NMHDR nmhdr; 
 	nmhdr.code = TCN_SELCHANGE;  
 	nmhdr.hwndFrom = theApp.pMainTab->GetSafeHwnd();  
@@ -2397,12 +2441,12 @@ void CPageProcesses::_RemoveGroupTitle(void)
 
 	int nCount = mTaskList.GetItemCount();
 		BYTE  ResetType = 0;
-		for(int i=nCount-1;i>=0;i--)  //´ÓºóÉ¾³ý·ÀÖ¹ÐÐºÅ±ä»¯Ôì³ÉµÄÂé·³
+		for(int i=nCount-1;i>=0;i--)  //ï¿½Óºï¿½É¾ï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ÐºÅ±ä»¯ï¿½ï¿½Éµï¿½ï¿½é·³
 		{
 			APPLISTDATA *pListData = (APPLISTDATA *)mTaskList.GetItemData(i);
 			if(pListData->pPData ==NULL)
 			{
-				mTaskList.DeleteItem(i);  //Êý¾Ý×Ô¶¯É¾³ý
+				mTaskList.DeleteItem(i);  //ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½É¾ï¿½ï¿½
 
 			}
 		}
@@ -2542,7 +2586,7 @@ void CPageProcesses::OnPop_Minimize()
 	}
 }
 
-void CPageProcesses::OnPop_Endtask() //ÕâÊÇÄ³ÏîÕ¹¿ªºóÕë¶Ô½ø³Ì´°¿ÚµÄ²Ù×÷
+void CPageProcesses::OnPop_Endtask() //ï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô½ï¿½ï¿½Ì´ï¿½ï¿½ÚµÄ²ï¿½ï¿½ï¿½
 {
 	APPLISTDATA *pData = NULL;
 	int nSel = mTaskList.GetNextItem( -1, LVNI_SELECTED );
@@ -2649,7 +2693,7 @@ void CPageProcesses::_GetMemDataAndSetItemText(int iItem, APPLISTDATA * PData)
 
 
 
-	if(MemUsage<= (double)theApp.PerformanceInfo.TotalPhysMem   &&   MemUsage>0 && theApp.PerformanceInfo.InUsePhysMem>0)//·ÀÖ¹ÏÔÊ¾´íÂÒµÄ Êý¾Ý
+	if(MemUsage<= (double)theApp.PerformanceInfo.TotalPhysMem   &&   MemUsage>0 && theApp.PerformanceInfo.InUsePhysMem>0)//ï¿½ï¿½Ö¹ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Òµï¿½ ï¿½ï¿½ï¿½ï¿½
 	{
 		
 		((PROCLISTDATA*)PData->pPData)->Mem_PrivateWS = MemUsage; 
@@ -2657,23 +2701,31 @@ void CPageProcesses::_GetMemDataAndSetItemText(int iItem, APPLISTDATA * PData)
 		double Percents =  (double)( MemUsage/(theApp.PerformanceInfo.InUsePhysMem )*100);
 		if(Percents<0.1&&Percents>0)Percents=0.1;
 
-		if(theApp.AppSettings.ProcList_MemPercents)//°´°Ù·Ö±ÈÏÔÊ¾ 
+		if(theApp.AppSettings.ProcList_MemPercents)//ï¿½ï¿½ï¿½Ù·Ö±ï¿½ï¿½ï¿½Ê¾ 
 		{		
-			
-			StrItem.Format(L"%.1f%%",  Percents );
+			// User format: idle shows "0%", non-idle uses one decimal ("0.1%").
+			if(Percents == 0.0)
+				StrItem = L"0%";
+			else
+				StrItem.Format(L"%.1f%%",  Percents );
 			mTaskList.MySetItemText(iItem,PROCLIST_MEMORY,StrItem);
-			
+
 
 		}
 		else
-		{	 	
-			StrItem.Format(L"%.1f",  MemUsage/1024/1024);
+		{
+			double MemMb = MemUsage/1024/1024;
+			// User format: idle shows "0 MB", non-idle uses one decimal ("0.1 MB").
+			if(MemMb == 0.0)
+				StrItem = L"0 MB";
+			else
+				StrItem.Format(L"%.1f",  MemMb);
 			mTaskList.MySetItemText(iItem,PROCLIST_MEMORY,StrItem+L" MB");
 
 		}
 
-		if(Percents>1&&Percents<10)Percents=20;//·ñÔòºÜ¶à¶¼²»ÏÔÊ¾±äÉ«
-		PData->CoolUsageArray[PROCLIST_MEMORY]= Percents/100; //ÓÃÓÚ±äÉ«ÏÔÊ¾£¡£¡£¡
+		if(Percents>1&&Percents<10)Percents=20;//ï¿½ï¿½ï¿½ï¿½Ü¶à¶¼ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½É«
+		PData->CoolUsageArray[PROCLIST_MEMORY]= Percents/100; //ï¿½ï¿½ï¿½Ú±ï¿½É«ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	}
 
 }
@@ -2703,7 +2755,7 @@ void CPageProcesses::UpdateGroupText(void)
 
 		APPLISTDATA *pListData = (APPLISTDATA *)mTaskList.GetItemData(i);	 
 
-		if( (pListData == NULL) || (pListData->pPData == NULL ) )  //×¢ÒâÅÅ³ý·Ö×é±êÌâ
+		if( (pListData == NULL) || (pListData->pPData == NULL ) )  //×¢ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{ 	
 
 			CString StrGroupTitle  = mTaskList.GetItemText(i, 0);

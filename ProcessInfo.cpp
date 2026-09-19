@@ -34,7 +34,7 @@ static UINT Thread_PDHGetMemInfo(LPVOID lparam)
 
 		//StrPDHProcessName = pData->Name;
 
-		//if(StrPDHProcessName.Right(4).CompareNoCase(L".exe") == 0)  //exeÈ¥µô .dllÔò²»È¥µô Pdh ÒªÇóÕâÑù¸ñÊ½
+		//if(StrPDHProcessName.Right(4).CompareNoCase(L".exe") == 0)  //exeÈ¥ï¿½ï¿½ .dllï¿½ï¿½È¥ï¿½ï¿½ Pdh Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½
 		//{	
 		//	StrPDHProcessName=StrPDHProcessName.Left(StrPDHProcessName.GetLength()-4);
 		//}
@@ -47,7 +47,7 @@ static UINT Thread_PDHGetMemInfo(LPVOID lparam)
 		//}
 
 
-		////ÌØÊâµÄ 
+		////ï¿½ï¿½ï¿½ï¿½ï¿½ 
 
 		//if(pData->PID == 0){	StrPDHProcessName = L"Idle";	}
 		//if(pData->PID == 4){	StrPDHProcessName = L"System";	}
@@ -117,11 +117,11 @@ CString CProcess::GetUser(HANDLE hProcess,UINT PID,WCHAR *StrDomain)
 
 	if(hProcess != NULL)
 	{
-		// ÌáÉý±¾½ø³ÌµÄÈ¨ÏÞ
+		// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½È¨ï¿½ï¿½
 
 		bFuncReturn = ::OpenProcessToken(hProcess,TOKEN_QUERY,&hToken);
 
-		if( bFuncReturn == 0) // Ê§°Ü
+		if( bFuncReturn == 0) // Ê§ï¿½ï¿½
 		{
 			return strUserName;
 		}
@@ -200,7 +200,7 @@ double CProcess::GetWsPrivate_PDH(ProcessListData *pData)//byte
 
 	if(MemUsage == 0)
 	{
-		MemUsage =  GetWsPrivate(pData->PID) ; //²ÉÓÃÁíÒ»ÖÖ·½·¨»ñÈ¡
+		MemUsage =  GetWsPrivate(pData->PID) ; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½È¡
 	}
 
 
@@ -241,19 +241,45 @@ CString CProcess::GetFileName(CString FullPathName)
 	return StrRet;
 }
 
-ULONGLONG CProcess::GetDiskIO(HANDLE hProcess,ULONGLONG * pOther)
+ULONGLONG CProcess::GetDiskIO(HANDLE hProcess, DWORD pid, ULONGLONG * pOther)
 {
-	if(hProcess<0)  return 0;
+	// Bug fix Win7 non-admin: previous guard `hProcess<0` allowed hProcess==NULL
+	// (zero) to pass through, then GetProcessIoCounters(NULL,...) returned FALSE
+	// without touching IOCounter. The uninitialised IOCounter fields were then
+	// returned to the caller as huge "phantom" KB/s readings on the disk column.
+	if(pOther != NULL) { *pOther = 0; }
+	if(hProcess == NULL || hProcess == INVALID_HANDLE_VALUE) hProcess = NULL;
 
 	ULONGLONG  DiskIOByte=0;
 
-	IO_COUNTERS  IOCounter;
-	GetProcessIoCounters(hProcess,&IOCounter);
-	DiskIOByte = IOCounter.ReadTransferCount+IOCounter.WriteOperationCount ;//Byte
-	//DiskIOByte = IOCounter.OtherTransferCount;
-	*pOther = IOCounter.OtherTransferCount ; 
+	if(hProcess != NULL)
+	{
+		IO_COUNTERS  IOCounter;
+		memset(&IOCounter, 0, sizeof(IOCounter));
+		if(GetProcessIoCounters(hProcess,&IOCounter))
+		{
+			DiskIOByte = IOCounter.ReadTransferCount + IOCounter.WriteTransferCount;
+			if(pOther != NULL) { *pOther = IOCounter.OtherTransferCount; }
+			return DiskIOByte;
+		}
+		// GetProcessIoCounters failed (most likely ERROR_ACCESS_DENIED in a
+		// non-admin session for a process not owned by the user). Fall
+		// through to the per-process IO cache below.
+	}
 
-	
+	// Non-admin fallback: read cumulative I/O from the per-PID cache that
+	// is populated by Thread_MonitorPidIo (NtQuerySystemInformation).
+	// Available on every Win7 build from a regular user session with no
+	// elevation required.
+	if(pid != 0)
+	{
+		ULONGLONG cacheDisk = 0, cacheOther = 0;
+		if(ApiGetProcessDiskIoFromCache(pid, &cacheDisk, &cacheOther))
+		{
+			DiskIOByte = cacheDisk;
+			if(pOther != NULL) { *pOther = cacheOther; }
+		}
+	}
 
 	return DiskIOByte;
 }
@@ -263,7 +289,7 @@ double CProcess::GetIOUsage(CString SrtProcessNameID,  HQUERY   hQuery, HCOUNTER
 
 //	PdhCollectQueryData(hQuery);
 //
-//	// »ñµÃµ±Ç°ÊµÀýµÄ¡°ID Process¡±¼ÆÊýÆ÷µÄÖµ
+//	// ï¿½ï¿½Ãµï¿½Ç°Êµï¿½ï¿½ï¿½Ä¡ï¿½ID Processï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
 //	DWORD ctrType;
 //	PDH_FMT_COUNTERVALUE fmtValue;
 //	PdhGetFormattedCounterValue(hCounter, PDH_FMT_DOUBLE, &ctrType, &fmtValue);
@@ -299,14 +325,14 @@ double CProcess::GetIOUsage(CString SrtProcessNameID,  HQUERY   hQuery, HCOUNTER
 //
 //	while ( TRUE )
 //	{
-//		// ¶¯Ì¬·ÖÅä¿Õ¼ä£¬ÓÃÀ´´æ´¢½ø³ÌÐÅÏ¢
+//		// ï¿½ï¿½Ì¬ï¿½ï¿½ï¿½ï¿½Õ¼ä£¬ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
 //		if ( ( lpBuf = new BYTE [ nSize ] ) == NULL )	{	return  ;	}
 //
-//		status = MyNtQuerySystemInformation ( SystemProcessInformation, lpBuf, nSize, &bytesreturned ) ;	// Ã¶¾Ù½ø³ÌÐÅÏ¢
+//		status = MyNtQuerySystemInformation ( SystemProcessInformation, lpBuf, nSize, &bytesreturned ) ;	// Ã¶ï¿½Ù½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
 //
 //		if ( !NT_SUCCESS(status) )
 //		{			
-//			if ( status == STATUS_INFO_LENGTH_MISMATCH ) // ¼ì²âÊÇ·ñ·µ»Ø»º³åÇø²»¹»´ó
+//			if ( status == STATUS_INFO_LENGTH_MISMATCH ) // ï¿½ï¿½ï¿½ï¿½Ç·ñ·µ»Ø»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //			{
 //				nSize += DEF_BUF_SIZE ;
 //				delete lpBuf ;
@@ -723,16 +749,16 @@ int CProcess::GetThreadCount(ProcessListData *pData )
 	int nThread = 0;
 	// 
 	//PROCESSENTRY32 pe32;
-	////ÔÚÊ¹ÓÃÕâ¸ö½á¹¹Ç°£¬ÏÈÉèÖÃËüµÄ´óÐ¡
+	////ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¹¹Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½Ð¡
 	//pe32.dwSize = sizeof(pe32);
-	////¸øÏµÍ³ÄÚËùÓÐµÄ½ø³ÌÅÄ¸ö¿ìÕÕ
+	////ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ÐµÄ½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½
 	//HANDLE hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
 	//if (hProcessSnap == INVALID_HANDLE_VALUE)
 	//{
-	//	//MSB_S(L"CreateToolhelp32Snapshot µ÷ÓÃÊ§°Ü");
+	//	//MSB_S(L"CreateToolhelp32Snapshot ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½");
 	//	return 0 ;
 	//}
-	////±éÀú½ø³Ì¿ìÕÕ£¬ÂÖÁ÷ÏÔÊ¾Ã¿¸ö½ø³ÌµÄÐÅÏ¢
+	////ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì¿ï¿½ï¿½Õ£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Ìµï¿½ï¿½ï¿½Ï¢
 	//BOOL bMore = ::Process32First(hProcessSnap,&pe32);
 	//CString Str,StrT;
 	// 
@@ -748,7 +774,7 @@ int CProcess::GetThreadCount(ProcessListData *pData )
 	//	bMore = ::Process32Next(hProcessSnap,&pe32);
 	//	 
 	//}
-	////²»ÒªÍü¼ÇÇå³ýµôsnapshot¶ÔÏó
+	////ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½snapshotï¿½ï¿½ï¿½ï¿½
  ////	MSB_S(Str)
 	//::CloseHandle(hProcessSnap);
 	
@@ -774,7 +800,7 @@ int CProcess::GetHandles(HANDLE hProcess)
 CString CProcess::GetProcCommandLine(DWORD PID)
 {
 
-	HANDLE hProcess = OpenProcess( PROCESS_QUERY_INFORMATION|PROCESS_VM_READ    ,FALSE,PID);  //×¢Òâ PROCESS_ALL_ACCESS »áµ¼ÖÂ Çý¶¯¼¶±ðµÄÎÞ·¨»ñÈ¡ÐÅÏ¢  //PROCESS_TERMINATE  PROCESS_ALL_ACCESS| PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION   /PROCESS_VM_READ  PROCESS_QUERY_LIMITED_INFORMATION
+	HANDLE hProcess = OpenProcess( PROCESS_QUERY_INFORMATION|PROCESS_VM_READ    ,FALSE,PID);  //×¢ï¿½ï¿½ PROCESS_ALL_ACCESS ï¿½áµ¼ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ï¢  //PROCESS_TERMINATE  PROCESS_ALL_ACCESS| PROCESS_QUERY_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION   /PROCESS_VM_READ  PROCESS_QUERY_LIMITED_INFORMATION
 
 	if(hProcess == NULL)	return NULL;
 
@@ -837,14 +863,14 @@ CString CProcess::GetVerInfoString(CString FilePathName,CString StrInfType)
 	StrType = StrType+StrInfType;
 
 
-	//Ê×ÏÈ»ñµÃ°æ±¾ÐÅÏ¢×ÊÔ´µÄ³¤¶È
+	//ï¿½ï¿½ï¿½È»ï¿½Ã°æ±¾ï¿½ï¿½Ï¢ï¿½ï¿½Ô´ï¿½Ä³ï¿½ï¿½ï¿½
 	InfoSize = GetFileVersionInfoSize(FilePathName,&dwHandle);
-	//½«°æ±¾ÐÅÏ¢×ÊÔ´¶ÁÈë»º³åÇø
+	//ï¿½ï¿½ï¿½æ±¾ï¿½ï¿½Ï¢ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ë»ºï¿½ï¿½ï¿½ï¿½
 	if(InfoSize==0)  {return L"" ;}
 
 	BYTE *InfoBuf = new BYTE[InfoSize];
 	GetFileVersionInfo(FilePathName,0,InfoSize,(LPVOID)InfoBuf);
-	//»ñµÃÉú³ÉÎÄ¼þÊ¹ÓÃµÄ´úÂëÒ³¼°ÎÄ¼þ°æ±¾
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½Ê¹ï¿½ÃµÄ´ï¿½ï¿½ï¿½Ò³ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½æ±¾
 	unsigned int  cbTranslate = 0;
 
 	LANGANDCODEPAGE *lpTranslate;
@@ -879,7 +905,12 @@ double CProcess::GetCpuUsage(PROCLISTDATA* pListData,double * CpuTime)
 {
 		double percent=0;
 		if(  pListData == NULL  ) return 0;
-		if( pListData->hProcess  < 0 ) return 0;
+		// Bug fix Win7 non-admin: previous guard `hProcess < 0` allowed NULL handles
+		// (hProcess==0) to fall through. GetProcessTimes(NULL,...) returns FALSE
+		// without writing fsys/fuser, so the subtraction below produced random
+		// CPU% values from uninitialised stack memory. Treat NULL/INVALID same
+		// as < 0.
+		if( pListData->hProcess  == NULL || pListData->hProcess == INVALID_HANDLE_VALUE || pListData->hProcess < 0 ) return 0;
 
 
 
@@ -887,12 +918,24 @@ double CProcess::GetCpuUsage(PROCLISTDATA* pListData,double * CpuTime)
 		{
 
 		FILETIME ftime, fsys, fuser;
-		ULARGE_INTEGER now, sys, user;        
+		ULARGE_INTEGER now, sys, user;
+		memset(&ftime, 0, sizeof(ftime));
+		memset(&fsys,  0, sizeof(fsys));
+		memset(&fuser, 0, sizeof(fuser));
+		now.QuadPart = sys.QuadPart = user.QuadPart = 0;
 
 		GetSystemTimeAsFileTime(&ftime);
 		memcpy(&now, &ftime, sizeof(FILETIME));
 
-		GetProcessTimes( pListData->hProcess, &ftime, &ftime, &fsys, &fuser);
+		// Bug fix Win7 non-admin: GetProcessTimes returns FALSE on a handle that
+		// lost access (process exited, ACL changed, etc.) and does not modify
+		// fsys/fuser. Bail out cleanly instead of computing percent from
+		// uninitialised memory.
+		if(!GetProcessTimes( pListData->hProcess, &ftime, &ftime, &fsys, &fuser))
+		{
+			pListData->CPU_Usage = 0;
+			return 0;
+		}
 
 		memcpy(&sys, &fsys, sizeof(FILETIME));
 		memcpy(&user, &fuser, sizeof(FILETIME));
@@ -902,9 +945,36 @@ double CProcess::GetCpuUsage(PROCLISTDATA* pListData,double * CpuTime)
 		if(CpuTime!=NULL){*CpuTime =  (double)(sys.QuadPart+user.QuadPart) ; }
 
 
+		// Bug fix Win7 non-admin: when the previous tick failed and lastCPU was
+		// left at zero, the denominator `now - lastCPU` becomes the absolute
+		// FILETIME (huge). Combined with garbage numerator this produced the
+		// "73.10% / 75.86% phantom CPU" on idle processes. Skip the diff and
+		// return 0 instead.
+		if(pListData->CpuUsage.lastCPU.QuadPart == 0)
+		{
+			pListData->CpuUsage.lastCPU = now;
+			pListData->CpuUsage.lastUserCPU = user;
+			pListData->CpuUsage.lastSysCPU = sys;
+			pListData->CPU_Usage = 0;
+			return 0;
+		}
+
+		ULONGLONG denom = now.QuadPart - pListData->CpuUsage.lastCPU.QuadPart;
+		if(denom == 0)
+		{
+			pListData->CpuUsage.lastCPU = now;
+			pListData->CpuUsage.lastUserCPU = user;
+			pListData->CpuUsage.lastSysCPU = sys;
+			pListData->CPU_Usage = 0;
+			return 0;
+		}
+
 		percent = (double)(sys.QuadPart - pListData->CpuUsage.lastSysCPU.QuadPart) +   (double)( user.QuadPart -  pListData->CpuUsage.lastUserCPU.QuadPart);
-		percent = percent/(now.QuadPart -  pListData->CpuUsage.lastCPU.QuadPart);
-		percent  =percent/LogicalProcessorsCount;
+		percent = percent/(double)denom;
+		if(LogicalProcessorsCount > 0)
+		{
+			percent  =percent/LogicalProcessorsCount;
+		}
 		pListData->CpuUsage.lastCPU = now;
 		pListData->CpuUsage.lastUserCPU = user;
 		pListData->CpuUsage.lastSysCPU = sys;
@@ -921,14 +991,15 @@ double CProcess::GetCpuUsage(PROCLISTDATA* pListData,double * CpuTime)
 	}
 
 
-	pListData->CPU_Usage = percent;  //±£´æ  £¡£¡£¡ 
+	pListData->CPU_Usage = percent;  //ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	if(_finite(percent) == 0) { percent = 0; }
 	if(percent<0.0) percent=0.0;
 	if(percent>100.0) percent =100.0;
-	return  percent ;// _GetCpuUsage ; 
-	 
+	return  percent ;// _GetCpuUsage ;
+
 }
 
-double CProcess::GetWsPrivate(DWORD PID )//·µ»ØbyteÊý
+double CProcess::GetWsPrivate(DWORD PID )//ï¿½ï¿½ï¿½ï¿½byteï¿½ï¿½
 {
 	double WsPrivate = 0;
 
@@ -1053,7 +1124,7 @@ double CProcess::_GetPDHData(HQUERY   hQuery,HCOUNTER hCounter)
 		return 0;
 	}
 
-	// »ñµÃµ±Ç°ÊµÀýµÄ¡°ID Process¡±¼ÆÊýÆ÷µÄÖµ
+	// ï¿½ï¿½Ãµï¿½Ç°Êµï¿½ï¿½ï¿½Ä¡ï¿½ID Processï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
 	DWORD ctrType;
 	PDH_FMT_COUNTERVALUE fmtValue;
 	pdhStatus=PdhGetFormattedCounterValue(hCounter, PDH_FMT_DOUBLE,   &ctrType,&fmtValue);
@@ -1071,15 +1142,20 @@ double CProcess::_GetPDHData(HQUERY   hQuery,HCOUNTER hCounter)
 }
 
 DWORD CProcess::GetParentPID(PROCLISTDATA * pData )
-{	
-	 
+{
 
 	LONG status;
 	PROCESS_BASIC_INFORMATION  ProcBaseInfo;
-	status = MyNtQueryInformationProcess(pData->hProcess,ProcessBasicInformation,(PVOID)&ProcBaseInfo,sizeof(PROCESS_BASIC_INFORMATION),NULL );	
+	status = MyNtQueryInformationProcess(pData->hProcess,ProcessBasicInformation,(PVOID)&ProcBaseInfo,sizeof(PROCESS_BASIC_INFORMATION),NULL);
 	if (!status)
 	{
-		DWORD ParentPID =   (DWORD)ProcBaseInfo.Reserved3;
+		/* Reserved3 is PVOID-sized (InheritedFromUniqueProcessId).
+		   Casting to DWORD truncates the high 32 bits on x64 and produces
+		   wrong parent PIDs for any PID > 0xFFFFFFFF. Use DWORD_PTR to be
+		   safe on both x86 and x64 and then narrow to DWORD (valid range
+		   for Windows process IDs on Win7). */
+		DWORD_PTR ParentPID64 = (DWORD_PTR)ProcBaseInfo.Reserved3;
+		DWORD ParentPID = (DWORD)ParentPID64;
 		pData->ParentPID = ParentPID;
 		return ParentPID;
 	}
@@ -1088,13 +1164,14 @@ DWORD CProcess::GetParentPID(PROCLISTDATA * pData )
 
 DWORD CProcess::GetParentPID(DWORD PID)
 {
-	HANDLE hProcess = OpenProcess( PROCESS_QUERY_INFORMATION, FALSE, PID); 
+	HANDLE hProcess = OpenProcess( PROCESS_QUERY_INFORMATION, FALSE, PID);
 	LONG status;
 	PROCESS_BASIC_INFORMATION  ProcBaseInfo;
-	status = MyNtQueryInformationProcess( hProcess,ProcessBasicInformation,(PVOID)&ProcBaseInfo,sizeof(PROCESS_BASIC_INFORMATION),NULL );	
+	status = MyNtQueryInformationProcess( hProcess,ProcessBasicInformation,(PVOID)&ProcBaseInfo,sizeof(PROCESS_BASIC_INFORMATION),NULL);
 	if (!status)
 	{
-		DWORD ParentPID = (DWORD)ProcBaseInfo.Reserved3;		
+		DWORD_PTR ParentPID64 = (DWORD_PTR)ProcBaseInfo.Reserved3;
+		DWORD ParentPID = (DWORD)ParentPID64;
 		return ParentPID;
 	}
 	return -1;
@@ -1159,7 +1236,7 @@ double CProcess::GetThreadCpuUsage(THREADLISTDATA * pData)
 
 	percent = percent * 100;
 
-	pData->CPU_Usage = percent;  //±£´æ  £¡£¡£¡ 
+	pData->CPU_Usage = percent;  //ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
 	if(percent<0.0) percent=0.0;
 	if(percent>100.0) percent =100.0;
 	return  percent ;// _GetCpuUsage ; 

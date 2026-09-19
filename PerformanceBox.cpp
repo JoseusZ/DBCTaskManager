@@ -956,6 +956,210 @@ static void StopNtSysDiskMonitor(void)
 }
 
 // ----------------------------------------------------------------------------
+// Per-process I/O cache for non-admin use
+// ----------------------------------------------------------------------------
+// GetProcessIoCounters() needs PROCESS_QUERY_INFORMATION on the target
+// process. On Windows 7 without elevation that right is denied for any
+// process not owned by the calling user, so the per-process Disk column
+// stays at 0 MB/s for every other process — even when disk activity is
+// obvious (e.g. a file copy in progress).
+//
+// NtQuerySystemInformation(SystemProcessInformation, ...) on the other
+// hand returns ReadTransferCount / WriteTransferCount / OtherTransferCount
+// for EVERY process from a regular user session on Win7+, with no admin
+// required. This thread polls that API once per second, walks the
+// returned linked list, and caches the cumulative counters per PID.
+//
+// GetDiskIO() in ProcessInfo.cpp first tries GetProcessIoCounters (works
+// for own processes / admin), and when it fails or the handle is NULL it
+// falls back to the cache below. That makes the per-process Disk MB/s
+// column show real values in non-admin sessions too.
+#define PID_IO_CACHE_MAX 512
+struct PidIoEntry
+{
+	DWORD   Pid;        // 0 == empty slot
+	ULONGLONG ReadXfer;  // cumulative bytes read
+	ULONGLONG WriteXfer; // cumulative bytes written
+	ULONGLONG OtherXfer; // cumulative other bytes (network/FS metadata)
+};
+static CRITICAL_SECTION g_PidIoLock;
+static BOOL             g_PidIoLockInit = FALSE;
+static PidIoEntry       g_PidIoCache[PID_IO_CACHE_MAX];
+static LONG             g_PidIoReady    = 0;
+static HANDLE           g_hPidIoThread  = NULL;
+static volatile LONG    g_PidIoStop     = 0;
+
+static void _PidIoLockInit(void)
+{
+	if(g_PidIoLockInit) return;
+	InitializeCriticalSection(&g_PidIoLock);
+	g_PidIoLockInit = TRUE;
+}
+
+static unsigned __stdcall Thread_MonitorPidIo(void*)
+{
+	typedef LONG (WINAPI *PFN_NtQuerySystemInformation)(ULONG, PVOID, ULONG, PULONG);
+	HMODULE hNtdll = GetModuleHandleW(L"ntdll.dll");
+	if(!hNtdll) return 0;
+	PFN_NtQuerySystemInformation pNt =
+		(PFN_NtQuerySystemInformation)GetProcAddress(hNtdll, "NtQuerySystemInformation");
+	if(!pNt) return 0;
+
+	_PidIoLockInit();
+
+	// Win7 SYSTEM_PROCESS_INFORMATION layout (x86). We hand-decode the three
+	// fields we care about (UniqueProcessId, ReadTransferCount,
+	// WriteTransferCount, OtherTransferCount) at their documented offsets
+	// instead of dragging in ntdll's full type. Layout (offsets in bytes
+	// from the start of the struct, x86):
+	//   0x000 NextEntryOffset (ULONG, 4)
+	//   0x004 NumberOfThreads (ULONG, 4)
+	//   0x008 WorkingSetPrivateSize (LARGE_INTEGER, 8)
+	//   0x010 HardFaultCount (ULONG, 4)
+	//   0x014 NumberOfThreadsHighWatermark (ULONG, 4)
+	//   0x018 CycleTime (ULONGLONG, 8)
+	//   0x020 CreateTime (LARGE_INTEGER, 8)
+	//   0x028 UserTime (LARGE_INTEGER, 8)
+	//   0x030 KernelTime (LARGE_INTEGER, 8)
+	//   0x038 ImageName (UNICODE_STRING, 8 = 2+2+4)
+	//   0x040 BasePriority (KPRIORITY, 4)
+	//   0x044 (4 bytes padding to align InheritedFromUniqueProcessId to 8)
+	//   0x048 UniqueProcessId (HANDLE, 4)
+	//   0x04c InheritedFromUniqueProcessId (HANDLE, 4)
+	//   0x050 HandleCount (ULONG, 4)
+	//   0x054 SessionId (ULONG, 4)
+	//   0x058 UniqueProcessKey (ULONG_PTR, 4 on x86)
+	//   0x05c (4 bytes padding)
+	//   0x060 PeakVirtualSize (SIZE_T, 4)
+	//   0x064 VirtualSize (SIZE_T, 4)
+	//   0x068 PageFaultCount (ULONG, 4)
+	//   0x06c PeakWorkingSetSize (SIZE_T, 4)
+	//   0x070 WorkingSetSize (SIZE_T, 4)
+	//   0x074 QuotaPeakPagedPoolUsage (SIZE_T, 4)
+	//   0x078 QuotaPagedPoolUsage (SIZE_T, 4)
+	//   0x07c QuotaPeakNonPagedPoolUsage (SIZE_T, 4)
+	//   0x080 QuotaNonPagedPoolUsage (SIZE_T, 4)
+	//   0x084 PagefileUsage (SIZE_T, 4)
+	//   0x088 PeakPagefileUsage (SIZE_T, 4)
+	//   0x08c PrivatePageCount (SIZE_T, 4)
+	//   0x090 ReadOperationCount (LARGE_INTEGER, 8)
+	//   0x098 WriteOperationCount (LARGE_INTEGER, 8)
+	//   0x0a0 OtherOperationCount (LARGE_INTEGER, 8)
+	//   0x0a8 ReadTransferCount (LARGE_INTEGER, 8)
+	//   0x0b0 WriteTransferCount (LARGE_INTEGER, 8)
+	//   0x0b8 OtherTransferCount (LARGE_INTEGER, 8)
+	const ULONG OFF_NEXT            = 0x000;
+	const ULONG OFF_PID             = 0x048;
+	const ULONG OFF_READ_XFER       = 0x0a8;
+	const ULONG OFF_WRITE_XFER      = 0x0b0;
+	const ULONG OFF_OTHER_XFER      = 0x0b8;
+	// Sanity: the SPSnapshot size matches the documented layout.
+	// We deliberately only read up to OtherTransferCount and rely on
+	// NextEntryOffset to walk forward.
+	// The runtime buffer is sized for ~1000 processes (256 KB is fine for
+	// a typical desktop session that has ~200 processes).
+	ULONG bufSize = 256 * 1024;
+	BYTE* buf = (BYTE*)malloc(bufSize);
+	if(!buf) return 0;
+
+	while(g_PidIoStop == 0)
+	{
+		LONG st = pNt(/*SystemProcessInformation*/5, buf, bufSize, NULL);
+		if(st == /*STATUS_INFO_LENGTH_MISMATCH*/0xC0000004)
+		{
+			free(buf);
+			bufSize *= 2;
+			if(bufSize > 4 * 1024 * 1024) bufSize = 4 * 1024 * 1024;
+			buf = (BYTE*)malloc(bufSize);
+			if(!buf) break;
+			continue;
+		}
+		if(st != 0 /* STATUS_SUCCESS */)
+		{
+			Sleep(500);
+			continue;
+		}
+
+		// Walk the singly-linked list (terminated by NextEntryOffset == 0).
+		EnterCriticalSection(&g_PidIoLock);
+		for(int i = 0; i < PID_IO_CACHE_MAX; i++) g_PidIoCache[i].Pid = 0;
+		int slot = 0;
+		BYTE* p = buf;
+		for(;;)
+		{
+			DWORD pid = *(DWORD*)(p + OFF_PID);
+			if(pid != 0 && slot < PID_IO_CACHE_MAX)
+			{
+				LARGE_INTEGER r, w, o;
+				r.QuadPart = *(LONGLONG*)(p + OFF_READ_XFER);
+				w.QuadPart = *(LONGLONG*)(p + OFF_WRITE_XFER);
+				o.QuadPart = *(LONGLONG*)(p + OFF_OTHER_XFER);
+				g_PidIoCache[slot].Pid       = pid;
+				g_PidIoCache[slot].ReadXfer  = (ULONGLONG)r.QuadPart;
+				g_PidIoCache[slot].WriteXfer = (ULONGLONG)w.QuadPart;
+				g_PidIoCache[slot].OtherXfer = (ULONGLONG)o.QuadPart;
+				slot++;
+			}
+			ULONG next = *(ULONG*)(p + OFF_NEXT);
+			if(next == 0) break;
+			p += next;
+		}
+		LeaveCriticalSection(&g_PidIoLock);
+
+		InterlockedExchange(&g_PidIoReady, 1);
+
+		for(int i = 0; i < 10 && g_PidIoStop == 0; i++) Sleep(100);
+	}
+
+	if(buf) free(buf);
+	return 0;
+}
+
+static void EnsurePidIoMonitor(void)
+{
+	if(g_hPidIoThread != NULL) return;
+	_PidIoLockInit();
+	InterlockedExchange(&g_PidIoStop, 0);
+	g_hPidIoThread = (HANDLE)_beginthreadex(NULL, 0, Thread_MonitorPidIo, NULL, 0, NULL);
+}
+
+static void StopPidIoMonitor(void)
+{
+	if(g_hPidIoThread == NULL) return;
+	InterlockedExchange(&g_PidIoStop, 1);
+	WaitForSingleObject(g_hPidIoThread, 3000);
+	CloseHandle(g_hPidIoThread);
+	g_hPidIoThread = NULL;
+}
+
+// Public accessor (called from ProcessInfo.cpp's GetDiskIO fallback).
+// Returns TRUE and fills *pDiskBytes (ReadXfer+WriteXfer) and *pOther on
+// cache hit; FALSE if the cache is empty or the PID wasn't seen.
+extern "C" BOOL ApiGetProcessDiskIoFromCache(DWORD pid, ULONGLONG* pDiskBytes, ULONGLONG* pOther)
+{
+	if(pDiskBytes) *pDiskBytes = 0;
+	if(pOther)     *pOther = 0;
+	if(InterlockedCompareExchange(&g_PidIoReady, 0, 0) == 0) return FALSE;
+	if(pid == 0)  return FALSE;
+	if(!g_PidIoLockInit) return FALSE;
+
+	EnterCriticalSection(&g_PidIoLock);
+	BOOL found = FALSE;
+	for(int i = 0; i < PID_IO_CACHE_MAX; i++)
+	{
+		if(g_PidIoCache[i].Pid == pid)
+		{
+			if(pDiskBytes) *pDiskBytes = g_PidIoCache[i].ReadXfer + g_PidIoCache[i].WriteXfer;
+			if(pOther)     *pOther     = g_PidIoCache[i].OtherXfer;
+			found = TRUE;
+			break;
+		}
+	}
+	LeaveCriticalSection(&g_PidIoLock);
+	return found;
+}
+
+// ----------------------------------------------------------------------------
 // WLAN helpers (Win7+) — connection type (PHY), SSID, signal quality.
 // Used to populate the Performance-tab adapter info box, matching the fields
 // shown by Windows 10 native Task Manager.
@@ -1205,6 +1409,8 @@ CPerformanceBox::~CPerformanceBox()
 	StopPdhDiskMonitor();
 	// Stop the NtQuerySystemInformation disk monitor (last-resort fallback).
 	StopNtSysDiskMonitor();
+	// Stop the per-process I/O cache monitor (non-admin per-process disk).
+	StopPidIoMonitor();
 }
 
 void CPerformanceBox::DoDataExchange(CDataExchange* pDX)
@@ -3722,6 +3928,7 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 	EnsureWmiDiskMonitor(); // idempotent
 	EnsurePdhDiskMonitor(); // idempotent
 	EnsureNtSysDiskMonitor(); // idempotent
+	EnsurePidIoMonitor();    // idempotent - per-process IO cache for non-admin
 
 	for(int nItem=2;nItem<n;nItem++)
 	{
