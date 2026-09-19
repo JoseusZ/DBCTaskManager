@@ -3705,6 +3705,7 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 
 	double SumDiskUsage=0; int nDiskCount=0;
+	ULONG64 SumRWTime=0, SumTotalTime=0;
 
 
 	PerferListData *pPData = NULL;
@@ -3712,67 +3713,144 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 	if(! FlagStartDiskMon )  goto SKIPDISK;
 
-		// Start the WMI disk monitor thread once per session, BEFORE iterating
-		// the disk items. Previously EnsureWmiDiskMonitor() was called inside
-		// the per-disk loop, so if the system reported zero disks (registry
-		// enumeration failure, no physical drives yet, etc.) the WMI monitor
-		// thread was never spawned and the cache stayed at Ready=0 forever,
-		// leaving the disks at 0% even after a disk appeared.
-		EnsureWmiDiskMonitor(); // idempotent
-		// Also start the PDH fallback monitor. On Win7 systems where the
-		// "WMI Performance Adapter" service (wmiapsrv) is disabled (very
-		// common on Spanish/non-administrator Win7 installs) the WMI perf
-		// counter query returns no data and every disk stays at 0%. PDH
-		// reads PhysicalDisk counters directly via the same native API the
-		// Windows Task Manager uses, so it works regardless of WMI service
-		// state, admin rights, or system locale. The PDH cache is preferred
-		// over the WMI cache when it has data (Ready=1).
-		EnsurePdhDiskMonitor(); // idempotent
-		// Last-resort fallback: NtQuerySystemInformation reads the disk
-		// counters directly out of the kernel via ntdll. Unlike PDH/WMI
-		// this works on every Win7 build regardless of perf counter
-		// registration, WMI service state, or admin rights. The UI uses
-		// NtSys data only when both PDH and WMI fail to produce data.
-		EnsureNtSysDiskMonitor(); // idempotent
+	// Start the WMI / PDH / NtSys fallback monitor threads once per session.
+	// These are ONLY consulted when IOCTL_DISK_PERFORMANCE fails (non-admin
+	// or unsupported driver). The PRIMARY data source is the synchronous
+	// kernel call PM.GetDiskPerformance() below, which is what the original
+	// DBC Task Manager uses and which works on every Win7 build when run
+	// with administrator privileges.
+	EnsureWmiDiskMonitor(); // idempotent
+	EnsurePdhDiskMonitor(); // idempotent
+	EnsureNtSysDiskMonitor(); // idempotent
 
-		for(int nItem=2;nItem<n;nItem++)
+	for(int nItem=2;nItem<n;nItem++)
+	{
+
+		pPData = (PerferListData *)mPItemList.GetItemData(nItem);
+		if(pPData==NULL) continue ;
+		if(pPData->Type == PM_ETHERNET   ) break ;
+
+		//-----------------------------------------------------------------------
+		// PRIMARY PATH: IOCTL_DISK_PERFORMANCE via PM.GetDiskPerformance()
+		//-----------------------------------------------------------------------
+		// This is a direct kernel-to-usersystem call (\\.\PhysicalDriveN) that
+		// returns ReadTime/WriteTime/IdleTime/BytesRead/BytesWritten. It does
+		// NOT require the WMI service, PDH counter registration, or anything
+		// else that can be disabled on stripped-down Win7 installs. Only
+		// prerequisites: GENERIC_READ on the disk handle (which the function
+		// already requests) and admin rights (which the user has).
+		//
+		// On a working admin Win7 system this returns real kernel disk timers
+		// and the % is computed as the busy fraction:
+		//     (RWTime_delta) / (TotalTime_delta)   where
+		//         RWTime     = ReadTime + WriteTime
+		//         TotalTime  = IdleTime + RWTime
+		//
+		// This is exactly what the original DBC source did (PerformanceBox.cpp
+		// @ 5d93ba9, around the "Disk    " section).
+		//-----------------------------------------------------------------------
+		double dReadBps = 0, dWriteBps = 0, dActivePct = 0;
+		double AvgResponseTime = 0;
+		BOOL bKernelOk = FALSE;
+		BOOL bKernelUsed = FALSE;
+		ULONG64 RWTime = 0, TotalTime = 0;
+
+		if(theApp.FlagIsAdminNow)
 		{
+			DISK_PERFORMANCE DiskPerformance;
+			memset(&DiskPerformance, 0, sizeof(DiskPerformance));
+			DiskPerformance = PM.GetDiskPerformance(pPData->ID);
 
-			pPData = (PerferListData *)mPItemList.GetItemData(nItem);
-			if(pPData==NULL) continue ;
-			if(pPData->Type == PM_ETHERNET   ) break ;
+			// GetDiskPerformance() zeroes the struct on failure (admin
+			// missing, CreateFile failed, or DeviceIoControl failed). So we
+			// consider the call "successful" only if at least one of the
+			// kernel counters has ever advanced past zero — that's how we
+			// know the kernel really answered us.
+			RWTime     = (ULONG64)DiskPerformance.ReadTime.QuadPart
+					   + (ULONG64)DiskPerformance.WriteTime.QuadPart;
+			TotalTime  = (ULONG64)DiskPerformance.IdleTime.QuadPart + RWTime;
 
-			// Disk activity: read from the WMI background monitor cache.
-			// The cache is populated by Thread_MonitorWmiDisk() every ~1 s.
-			double dReadBps = 0, dWriteBps = 0, dActivePct = 0;
-			double AvgResponseTime = 0;
+			ULONG64 dRW = 0, dTT = 0;
+			if((pPData->DataD > 0) && (TotalTime > pPData->DataD) && (RWTime >= pPData->DataC))
+			{
+				dRW = RWTime    - pPData->DataC;
+				dTT = TotalTime - pPData->DataD;
+				if(dTT > 0)
+				{
+					dActivePct = (double)dRW / (double)dTT * 100.0;
+					if(dActivePct > 100.0) dActivePct = 100.0;
+					bKernelOk = TRUE;
+				}
+			}
 
+			// BytesRead / BytesWritten deltas (B/s). Note: GetDiskPerformance
+			// zeroes the struct on failure, so when this is the first tick
+			// after admin elevation we just latch the baseline and emit 0.
+			if(pPData->DataA > 0)
+			{
+				__int64 dBR = DiskPerformance.BytesRead.QuadPart - pPData->DataA;
+				if(dBR > 0) dReadBps = (double)dBR / theApp.AppSettings.TimerStep;
+			}
+			pPData->DataA = DiskPerformance.BytesRead.QuadPart;
+
+			if(pPData->DataB > 0)
+			{
+				__int64 dBW = DiskPerformance.BytesWritten.QuadPart - pPData->DataB;
+				if(dBW > 0) dWriteBps = (double)dBW / theApp.AppSettings.TimerStep;
+			}
+			pPData->DataB = DiskPerformance.BytesWritten.QuadPart;
+
+			// Average response time (ms) — same formula as the original.
+			if(ShowThisPage || theApp.UpTimeSec < 10)
+			{
+				if(pPData->DataC > 0)
+				{
+					AvgResponseTime = (double)(RWTime - pPData->DataC)
+									/ 2.0 / 10000.0 / theApp.AppSettings.TimerStep;
+					if(AvgResponseTime < 0 || !_finite(AvgResponseTime))
+						AvgResponseTime = 0;
+				}
+			}
+
+			// Accumulate the kernel timer deltas BEFORE updating the baseline
+			// (the next iteration needs the previous tick values).
+			if(bKernelOk)
+			{
+				SumRWTime    += dRW;
+				SumTotalTime += dTT;
+			}
+			pPData->DataC = RWTime;
+			pPData->DataD = TotalTime;
+		}
+
+		if(bKernelOk)
+		{
+			bKernelUsed = TRUE;
+		}
+		else
+		{
+			// Fallback: use the WMI/PDH/NtSys caches only when the kernel
+			// IOCTL isn't available (non-admin or driver doesn't support it).
 			int diskIdx = pPData->ID;
-			// Prefer the PDH cache (no WMI dependency, works on every Win7
-			// build). Fall back to the WMI cache if PDH hasn't produced data
-			// for this disk yet (e.g. on systems where PDH instance names
-			// don't match the disk IDs).
 			if(diskIdx >= 0 && diskIdx < PDH_DISK_MAX && g_PdhDisk[diskIdx].Ready)
 			{
 				dReadBps   = g_PdhDisk[diskIdx].ReadBps;
 				dWriteBps  = g_PdhDisk[diskIdx].WriteBps;
 				dActivePct = g_PdhDisk[diskIdx].Pct;
-				if(!_finite(dReadBps)   || dReadBps < 0)   dReadBps = 0;
-				if(!_finite(dWriteBps)  || dWriteBps < 0)  dWriteBps = 0;
-				if(!_finite(dActivePct) || dActivePct < 0) dActivePct = 0;
 			}
 			else if(diskIdx >= 0 && diskIdx < WMI_DISK_MAX && g_WmiDisk[diskIdx].Ready)
 			{
 				dReadBps   = g_WmiDisk[diskIdx].ReadBps;
 				dWriteBps  = g_WmiDisk[diskIdx].WriteBps;
 				dActivePct = g_WmiDisk[diskIdx].Pct;
-				if(!_finite(dReadBps)   || dReadBps < 0)   dReadBps = 0;
-				if(!_finite(dWriteBps)  || dWriteBps < 0)  dWriteBps = 0;
-				if(!_finite(dActivePct) || dActivePct < 0) dActivePct = 0;
 			}
-
-		// AvgResponseTime isn't available via WMI (it's a separate perf
-		// counter that requires admin DISK_PERFORMANCE). Leave it at 0.
+			// Final fallback: NtQuerySystemInformation gives us ReadBps/WriteBps
+			// but no activity percentage. The header % will still get a value
+			// from g_NtSysTotalPct below.
+			if(dReadBps   < 0 || !_finite(dReadBps))   dReadBps   = 0;
+			if(dWriteBps  < 0 || !_finite(dWriteBps))  dWriteBps  = 0;
+			if(dActivePct < 0 || !_finite(dActivePct)) dActivePct = 0;
+		}
 
 		nDiskCount++;
 
@@ -3784,7 +3862,8 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 		PerformanceDataB[nItem] = dWriteBps;
 		if(PerformanceDataB[nItem]<0.001)PerformanceDataB[nItem]=0.0;
 
-		//Active % - PDH % Disk Time is 0..100; DISK_PERFORMANCE was 0..1.
+		//Active % — kernel path already produced a 0..100 value; WMI/PDH
+		//produce 0..100 too. Convert to the 0..1 fraction used internally.
 		PerformanceData[nItem] = dActivePct/100.0;
 		if(!_finite(PerformanceData[nItem])||PerformanceData[nItem]<0) PerformanceData[nItem]=0;
 		if(PerformanceData[nItem]>1) PerformanceData[nItem]=1;
@@ -3809,19 +3888,19 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 		if(PerformanceDataA[nItem]<0.001 || PerformanceDataA[nItem]>1)PerformanceDataA[nItem]=0;
 		if(PerformanceDataB[nItem]<0.001 || PerformanceDataB[nItem]>1)PerformanceDataB[nItem]=0;
 
-		 
+
 
 
 
 		if(ShowThisPage)		{
 
 			double DiskPct = PerformanceData[nItem]*100;
-			// Bug fix Win7 non-admin: clamp NaN/Inf so the inline disk % in the
-			// list never prints "-nan%" or "inf%".
+			// Clamp NaN/Inf so the inline disk % in the list never prints
+			// "-nan%" or "inf%".
 			if(_finite(DiskPct) == 0) DiskPct = 0;
 			if(DiskPct < 0) DiskPct = 0;
 			if(DiskPct > 100) DiskPct = 100;
-			StrTemp.Format(L"%0.2f%%",DiskPct); //��ʱΪ�ٷ�֮��
+			StrTemp.Format(L"%0.2f%%",DiskPct); // ʱΪ �֮
 			//mPItemList.SetItemText(nItem,1,StrTemp);
 			MySetItem(nItem,StrTemp);
 		}
@@ -3832,9 +3911,16 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 	}
 
+	// Accumulate the kernel-disk timers so the header % can use the
+	// system-wide busy fraction (NOT a simple per-disk average — that
+	// under-reports when one disk is idle and another is busy).
+	// The header pulls its value from one of these in priority order:
+	//   1. PDH _Total instance (matches Windows Task Manager exactly)
+	//   2. WMI _Total instance
+	//   3. NtQuerySystemInformation aggregate
+	//   4. Sum of kernel disk timers across all physical disks
+	//   5. Per-disk average (only when nothing else answered)
 
-
-	// Prefer the PDH "_Total" aggregate instance for the header % — that's
 	// what Windows Task Manager uses, and it correctly reflects system-wide
 	// disk activity (rather than masking a busy disk by averaging across an
 	// idle one). Fall back to the WMI _Total instance if PDH hasn't seen
@@ -3867,12 +3953,23 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 		if(totalPct > 100) totalPct = 100;
 		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
 	}
+	else if(SumTotalTime > 0)
+	{
+		// Kernel-timer sum: aggregate (ReadTime+WriteTime) / (IdleTime+RWTime)
+		// across all physical disks that responded to IOCTL_DISK_PERFORMANCE.
+		// This is what the original DBC source effectively reported — the sum
+		// of the per-disk kernel busy fractions combined into a system-wide
+		// busy fraction.
+		double totalPct = (double)SumRWTime / (double)SumTotalTime * 100.0;
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct < 0)   totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
+	}
 	else if(nDiskCount > 0)
 	{
-		// Bug fix Win7 non-admin: previous code divided by nDiskCount
-		// unconditionally, producing NaN (-nan%) in the disk header when no
-		// physical disk counters were available (typical on Win7 non-admin).
-		// Guard the divide.
+		// Final fallback: simple per-disk average. Guard the divide so
+		// non-admin systems with no counters don't print -nan%.
 		double avgPct = SumDiskUsage/nDiskCount*100;
 		if(_finite(avgPct) == 0) avgPct = 0;
 		if(avgPct < 0)   avgPct = 0;
