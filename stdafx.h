@@ -61,6 +61,13 @@ using namespace std;
 #include <Wbemidl.h> 
 # pragma comment(lib, "wbemuuid.lib") 
 //-----------------------------------------------------------------------
+// NOTE: <pdh.h> is intentionally NOT included here. Including it in
+// stdafx.h conflicts with <lmerrlog.h> (PDH_HLOG vs HLOG), and pulling
+// the networking headers in via stdafx causes every TU to fail. The PDH
+// include + lib pragma live in PerformanceBox.cpp (the only TU that
+// uses PDH), which includes the Windows headers in an order that doesn't
+// trip the conflict.
+//-----------------------------------------------------------------------
 //#include <vector>
 #include<map>
 using namespace std;
@@ -330,19 +337,21 @@ extern int GetDiskVolFailCount;
 
  
 
-typedef enum _OBJECT_INFORMATION_CLASS
-{
-
-
-    ObjectBasicInformation,
-    ObjectNameInformation,
-    ObjectTypeInformation,
-    ObjectAllInformation,
-    ObjectDataInformation
-
-
-
-} OBJECT_INFORMATION_CLASS, *POBJECT_INFORMATION_CLASS;
+/* Winternl.h already declares _OBJECT_INFORMATION_CLASS (with a partial enum).
+   Re-declaring the same tag is forbidden in C++, so we extend it with the
+   missing legacy enum values and the pointer typedef that the SDK omits. */
+#ifndef ObjectNameInformation
+#define ObjectNameInformation ((OBJECT_INFORMATION_CLASS)1)
+#endif
+#ifndef ObjectAllInformation
+#define ObjectAllInformation   ((OBJECT_INFORMATION_CLASS)3)
+#endif
+#ifndef ObjectDataInformation
+#define ObjectDataInformation  ((OBJECT_INFORMATION_CLASS)4)
+#endif
+#ifndef POBJECT_INFORMATION_CLASS
+typedef OBJECT_INFORMATION_CLASS *POBJECT_INFORMATION_CLASS;
+#endif
 
  
 
@@ -393,31 +402,34 @@ extern API_NtResumeProcess   NtResumeProcess;
 //******************************************************************************************************************
 
 
+#ifndef _NTSTATUS_DEFINED
 typedef LONG    NTSTATUS;
+#define _NTSTATUS_DEFINED
+#endif
 
-
+#ifndef NT_SUCCESS
 #define NT_SUCCESS(status)          ((NTSTATUS)(status)>=0)
+#endif
+#ifndef STATUS_INFO_LENGTH_MISMATCH
 #define STATUS_INFO_LENGTH_MISMATCH ((NTSTATUS)0xC0000004L)
+#endif
+#ifndef STATUS_ACCESS_DENIED
 #define STATUS_ACCESS_DENIED        ((NTSTATUS)0xC0000022L)
+#endif
 
 //--------------------------------------------------------------------------------------------------------
 #define NT_PROCESSTHREAD_INFO        0x05
 #define MAX_INFO_BUF_LEN             0x500000
+#ifndef STATUS_SUCCESS
 #define STATUS_SUCCESS               ((NTSTATUS)0x00000000L)
-#define STATUS_INFO_LENGTH_MISMATCH  ((NTSTATUS)0xC0000004L)
-
-typedef LONG NTSTATUS;
+#endif
 
 
-
-
-typedef struct _CLIENT_ID
-{
-	HANDLE UniqueProcess;
-	HANDLE UniqueThread;
-}CLIENT_ID;
+/* _CLIENT_ID and KPRIORITY are already provided by Winternl.h; only the
+   pointer alias PCLIENT_ID is missing in the SDK. */
+#ifndef PCLIENT_ID
 typedef CLIENT_ID *PCLIENT_ID;
-typedef LONG KPRIORITY;
+#endif
 
 
 //************************************************** 备用**************************************************
@@ -547,11 +559,7 @@ typedef LONG KPRIORITY;
 //                                             以上备用
 //**************************************************************************************************************************************************
 
-typedef struct _PEB_LDR_DATA {
-	BYTE       Reserved1[8];
-	PVOID      Reserved2[3];
-	LIST_ENTRY InMemoryOrderModuleList;
-} PEB_LDR_DATA, *PPEB_LDR_DATA;
+/* _PEB_LDR_DATA / PPEB_LDR_DATA already provided by Winternl.h. */
 
 
 
@@ -582,12 +590,7 @@ typedef struct
 
 
 
-typedef struct _RTL_USER_PROCESS_PARAMETERS {
-	BYTE           Reserved1[16];
-	PVOID          Reserved2[10];
-	UNICODE_STRING ImagePathName;
-	UNICODE_STRING CommandLine;
-} RTL_USER_PROCESS_PARAMETERS, *PRTL_USER_PROCESS_PARAMETERS;
+/* _RTL_USER_PROCESS_PARAMETERS / PRTL_USER_PROCESS_PARAMETERS already provided by Winternl.h. */
 
 
 
@@ -860,23 +863,27 @@ static CString GetDrivelettersFormDiskID(int ID)
 			{
 				if(ID == nGetID)
 				{
-
-					szLetter[PartitionID*3-1] =L' ';//空格
-					szLetter[PartitionID*3] = szDrive[0];
-					szLetter[PartitionID*3+1] =L':';
-					LetterCount ++;
-
+					// Win7/8/10: a drive letter that maps to an entire physical
+					// disk (e.g. C:) returns PartitionNumber == 0. The previous
+					// code wrote szLetter[0-1] = L' ' -> szLetter[-1],
+					// smashing the /GS stack canary and producing
+					// STATUS_STACK_BUFFER_OVERRUN (0xC0000409) at startup.
+					// Skip partition 0 and any out-of-range partition value.
+					if(PartitionID >= 1 && PartitionID <= 26)
+					{
+						szLetter[PartitionID*3-1] = L' ';
+						szLetter[PartitionID*3]   = szDrive[0];
+						szLetter[PartitionID*3+1] = L':';
+						LetterCount++;
+					}
 				}
 			}
 
-		 
-			 
-		}
 
+		}
 	}
 
-
-	//	AfxMessageBox( StrDriveLetter);
+//	AfxMessageBox( StrDriveLetter);
 	StrDriveLetter =szLetter;
 	//MSB_S(StrDriveLetter)
 	if(LetterCount>0) //找到盘符

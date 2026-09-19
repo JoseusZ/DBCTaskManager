@@ -6,6 +6,8 @@
 #include "PerformanceBox.h"
 #include "MemCompBox.h"
 #include "SMBIOS.h"
+#include <intrin.h>      // __rdtsc
+#include <process.h>     // _beginthreadex
 
 
 extern "C" {
@@ -19,7 +21,23 @@ extern "C" {
 #include <atlbase.h>
 
 // #include <Iphlpapi.h>
-#pragma comment(lib , "Iphlpapi.lib") //ÍøÂçÊý¾Ý
+#pragma comment(lib , "Iphlpapi.lib") //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+
+// WLAN API (Win7+) â€” provides PHY type (802.11ac/n/...), SSID, signal quality.
+#include <wlanapi.h>
+#include <rpc.h>
+#pragma comment(lib, "wlanapi.lib")
+#pragma comment(lib, "rpcrt4.lib")
+
+// PDH (Performance Data Helper) â€” fallback disk activity source for Win7
+// systems where the WMI perf counter provider (wmiapsrv) is unavailable.
+// This is the same native API Windows Task Manager uses to read disk
+// counters; it requires no service, no admin, and works on every Win7
+// build regardless of UI language. Included here (not in stdafx.h)
+// because <pdh.h> declares a typedef HLOG that clashes with the HLOG
+// typedef from <lmerrlog.h> which stdafx transitively pulls in.
+#include <pdh.h>
+#pragma comment(lib, "pdh.lib")
 // CPerformanceBox
 
 static  CPerformanceBox* pThisBoxView;
@@ -35,6 +53,910 @@ typedef struct _PROCESSOR_POWER_INFORMATION {
 	ULONG  MaxIdleState;
 	ULONG  CurrentIdleState;
 } PROCESSOR_POWER_INFORMATION , *PPROCESSOR_POWER_INFORMATION;
+
+// ----------------------------------------------------------------------------
+// CPU actual-speed monitor
+// ----------------------------------------------------------------------------
+// On Win7 + modern CPUs (Ryzen, Intel K-series, etc.) with no P-state driver,
+// CallNtPowerInformation(ProcessorInformation) returns MaxMhz as CurrentMhz,
+// so we never see the real turbo / boost frequency the way Win10 task manager
+// does. To get the *actual* current frequency we measure it ourselves with
+// RDTSC + QueryPerformanceCounter on a dedicated background thread. This
+// detects turbo boost AND throttling regardless of whether the OS exposes
+// P-state info. TSC is invariant on every CPU we care about (any AMD since
+// K10, any Intel since Nehalem), so a delta over time yields true MHz.
+static volatile LONG  g_CpuSpeedMhz = 0;     // last measured MHz (0 = not ready)
+static volatile LONG  g_CpuSpeedReady = 0;   // 1 once first sample is valid
+static HANDLE         g_hCpuSpeedThread = NULL;
+static volatile LONG  g_CpuSpeedStop = 0;    // 1 = ask worker to exit
+
+static UINT __stdcall Thread_MonitorCpuSpeed(LPVOID lparam)
+{
+	(void)lparam;
+
+	// Pin the measurement thread to a single logical processor so TSC delta is
+	// not perturbed by migration between cores that may not have a perfectly
+	// synchronized TSC on older systems. On modern CPUs TSC is invariant and
+	// synchronized, so this is a harmless extra safety.
+	HANDLE hThread = GetCurrentThread();
+	DWORD_PTR affinityMask = 1;
+	if(theApp.PerformanceInfo.nLogicalProcessor > 0)
+		affinityMask = (DWORD_PTR)1;
+	SetThreadAffinityMask(hThread, affinityMask);
+
+	LARGE_INTEGER qpcFreq;
+	if(!QueryPerformanceFrequency(&qpcFreq) || qpcFreq.QuadPart <= 0)
+		return 0;
+
+	// First sample baseline (no timing yet, just seed).
+	LARGE_INTEGER startQpc; QueryPerformanceCounter(&startQpc);
+	unsigned __int64 startTsc = __rdtsc();
+
+	const DWORD SampleMs = 250; // 4 Hz is plenty for a UI display
+	while(g_CpuSpeedStop == 0)
+	{
+		Sleep(SampleMs);
+
+		LARGE_INTEGER endQpc; QueryPerformanceCounter(&endQpc);
+		unsigned __int64 endTsc = __rdtsc();
+
+		LONGLONG deltaQpc = endQpc.QuadPart - startQpc.QuadPart;
+		unsigned __int64 deltaTsc = endTsc - startTsc;
+
+		if(deltaQpc <= 0 || deltaTsc == 0)
+			continue;
+
+		double seconds = (double)deltaQpc / (double)qpcFreq.QuadPart;
+		if(seconds <= 0)
+			continue;
+
+		double mhz = (double)deltaTsc / (seconds * 1.0e6);
+
+		// Sanity: reject obviously bad samples (sleep was interrupted, etc).
+		if(_finite(mhz) == 0) continue;
+		if(mhz < 100.0) continue;       // < 100 MHz = garbage
+		if(mhz > 20000.0) continue;    // > 20 GHz = garbage
+
+		// Store as integer MHz via InterlockedExchange so the read on the UI
+		// thread sees a consistent value.
+		LONG mhzInt = (LONG)(mhz + 0.5);
+		InterlockedExchange(&g_CpuSpeedMhz, mhzInt);
+		InterlockedExchange(&g_CpuSpeedReady, 1);
+
+		// Re-seed for the next window so we always use the most recent interval.
+		startQpc = endQpc;
+		startTsc = endTsc;
+	}
+	return 0;
+}
+
+static void EnsureCpuSpeedMonitor(void)
+{
+	if(g_hCpuSpeedThread != NULL) return;
+	InterlockedExchange(&g_CpuSpeedStop, 0);
+	g_hCpuSpeedThread = (HANDLE)_beginthreadex(NULL, 0, Thread_MonitorCpuSpeed, NULL, 0, NULL);
+}
+
+// ----------------------------------------------------------------------------
+// WMI-based CPU speed monitor (works on Win10 + AMD Zen where TSC is constant)
+// ----------------------------------------------------------------------------
+// On AMD Zen CPUs (Ryzen 1000/2000/3000/5000 series) the TSC ticks at the
+// *rated* frequency, NOT at the actual core clock, so RDTSC cannot see turbo.
+// Win10 task manager reflects turbo because it queries
+// `Win32_Processor.CurrentClockSpeed` via WMI, which under Win10's CPPC
+// (Collaborative Processor Performance Control) driver returns the *current*
+// P-state including boost. We poll it on a background thread every 2 seconds
+// (WMI is too slow for per-tick) and prefer the cached result in
+// _GetSurrentCpuSpeed.
+static volatile LONG  g_WmiCpuMhz = 0;
+static volatile LONG  g_WmiCpuReady = 0;
+static HANDLE         g_hWmiCpuThread = NULL;
+static volatile LONG  g_WmiCpuStop = 0;
+
+static UINT __stdcall Thread_MonitorWmiCpuSpeed(LPVOID lparam)
+{
+	(void)lparam;
+
+	HRESULT hrCom = CoInitializeEx(0, COINIT_MULTITHREADED);
+	BOOL ownCom = SUCCEEDED(hrCom);
+
+	while(g_WmiCpuStop == 0)
+	{
+		LONG mhz = 0;
+
+		IWbemLocator *pLoc = NULL;
+		HRESULT hr = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER,
+			IID_IWbemLocator, (LPVOID *)&pLoc);
+		if(SUCCEEDED(hr) && pLoc)
+		{
+			IWbemServices *pSvc = NULL;
+			hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\CIMV2"), NULL, NULL, 0,
+				NULL, 0, 0, &pSvc);
+			if(SUCCEEDED(hr) && pSvc)
+			{
+				hr = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT,
+					RPC_C_AUTHZ_NONE, NULL,
+					RPC_C_AUTHN_LEVEL_CALL,
+					RPC_C_IMP_LEVEL_IMPERSONATE,
+					NULL, EOAC_NONE);
+				if(SUCCEEDED(hr))
+				{
+					IEnumWbemClassObject *pEnum = NULL;
+					BSTR qLang = SysAllocString(L"WQL");
+					BSTR qText = SysAllocString(L"SELECT CurrentClockSpeed FROM Win32_Processor");
+					hr = pSvc->ExecQuery(qLang, qText,
+						WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+						NULL, &pEnum);
+					if(SUCCEEDED(hr) && pEnum)
+					{
+						IWbemClassObject *pObj = NULL;
+						ULONG uRet = 0;
+						// Read the first processor entry - we only need one value
+						// (CurrentClockSpeed is reported per package and applies
+						// to all logical cores on a typical homogeneous setup).
+						HRESULT hrNext = pEnum->Next(5000, 1, &pObj, &uRet);
+						if(SUCCEEDED(hrNext) && uRet > 0 && pObj)
+						{
+							VARIANT vt;
+							VariantInit(&vt);
+							HRESULT hrGet = pObj->Get(L"CurrentClockSpeed", 0, &vt, 0, 0);
+							if(SUCCEEDED(hrGet) && V_VT(&vt) == VT_UI4)
+							{
+								mhz = (LONG)V_UI4(&vt);
+							}
+							else if(SUCCEEDED(hrGet) && V_VT(&vt) == VT_I4)
+							{
+								mhz = (LONG)V_I4(&vt);
+							}
+							else if(SUCCEEDED(hrGet) && V_VT(&vt) == VT_R4)
+							{
+								mhz = (LONG)(V_R4(&vt) + 0.5f);
+							}
+							else if(SUCCEEDED(hrGet) && V_VT(&vt) == VT_R8)
+							{
+								mhz = (LONG)(V_R8(&vt) + 0.5);
+							}
+							VariantClear(&vt);
+							pObj->Release();
+						}
+						pEnum->Release();
+					}
+					SysFreeString(qText);
+					SysFreeString(qLang);
+				}
+				pSvc->Release();
+			}
+			pLoc->Release();
+		}
+
+		if(mhz > 50 && mhz < 100000)
+		{
+			InterlockedExchange(&g_WmiCpuMhz, mhz);
+			InterlockedExchange(&g_WmiCpuReady, 1);
+		}
+
+		// Sleep ~2 s in small slices so the stop flag is responsive.
+		for(int i = 0; i < 20 && g_WmiCpuStop == 0; i++) Sleep(100);
+	}
+
+	if(ownCom) CoUninitialize();
+	return 0;
+}
+
+static void EnsureWmiCpuSpeedMonitor(void)
+{
+	if(g_hWmiCpuThread != NULL) return;
+	InterlockedExchange(&g_WmiCpuStop, 0);
+	g_hWmiCpuThread = (HANDLE)_beginthreadex(NULL, 0, Thread_MonitorWmiCpuSpeed, NULL, 0, NULL);
+}
+
+// ----------------------------------------------------------------------------
+// WMI-based disk metrics monitor (Win7+, no admin required)
+// ----------------------------------------------------------------------------
+// PDH `\PhysicalDisk(N)\*` counters were tried first but crashed on the
+// user's Spanish Win7 VM with 0xc0000417 even with hardened NULL guards
+// (likely a PDH/NtQuerySystemInformation buffer issue specific to that
+// build). WMI works from a regular user session and does not crash. WMI is
+// slow (~50-200 ms per query) so we poll on a background thread every
+// 1 second and cache per-disk read bytes/sec, write bytes/sec, and percent
+// activity. The UI tick reads from the cache.
+#define WMI_DISK_MAX 32
+struct WmiDiskMetrics
+{
+	double ReadBps;
+	double WriteBps;
+	double Pct;       // 0..100, percent disk time
+	LONG   Ready;     // 1 once first poll completes
+};
+static WmiDiskMetrics g_WmiDisk[WMI_DISK_MAX];
+// Aggregate ("_Total") instance from Win32_PerfRawData_PerfDisk_PhysicalDisk.
+// This is what Windows Task Manager shows as the disk header %. Using it
+// instead of the average of per-disk instances avoids masking activity on a
+// single busy disk by an idle one.
+static double         g_WmiDiskTotalPct  = 0.0;
+static LONG           g_WmiDiskTotalReady = 0;
+static HANDLE         g_hWmiDiskThread  = NULL;
+static volatile LONG  g_WmiDiskStop     = 0;
+
+// Unpack a PercentDiskTime / PercentDiskReadTime / PercentDiskWriteTime value
+// returned by WMI. Win32_PerfRawData_PerfDisk_PhysicalDisk uses counter type
+// PERF_100NSEC_TIMER (raw fraction): the WMI refresher returns a uint64 with
+// the sample time (denominator) in the high DWORD and the busy time
+// (numerator) in the low DWORD. Some WMI implementations / cooked classes
+// return the value as a plain 0..100 percentage instead â€” handle both.
+// Returns TRUE and sets *outPct on success; FALSE (with *outPct=0) on garbage.
+static BOOL _UnpackDiskPercentVariant(const VARIANT& vt, double* outPct)
+{
+	*outPct = 0.0;
+	if(outPct == NULL) return FALSE;
+
+	VARTYPE vtT = V_VT(&vt);
+	if(vtT == VT_UI8 || vtT == VT_I8)
+	{
+		ULONGLONG raw = (vtT == VT_UI8) ? V_UI8(&vt) : (ULONGLONG)V_I8(&vt);
+		ULONG busy  = (ULONG)(raw & 0xFFFFFFFFul);          // low  DWORD = numerator
+		ULONG total = (ULONG)((raw >> 32) & 0xFFFFFFFFul); // high DWORD = denominator
+
+		if(total > 0 && busy <= total)
+		{
+			double p = (double)busy * 100.0 / (double)total;
+			if(_finite(p) != 0 && p >= 0.0 && p <= 100.0)
+			{
+				*outPct = p;
+				return TRUE;
+			}
+		}
+		else if(total == 0 && busy <= 100ul)
+		{
+			// Counter hasn't ticked yet AND some Win7 builds expose the value
+			// as a flat percentage 0..100 in this branch.
+			*outPct = (double)busy;
+			return TRUE;
+		}
+		// else: garbage / counter not yet initialized -> 0
+		return FALSE;
+	}
+	else if(vtT == VT_R8)
+	{
+		double d = V_R8(&vt);
+		if(_finite(d) != 0 && d >= 0.0 && d <= 100.0)
+		{
+			*outPct = d;
+			return TRUE;
+		}
+	}
+	else if(vtT == VT_R4)
+	{
+		float f = V_R4(&vt);
+		if(_finite(f) != 0 && f >= 0.0f && f <= 100.0f)
+		{
+			*outPct = (double)f;
+			return TRUE;
+		}
+	}
+	else if(vtT == VT_I4 || vtT == VT_UI4)
+	{
+		ULONG v = (vtT == VT_UI4) ? V_UI4(&vt) : (ULONG)V_I4(&vt);
+		if(v <= 100ul)
+		{
+			*outPct = (double)v;
+			return TRUE;
+		}
+	}
+	// VT_NULL / VT_EMPTY / unsupported: counter not available.
+	return FALSE;
+}
+
+static double _WmiVariantToDouble(const VARIANT& vt)
+{
+	switch(V_VT(&vt))
+	{
+		case VT_UI4: return (double)V_UI4(&vt);
+		case VT_UI4 | VT_ARRAY: return 0;
+		case VT_I4:  return (double)V_I4(&vt);
+		case VT_I8:  return (double)V_I8(&vt);
+		case VT_UI8: return (double)V_UI8(&vt);
+		case VT_R4:  return (double)V_R4(&vt);
+		case VT_R8:  return (double)V_R8(&vt);
+		default:     return 0;
+	}
+}
+
+static UINT __stdcall Thread_MonitorWmiDisk(LPVOID lparam)
+{
+	(void)lparam;
+
+	HRESULT hrCom = CoInitializeEx(0, COINIT_MULTITHREADED);
+	BOOL ownCom = SUCCEEDED(hrCom);
+
+	while(g_WmiDiskStop == 0)
+	{
+		WmiDiskMetrics local[WMI_DISK_MAX];
+		memset(local, 0, sizeof(local));
+		double localTotalPct    = 0.0;
+		LONG   localTotalReady  = 0;
+
+		IWbemLocator *pLoc = NULL;
+		HRESULT hr = CoCreateInstance(CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER,
+			IID_IWbemLocator, (LPVOID *)&pLoc);
+		if(SUCCEEDED(hr) && pLoc)
+		{
+			IWbemServices *pSvc = NULL;
+			hr = pLoc->ConnectServer(_bstr_t(L"ROOT\\CIMV2"), NULL, NULL, 0,
+				NULL, 0, 0, &pSvc);
+			if(SUCCEEDED(hr) && pSvc)
+			{
+				hr = CoSetProxyBlanket(pSvc, RPC_C_AUTHN_WINNT,
+					RPC_C_AUTHZ_NONE, NULL,
+					RPC_C_AUTHN_LEVEL_CALL,
+					RPC_C_IMP_LEVEL_IMPERSONATE,
+					NULL, EOAC_NONE);
+				if(SUCCEEDED(hr))
+				{
+					IEnumWbemClassObject *pEnum = NULL;
+					BSTR qLang = SysAllocString(L"WQL");
+					BSTR qText = SysAllocString(
+						L"SELECT Name, DiskReadBytesPerSec, DiskWriteBytesPerSec, "
+						L"PercentDiskTime FROM Win32_PerfRawData_PerfDisk_PhysicalDisk");
+					hr = pSvc->ExecQuery(qLang, qText,
+						WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY,
+						NULL, &pEnum);
+					if(SUCCEEDED(hr) && pEnum)
+					{
+						IWbemClassObject *pObj = NULL;
+						ULONG uRet = 0;
+						// First call on Win7 can be slow while the perf counter
+						// refresher warms up; subsequent calls are fast. Give a
+						// generous timeout so we don't lose the first sample.
+						while(pEnum->Next(15000, 1, &pObj, &uRet) == S_OK && uRet > 0 && pObj)
+						{
+							VARIANT vtName, vtRead, vtWrite, vtPct;
+							VariantInit(&vtName); VariantInit(&vtRead);
+							VariantInit(&vtWrite); VariantInit(&vtPct);
+
+							int diskIdx = -1;
+							BOOL isTotal = FALSE;
+							if(SUCCEEDED(pObj->Get(L"Name", 0, &vtName, 0, 0)) &&
+							   V_VT(&vtName) == VT_BSTR && V_BSTR(&vtName) != NULL)
+							{
+								// Name is one of:
+								//   "0 C:" / "1 D:" / ...   -> per-disk instance (numeric prefix)
+								//   "_Total"                -> aggregate instance (no digits)
+								// Parse leading digits as the disk index. The "_Total"
+								// instance is captured separately so we can use the
+								// real aggregate for the header % (matches what Windows
+								// Task Manager shows).
+								LPCWSTR p = V_BSTR(&vtName);
+								while(*p == L' ' || *p == L'\t') p++;
+								int n = -1;
+								while(*p >= L'0' && *p <= L'9')
+								{
+									if(n < 0) n = 0;
+									n = n * 10 + (*p - L'0');
+									p++;
+								}
+								if(n >= 0 && n < WMI_DISK_MAX)
+								{
+									diskIdx = n;
+								}
+								else if(p[0] == L'_' &&
+										(p[1] == L'T' || p[1] == L't') &&
+										(p[2] == L'o' || p[2] == L'O'))
+								{
+									// "_Total" instance â€” used for the aggregate header.
+									isTotal = TRUE;
+								}
+								// Anything else (no digits, not _Total): skip.
+							}
+
+							if(diskIdx >= 0 || isTotal)
+							{
+								double pctResult = 0.0;
+								if(SUCCEEDED(pObj->Get(L"PercentDiskTime", 0, &vtPct, 0, 0)))
+								{
+									// _UnpackDiskPercentVariant handles both the raw
+									// packed fraction layout (PERF_100NSEC_TIMER) and
+									// the cooked 0..100 layout some Win7 builds expose.
+									(void)_UnpackDiskPercentVariant(vtPct, &pctResult);
+								}
+
+								if(isTotal)
+								{
+									// Aggregate (_Total) instance â€” used directly by the
+									// header % so it matches what Windows Task Manager
+									// shows instead of an average across physical disks.
+									localTotalPct    = pctResult;
+									localTotalReady  = 1;
+								}
+								else
+								{
+									if(SUCCEEDED(pObj->Get(L"DiskReadBytesPerSec",  0, &vtRead,  0, 0)))
+										local[diskIdx].ReadBps  = _WmiVariantToDouble(vtRead);
+									if(SUCCEEDED(pObj->Get(L"DiskWriteBytesPerSec", 0, &vtWrite, 0, 0)))
+										local[diskIdx].WriteBps = _WmiVariantToDouble(vtWrite);
+									local[diskIdx].Pct   = pctResult;
+									local[diskIdx].Ready = 1;
+								}
+							}
+
+							VariantClear(&vtName); VariantClear(&vtRead);
+							VariantClear(&vtWrite); VariantClear(&vtPct);
+							pObj->Release();
+						}
+						pEnum->Release();
+					}
+					SysFreeString(qText);
+					SysFreeString(qLang);
+				}
+				pSvc->Release();
+			}
+			pLoc->Release();
+		}
+
+		// Commit to the global cache.
+		// IMPORTANT: only overwrite entries that we actually saw this poll.
+		// The previous implementation blindly copied every local[] slot into
+		// g_WmiDisk[], which meant that any single failed WMI poll would
+		// wipe Ready=0 over slots that previously had valid data, leaving
+		// the disk stuck at 0% in both the graph and the list. Keep stale
+		// entries intact until a fresh sample for that disk arrives.
+		for(int i = 0; i < WMI_DISK_MAX; i++)
+		{
+			if(local[i].Ready)
+			{
+				g_WmiDisk[i].ReadBps  = local[i].ReadBps;
+				g_WmiDisk[i].WriteBps = local[i].WriteBps;
+				g_WmiDisk[i].Pct      = local[i].Pct;
+				g_WmiDisk[i].Ready    = 1;
+			}
+		}
+
+		// Commit the aggregate "_Total" instance (system-wide disk usage %).
+		// Same staleness policy: only overwrite when we actually saw it this poll.
+		if(localTotalReady)
+		{
+			g_WmiDiskTotalPct   = localTotalPct;
+			g_WmiDiskTotalReady = 1;
+		}
+
+		// Sleep ~1 s in small slices so the stop flag is responsive.
+		for(int i = 0; i < 10 && g_WmiDiskStop == 0; i++) Sleep(100);
+	}
+
+	if(ownCom) CoUninitialize();
+	return 0;
+}
+
+static void EnsureWmiDiskMonitor(void)
+{
+	if(g_hWmiDiskThread != NULL) return;
+	InterlockedExchange(&g_WmiDiskStop, 0);
+	memset(g_WmiDisk, 0, sizeof(g_WmiDisk));
+	g_hWmiDiskThread = (HANDLE)_beginthreadex(NULL, 0, Thread_MonitorWmiDisk, NULL, 0, NULL);
+}
+
+// ----------------------------------------------------------------------------
+// PDH-based disk monitor (fallback when WMI's perf counter provider is
+// unavailable on Win7, e.g. when the "WMI Performance Adapter" service
+// (wmiapsrv) is disabled). PDH reads PhysicalDisk counters directly via
+// the same native API the Windows Task Manager uses internally. It does
+// NOT require any service, admin rights, or COM â€” so it works on every
+// Win7 build regardless of configuration.
+// ----------------------------------------------------------------------------
+#define PDH_DISK_MAX 32
+struct PdhDiskMetrics
+{
+	double ReadBps;
+	double WriteBps;
+	double Pct;       // 0..100, percent disk time
+	LONG   Ready;     // 1 once first poll completes
+};
+static PdhDiskMetrics g_PdhDisk[PDH_DISK_MAX];
+static double         g_PdhDiskTotalPct     = 0.0;
+static double         g_PdhDiskTotalReadBps = 0.0;
+static double         g_PdhDiskTotalWriteBps= 0.0;
+static LONG           g_PdhDiskTotalReady   = 0;
+static HANDLE         g_hPdhDiskThread      = NULL;
+static volatile LONG  g_PdhDiskStop         = 0;
+
+// Try to open a PDH query, enumerate PhysicalDisk instances, and add the
+// three counters (% Disk Time, Disk Read Bytes/sec, Disk Write Bytes/sec)
+// for every per-disk instance plus the _Total aggregate. Returns TRUE on
+// success; *numInst is set to the number of instances seen (including
+// _Total). _Total is always added as the last entry when present.
+static BOOL _InitPdhDiskQuery(HQUERY* hQuery,
+							  HCOUNTER* pctCtr, HCOUNTER* readCtr, HCOUNTER* writeCtr,
+							  WCHAR instNames[PDH_DISK_MAX][MAX_PATH],
+							  int* numInst)
+{
+	*hQuery = NULL;
+	*numInst = 0;
+	memset(pctCtr,   0, sizeof(HCOUNTER) * PDH_DISK_MAX);
+	memset(readCtr,  0, sizeof(HCOUNTER) * PDH_DISK_MAX);
+	memset(writeCtr, 0, sizeof(HCOUNTER) * PDH_DISK_MAX);
+	memset(instNames, 0, sizeof(WCHAR) * MAX_PATH * PDH_DISK_MAX);
+
+	if(PdhOpenQuery(NULL, 0, hQuery) != ERROR_SUCCESS || !*hQuery)
+		return FALSE;
+
+	// Enumerate instances of the "PhysicalDisk" performance object.
+	// Two-call pattern: first call returns the required buffer size, the
+	// second call actually fills the buffers. The counter list returned
+	// is unused â€” we hardcode the three counter names we care about
+	// (they're English identifiers, not localized display names, so they
+	// work on every Win7 language edition).
+	//
+	// Note: PdhEnumObjectItemsW signature on this SDK is
+	//   (szDataSource, szMachineName, szObjectName,
+	//    mszCounterList, pcchCounterListLength,
+	//    mszInstanceList, pcchInstanceListLength,
+	//    dwDetailLevel, dwFlags)
+	// i.e. there's no pdwCounterCount parameter; pcchInstanceListLength
+	// is the buffer size in characters (not the instance count).
+	DWORD cbListSize = 0;
+	PdhEnumObjectItemsW(NULL, NULL, L"PhysicalDisk",
+						NULL, &cbListSize,
+						NULL, NULL,
+						PERF_DETAIL_NOVICE, 0);
+	if(cbListSize == 0)
+	{
+		PdhCloseQuery(*hQuery);
+		*hQuery = NULL;
+		return FALSE;
+	}
+	WCHAR* counterBuf = (WCHAR*)malloc(cbListSize * sizeof(WCHAR));
+	WCHAR* instBuf    = (WCHAR*)malloc(cbListSize * sizeof(WCHAR));
+	if(!counterBuf || !instBuf)
+	{
+		if(counterBuf) free(counterBuf);
+		if(instBuf)    free(instBuf);
+		PdhCloseQuery(*hQuery);
+		*hQuery = NULL;
+		return FALSE;
+	}
+	counterBuf[0] = 0;
+	instBuf[0]    = 0;
+	DWORD instBufLen = cbListSize;
+	if(PdhEnumObjectItemsW(NULL, NULL, L"PhysicalDisk",
+						   counterBuf, &cbListSize,
+						   instBuf, &instBufLen,
+						   PERF_DETAIL_NOVICE, 0) != ERROR_SUCCESS)
+	{
+		free(counterBuf);
+		free(instBuf);
+		PdhCloseQuery(*hQuery);
+		*hQuery = NULL;
+		return FALSE;
+	}
+	// counterBuf isn't needed â€” we know which counters we want.
+	free(counterBuf);
+	counterBuf = NULL;
+
+	// Walk the double-null-terminated instance list. Add a counter per
+	// non-aggregate instance plus one _Total counter set appended at the
+	// end (if present in the enumeration).
+	int totalSlot = -1;
+	WCHAR* p = instBuf;
+	while(*p && *numInst < PDH_DISK_MAX - 1) // reserve last slot for _Total
+	{
+		wcsncpy_s(instNames[*numInst], MAX_PATH, p, _TRUNCATE);
+		int slot = *numInst;
+		if(_wcsicmp(instNames[slot], L"_Total") == 0)
+		{
+			totalSlot = slot;
+		}
+		else
+		{
+			WCHAR path[MAX_PATH];
+			swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(%s)\\%% Disk Time",   instNames[slot]);
+			PdhAddCounterW(*hQuery, path, 0, &pctCtr[slot]);
+			swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(%s)\\Disk Read Bytes/sec",  instNames[slot]);
+			PdhAddCounterW(*hQuery, path, 0, &readCtr[slot]);
+			swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(%s)\\Disk Write Bytes/sec", instNames[slot]);
+			PdhAddCounterW(*hQuery, path, 0, &writeCtr[slot]);
+		}
+		(*numInst)++;
+		p += wcslen(p) + 1;
+	}
+	// Append _Total as the last slot if it was present and we have room.
+	if(totalSlot >= 0 && *numInst < PDH_DISK_MAX)
+	{
+		int slot = *numInst;
+		wcsncpy_s(instNames[slot], MAX_PATH, L"_Total", _TRUNCATE);
+		WCHAR path[MAX_PATH];
+		swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(_Total)\\%% Disk Time");
+		PdhAddCounterW(*hQuery, path, 0, &pctCtr[slot]);
+		swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(_Total)\\Disk Read Bytes/sec");
+		PdhAddCounterW(*hQuery, path, 0, &readCtr[slot]);
+		swprintf_s(path, MAX_PATH, L"\\PhysicalDisk(_Total)\\Disk Write Bytes/sec");
+		PdhAddCounterW(*hQuery, path, 0, &writeCtr[slot]);
+		(*numInst)++;
+	}
+
+	free(counterBuf);
+	free(instBuf);
+
+	// Prime the query with one collection so the first "real" collection
+	// already has valid deltas (PDH counters are rate-based).
+	PdhCollectQueryData(*hQuery);
+	return TRUE;
+}
+
+static unsigned __stdcall Thread_MonitorPdhDisk(void*)
+{
+	HQUERY     hQuery      = NULL;
+	HCOUNTER   pctCtr[PDH_DISK_MAX];
+	HCOUNTER   readCtr[PDH_DISK_MAX];
+	HCOUNTER   writeCtr[PDH_DISK_MAX];
+	WCHAR      instNames[PDH_DISK_MAX][MAX_PATH];
+	int        numInst     = 0;
+	int        idxMap[PDH_DISK_MAX];  // -2 = _Total, -1 = unmapped, else disk index
+
+	memset(idxMap, -1, sizeof(idxMap));
+
+	// Retry initialization a few times â€” the perf counter service may not
+	// have enumerated all disks on the very first call.
+	for(int attempt = 0; attempt < 10 && g_PdhDiskStop == 0; attempt++)
+	{
+		if(_InitPdhDiskQuery(&hQuery, pctCtr, readCtr, writeCtr, instNames, &numInst))
+			break;
+		Sleep(500);
+	}
+	if(!hQuery || numInst == 0)
+		return 0;
+
+	// Map each instance name to a disk index by parsing the leading digits.
+	// "0 C:" / "1 D:" -> 0 / 1. "_Total" -> -2 sentinel.
+	for(int i = 0; i < numInst; i++)
+	{
+		if(_wcsicmp(instNames[i], L"_Total") == 0)
+		{
+			idxMap[i] = -2;
+			continue;
+		}
+		LPWSTR p = instNames[i];
+		while(*p == L' ' || *p == L'\t') p++;
+		int n = -1;
+		if(*p >= L'0' && *p <= L'9')
+		{
+			n = 0;
+			while(*p >= L'0' && *p <= L'9')
+			{
+				n = n * 10 + (*p - L'0');
+				p++;
+			}
+		}
+		idxMap[i] = n;
+	}
+
+	PDH_FMT_COUNTERVALUE value;
+
+	while(g_PdhDiskStop == 0)
+	{
+		// Collect one sample (needs two collects before GetFormattedCounterValue
+		// returns a real rate â€” the priming collect above already covered the
+		// first one).
+		PdhCollectQueryData(hQuery);
+
+		PdhDiskMetrics local[PDH_DISK_MAX];
+		memset(local, 0, sizeof(local));
+		double localTotalPct = 0.0, localTotalRead = 0.0, localTotalWrite = 0.0;
+		BOOL  gotTotal = FALSE;
+
+		for(int i = 0; i < numInst; i++)
+		{
+			int diskIdx = idxMap[i];
+			if(diskIdx == -2) // _Total
+			{
+				if(pctCtr[i]   && PdhGetFormattedCounterValue(pctCtr[i],   PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS)
+					localTotalPct   = value.doubleValue;
+				if(readCtr[i]  && PdhGetFormattedCounterValue(readCtr[i],  PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS)
+					localTotalRead  = value.doubleValue;
+				if(writeCtr[i] && PdhGetFormattedCounterValue(writeCtr[i], PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS)
+					localTotalWrite = value.doubleValue;
+				gotTotal = TRUE;
+			}
+			else if(diskIdx >= 0 && diskIdx < PDH_DISK_MAX)
+			{
+				if(pctCtr[i] && PdhGetFormattedCounterValue(pctCtr[i], PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS)
+				{
+					double v = value.doubleValue;
+					if(v < 0)        v = 0;   // counter underflow (rollover)
+					if(v > 100.0)    v = 100; // clamp
+					local[diskIdx].Pct = v;
+				}
+				if(readCtr[i]  && PdhGetFormattedCounterValue(readCtr[i],  PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS)
+					local[diskIdx].ReadBps  = value.doubleValue;
+				if(writeCtr[i] && PdhGetFormattedCounterValue(writeCtr[i], PDH_FMT_DOUBLE, NULL, &value) == ERROR_SUCCESS)
+					local[diskIdx].WriteBps = value.doubleValue;
+				local[diskIdx].Ready = 1;
+			}
+		}
+
+		// Commit to globals (only overwrite slots we actually saw, so a
+		// transient PDH hiccup can't wipe previously valid data).
+		for(int i = 0; i < PDH_DISK_MAX; i++)
+		{
+			if(local[i].Ready)
+			{
+				g_PdhDisk[i].ReadBps  = local[i].ReadBps;
+				g_PdhDisk[i].WriteBps = local[i].WriteBps;
+				g_PdhDisk[i].Pct      = local[i].Pct;
+				g_PdhDisk[i].Ready    = 1;
+			}
+		}
+		if(gotTotal)
+		{
+			g_PdhDiskTotalPct      = localTotalPct;
+			g_PdhDiskTotalReadBps  = localTotalRead;
+			g_PdhDiskTotalWriteBps = localTotalWrite;
+			g_PdhDiskTotalReady    = 1;
+		}
+
+		// Sleep ~1 s in 100 ms slices so the stop flag stays responsive.
+		for(int i = 0; i < 10 && g_PdhDiskStop == 0; i++) Sleep(100);
+	}
+
+	PdhCloseQuery(hQuery);
+	return 0;
+}
+
+static void EnsurePdhDiskMonitor(void)
+{
+	if(g_hPdhDiskThread != NULL) return;
+	InterlockedExchange(&g_PdhDiskStop, 0);
+	g_hPdhDiskThread = (HANDLE)_beginthreadex(NULL, 0, Thread_MonitorPdhDisk, NULL, 0, NULL);
+}
+
+static void StopPdhDiskMonitor(void)
+{
+	if(g_hPdhDiskThread == NULL) return;
+	InterlockedExchange(&g_PdhDiskStop, 1);
+	WaitForSingleObject(g_hPdhDiskThread, 3000);
+	CloseHandle(g_hPdhDiskThread);
+	g_hPdhDiskThread = NULL;
+}
+
+
+// ----------------------------------------------------------------------------
+// WLAN helpers (Win7+) â€” connection type (PHY), SSID, signal quality.
+// Used to populate the Performance-tab adapter info box, matching the fields
+// shown by Windows 10 native Task Manager.
+// ----------------------------------------------------------------------------
+static HANDLE _WlanOpenOrNull(void)
+{
+	HANDLE hClient = NULL;
+	DWORD dwMaxClient = 2, dwCurVersion = 0;
+	if(WlanOpenHandle(dwMaxClient, NULL, &dwCurVersion, &hClient) != ERROR_SUCCESS)
+		return NULL;
+	return hClient;
+}
+
+// Map a dot11_phy_type enum to a user-friendly Wi-Fi N label. Used as the
+// connection-type value in the Performance-tab adapter info box.
+static CString _PhyToLabel(DOT11_PHY_TYPE phy)
+{
+	switch(phy)
+	{
+		case dot11_phy_type_fhss:       return L"802.11 FHSS";
+		case dot11_phy_type_dsss:       return L"802.11 DSSS";
+		case dot11_phy_type_irbaseband: return L"802.11 IR";
+		case dot11_phy_type_ofdm:       return L"802.11a";
+		case dot11_phy_type_hrdsss:     return L"802.11b";
+		case dot11_phy_type_erp:        return L"802.11g (Wi-Fi 3)";
+		case dot11_phy_type_ht:         return L"802.11n (Wi-Fi 4)";
+		case dot11_phy_type_vht:        return L"802.11ac (Wi-Fi 5)";
+		case dot11_phy_type_dmg:        return L"802.11ad (Wi-Fi 5)";
+		case dot11_phy_type_eht:        return L"802.11be (Wi-Fi 7)";
+		default:
+			// 802.11ax generic label - older SDKs may not have dot11_phy_type_he
+			if((DWORD)phy == (DWORD)dot11_phy_type_he ||
+			   (DWORD)phy == /*dot11_phy_type_he*/ 9)
+				return L"802.11ax (Wi-Fi 6)";
+			return L"802.11";
+	}
+}
+
+// Returns the PHY type string for a wireless adapter (e.g. "802.11ac (Wi-Fi 5)").
+// Falls back to "Wi-Fi (unspecified)" if the adapter is reachable but not
+// currently associated, so the line never reads just "Wireless".
+static CString _GetWlanPhyType(const GUID* pGuid)
+{
+	CString s = L"Wi-Fi (unspecified)";
+	HANDLE h = _WlanOpenOrNull();
+	if(h == NULL) return s;
+
+	WLAN_CONNECTION_ATTRIBUTES* pConn = NULL;
+	DWORD dwSize = 0;
+	DWORD dw = WlanQueryInterface(h, pGuid, wlan_intf_opcode_current_connection,
+								  NULL, &dwSize, (PVOID*)&pConn, NULL);
+	if(dw == ERROR_SUCCESS && pConn != NULL)
+	{
+		if(pConn->isState == wlan_interface_state_connected)
+			s = _PhyToLabel(pConn->wlanAssociationAttributes.dot11PhyType);
+		else
+			s = L"Not connected";
+	}
+	if(pConn) WlanFreeMemory(pConn);
+	WlanCloseHandle(h, NULL);
+	return s;
+}
+
+// Returns the current SSID for a wireless adapter as a UTF-8 â†’ wide string.
+// Returns "Disconnected" when the Wlan API works but the adapter has no
+// association, so callers can tell apart "Wlan API failed" from
+// "adapter is idle but reachable".
+static CString _GetWlanSsid(const GUID* pGuid)
+{
+	CString s = L"Disconnected";
+	HANDLE h = _WlanOpenOrNull();
+	if(h == NULL) return L"";        // Wlan API unreachable at OS level
+
+	WLAN_CONNECTION_ATTRIBUTES* pConn = NULL;
+	DWORD dwSize = 0;
+	DWORD dw = WlanQueryInterface(h, pGuid, wlan_intf_opcode_current_connection,
+								  NULL, &dwSize, (PVOID*)&pConn, NULL);
+	if(dw == ERROR_SUCCESS && pConn != NULL)
+	{
+		if(pConn->isState == wlan_interface_state_connected)
+		{
+			DOT11_SSID* ssid = &pConn->wlanAssociationAttributes.dot11Ssid;
+			if(ssid->uSSIDLength > 0 && ssid->uSSIDLength <= DOT11_SSID_MAX_LENGTH)
+			{
+				s.Empty();
+				int needed = MultiByteToWideChar(CP_UTF8, 0,
+												 (LPCSTR)ssid->ucSSID,
+												 ssid->uSSIDLength, NULL, 0);
+				if(needed > 0)
+				{
+					wchar_t* buf = s.GetBuffer(needed + 1);
+					MultiByteToWideChar(CP_UTF8, 0,
+										(LPCSTR)ssid->ucSSID,
+										ssid->uSSIDLength, buf, needed);
+					buf[needed] = 0;
+					s.ReleaseBuffer(needed);
+				}
+				if(s.IsEmpty()) s = L"Connected";
+			}
+		}
+	}
+	if(pConn) WlanFreeMemory(pConn);
+	WlanCloseHandle(h, NULL);
+	return s;
+}
+
+// Returns the signal quality in 0..100 for a wireless adapter.
+// Returns 0 when not connected / query fails.
+static ULONG _GetWlanSignalQuality(const GUID* pGuid)
+{
+	ULONG q = 0;
+	HANDLE h = _WlanOpenOrNull();
+	if(h == NULL) return q;
+
+	WLAN_CONNECTION_ATTRIBUTES* pConn = NULL;
+	DWORD dwSize = 0;
+	DWORD dw = WlanQueryInterface(h, pGuid, wlan_intf_opcode_current_connection,
+								  NULL, &dwSize, (PVOID*)&pConn, NULL);
+	if(dw == ERROR_SUCCESS && pConn != NULL)
+	{
+		if(pConn->isState == wlan_interface_state_connected)
+			q = pConn->wlanAssociationAttributes.wlanSignalQuality;
+		if(q > 100) q = 100;
+	}
+	if(pConn) WlanFreeMemory(pConn);
+	WlanCloseHandle(h, NULL);
+	return q;
+}
+
+// TRUE if sa is an IPv6 link-local address (fe80::/10).
+static BOOL _IsIPv6LinkLocal(const SOCKADDR* sa)
+{
+	if(sa == NULL || sa->sa_family != AF_INET6) return FALSE;
+	const SOCKADDR_IN6* sa6 = (const SOCKADDR_IN6*)sa;
+	// Bytes 0..9 must be FE 80 .. BF for fe80::/10. Byte[0]=0xFE, Byte[1] & 0xC0 == 0x80.
+	return (sa6->sin6_addr.u.Byte[0] == 0xFE) &&
+	       ((sa6->sin6_addr.u.Byte[1] & 0xC0) == 0x80);
+}
 
 
 UINT Thread_GetDiskOtherStaticInfo(LPVOID lparam)
@@ -117,6 +1039,33 @@ CPerformanceBox::CPerformanceBox()
 
 CPerformanceBox::~CPerformanceBox()
 {
+	// Signal the CPU-speed monitor thread to stop and wait for it. The thread
+	// is process-global so we don't tear it down here; we just stop it cleanly.
+	if(g_hCpuSpeedThread != NULL)
+	{
+		InterlockedExchange(&g_CpuSpeedStop, 1);
+		WaitForSingleObject(g_hCpuSpeedThread, 500);
+		CloseHandle(g_hCpuSpeedThread);
+		g_hCpuSpeedThread = NULL;
+	}
+	if(g_hWmiCpuThread != NULL)
+	{
+		InterlockedExchange(&g_WmiCpuStop, 1);
+		WaitForSingleObject(g_hWmiCpuThread, 2000);
+		CloseHandle(g_hWmiCpuThread);
+		g_hWmiCpuThread = NULL;
+	}
+	// Stop the WMI disk monitor thread so it doesn't keep polling after the
+	// view is gone (avoids leaking the thread + the COM apartment it holds).
+	if(g_hWmiDiskThread != NULL)
+	{
+		InterlockedExchange(&g_WmiDiskStop, 1);
+		WaitForSingleObject(g_hWmiDiskThread, 2000);
+		CloseHandle(g_hWmiDiskThread);
+		g_hWmiDiskThread = NULL;
+	}
+	// Stop the PDH disk monitor (fallback) too.
+	StopPdhDiskMonitor();
 }
 
 void CPerformanceBox::DoDataExchange(CDataExchange* pDX)
@@ -213,7 +1162,7 @@ HBRUSH CPerformanceBox::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 				0,                         // nOrientation
 				FW_NORMAL,             // nWeight     FW_NORMAL,     FW_BOLD
 				FALSE,                     // bItalic
-				FALSE,                     // bUnderlineÏÂ»®Ïß±ê¼Ç£¬ÐèÒªÏÂ»®Ïß°ÑÕâÀïÉèÖÃ³ÉTRUE
+				FALSE,                     // bUnderlineï¿½Â»ï¿½ï¿½ß±ï¿½Ç£ï¿½ï¿½ï¿½Òªï¿½Â»ï¿½ï¿½ß°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã³ï¿½TRUE
 				0,                         // cStrikeOut
 				DEFAULT_CHARSET,              // nCharSet
 				OUT_DEFAULT_PRECIS,        // nOutPrecision
@@ -240,7 +1189,7 @@ HBRUSH CPerformanceBox::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 				0,                         // nOrientation
 				FW_NORMAL,             // nWeight     FW_NORMAL,     FW_BOLD
 				FALSE,                     // bItalic
-				FALSE,                     // bUnderlineÏÂ»®Ïß±ê¼Ç£¬ÐèÒªÏÂ»®Ïß°ÑÕâÀïÉèÖÃ³ÉTRUE
+				FALSE,                     // bUnderlineï¿½Â»ï¿½ï¿½ß±ï¿½Ç£ï¿½ï¿½ï¿½Òªï¿½Â»ï¿½ï¿½ß°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã³ï¿½TRUE
 				0,                         // cStrikeOut
 				DEFAULT_CHARSET,              // nCharSet
 				OUT_DEFAULT_PRECIS,        // nOutPrecision
@@ -291,11 +1240,24 @@ void CPerformanceBox::Init(void)
 
 	unsigned long bytesreturned;
 
-	spi_old = new SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION [nLogicalProcessor];
-	spi = new SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION [nLogicalProcessor];
+	// Bug fix Win7: guard against nLogicalProcessor==0 (or negative) so we never
+	// allocate zero-sized arrays that lead to wild-pointer writes later.
+	int nCpuCount = nLogicalProcessor;
+	if (nCpuCount <= 0)
+	{
+		SYSTEM_INFO si2; memset(&si2,0,sizeof(SYSTEM_INFO));
+		GetSystemInfo(&si2);
+		nCpuCount = si2.dwNumberOfProcessors;
+		if (nCpuCount <= 0) nCpuCount = 1;
+		nLogicalProcessor = nCpuCount;
+		theApp.PerformanceInfo.nLogicalProcessor = nCpuCount;
+	}
 
-	memset(spi_old,0,sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION)*nLogicalProcessor);
-	memset(spi,0,sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION)*nLogicalProcessor);
+	spi_old = new SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION [nCpuCount];
+	spi = new SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION [nCpuCount];
+
+	memset(spi_old,0,sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION)*nCpuCount);
+	memset(spi,0,sizeof(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION)*nCpuCount);
 
 	MyNtQuerySystemInformation =(API_NtQuerySystemInformation) GetProcAddress(GetModuleHandle(L"ntdll.dll"), "NtQuerySystemInformation");		
 
@@ -318,9 +1280,9 @@ void CPerformanceBox::Init(void)
 
 	mPItemList.SetParent(this->GetParent());
 
-	mPItemList.InsertColumn(0,L"",0,0); //±êÌâ
-	mPItemList.InsertColumn(1,L"",0,0);//µÚ¶þÐÐÐÔÄÜÏÔÊ¾
-	mPItemList.InsertColumn(2,L"",0,0);//Éè±¸Ãû³Æ
+	mPItemList.InsertColumn(0,L"",0,0); //ï¿½ï¿½ï¿½ï¿½
+	mPItemList.InsertColumn(1,L"",0,0);//ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
+	mPItemList.InsertColumn(2,L"",0,0);//ï¿½è±¸ï¿½ï¿½ï¿½ï¿½
 	mPItemList.InsertColumn(3,L"",0,0);//Tip1
 	mPItemList.InsertColumn(4,L"",0,0);//Tip2
 
@@ -352,7 +1314,7 @@ void CPerformanceBox::Init(void)
 	pInfoBoxCpu->Info[5].StrTitle  = STR_CPUINFO_5 ;
 	pInfoBoxCpu->Info[6].StrTitle  = STR_CPUINFO_6 ;
 
-	//ÐÞ¸ÄÄ¬ÈÏÎ»ÖÃ
+	//ï¿½Þ¸ï¿½Ä¬ï¿½ï¿½Î»ï¿½ï¿½
 	pInfoBoxCpu->Info[4].rc = pInfoBoxCpu->Info[3].rc;  pInfoBoxCpu->Info[4].rc.OffsetRect(pInfoBoxCpu->Info[3].rc.Width(),0);
 	pInfoBoxCpu->Info[5].rc.left = pInfoBoxCpu->Info[0].rc.left;   	pInfoBoxCpu->Info[6].rc.left  = pInfoBoxCpu->Info[6].rc.left+pInfoBoxCpu->Info[5].rc.left+22;
 
@@ -364,7 +1326,7 @@ void CPerformanceBox::Init(void)
 
 	pInfoBoxMemory = NULL;
 	pInfoBoxMemory = new CInfoBox;
-	pInfoBoxMemory->Create(L"",WS_CHILD|WS_VISIBLE|SS_CENTER|SS_NOTIFY,CRect(0,0,1,1),this); //SS_NOTIFY±ØÐë´øÓÐ²»È»ÎÞ·¨¸Ä×ÖÌå ÑÕÉ« µÈ
+	pInfoBoxMemory->Create(L"",WS_CHILD|WS_VISIBLE|SS_CENTER|SS_NOTIFY,CRect(0,0,1,1),this); //SS_NOTIFYï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð²ï¿½È»ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½É« ï¿½ï¿½
 	
 	pInfoBoxMemory->Type = PM_MEMORY;
 
@@ -376,7 +1338,7 @@ void CPerformanceBox::Init(void)
 	pInfoBoxMemory->Info[5].StrTitle  = STR_MEMINFO_5 ;
 	pInfoBoxMemory->Info[6].StrTitle  = STR_MEMINFO_6 ;
 
-	//ÐÞ¸ÄÄ¬ÈÏÎ»ÖÃ
+	//ï¿½Þ¸ï¿½Ä¬ï¿½ï¿½Î»ï¿½ï¿½
 
 	pInfoBoxMemory->Info[1].rc.OffsetRect(30,0); 
 	pInfoBoxMemory->Info[3].rc.OffsetRect(30,0); 
@@ -389,9 +1351,9 @@ void CPerformanceBox::Init(void)
 
 	//------------------------------------------------------------------------------------------------------------------------------
 
-	//------------------------------------------Ìí¼ÓÏî ¼°  ²¨ÐÎÍ¼ ¿ò----------------------------------------------------------------------
+	//------------------------------------------ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½Í¼ ï¿½ï¿½----------------------------------------------------------------------
 
-	//-------------------------------------------- ×Ü CPU --------------------------------------
+	//-------------------------------------------- ï¿½ï¿½ CPU --------------------------------------
 
 
 	pTotalCpuBox  = new CWaveBox;
@@ -404,7 +1366,7 @@ void CPerformanceBox::Init(void)
 
 
 
-	//-------------------------------------------- Âß¼­ CPU  --------------------------------------
+	//-------------------------------------------- ï¿½ß¼ï¿½ CPU  --------------------------------------
 
 
 	CString StrItemName;
@@ -427,10 +1389,13 @@ void CPerformanceBox::Init(void)
 	PerferListData * pPData =  new PerferListData;	
 
 	pCpuBox->Create(NULL,WS_CHILD,CRect(0,0,1,1),this);  
-	//--------------¾ö¶¨¼¸ÐÐ¼¸ÁÐÏÔÊ¾-------------------
-	int nRow,nColum;
+	//--------------ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¼ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾-------------------
+	int nRow = 1, nColum = 1;
 
-	_DetermineRowCol(theApp.PerformanceInfo.nLogicalProcessor,&nRow,&nColum );
+	if (theApp.PerformanceInfo.nLogicalProcessor > 0)
+	{
+		_DetermineRowCol(theApp.PerformanceInfo.nLogicalProcessor,&nRow,&nColum );
+	}
 
 
 	pCpuBox->SetLineColumn(nRow,nColum);
@@ -439,7 +1404,7 @@ void CPerformanceBox::Init(void)
 
 	//--------CPU hot box -------------------
 	pHotBox->nRow=nRow; pHotBox->nCol = nColum;
-	pHotBox->ArrayPerLogicalCpuUsage = new float[theApp.PerformanceInfo.nLogicalProcessor];
+	pHotBox->ArrayPerLogicalCpuUsage = new float[(nLogicalProcessor>0)?nLogicalProcessor:1];
 
 
 
@@ -511,7 +1476,7 @@ void CPerformanceBox::Init(void)
 
 	pPData->pInfoBox = pInfoBoxCpu;
 	pPData->Type = PM_CPU;
-	pPData->ID = -1; //±íÊ¾´ËÏîÎÞÐ§
+	pPData->ID = -1; //ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§
 	pPData->pOtherWnd = NULL;
 
 
@@ -576,13 +1541,13 @@ void CPerformanceBox::Init(void)
  
 
 
-	//Ã¶¾Ù´ÅÅÌ
+	//Ã¶ï¿½Ù´ï¿½ï¿½ï¿½
 	AddDiskToList();
 
 
 	//------------------------------------------------------------------------------
 
-	//Ã¶¾ÙÍø¿¨
+	//Ã¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	AddEthernetAdapterToList();
 
 
@@ -592,10 +1557,10 @@ void CPerformanceBox::Init(void)
 
 	//-----------------------------------------------------------------
 
-	// AfxBeginThread(Thread_SetDiskList,this);  //ÍêÉÆ´ÅÅÌ¼àÊÓÊý¾Ý  ÒòÎªÕâ¸ö±È½ÏÂýËùÓÐ·Å¶ÀÁ¢Ïß³Ì
+	// AfxBeginThread(Thread_SetDiskList,this);  //ï¿½ï¿½ï¿½Æ´ï¿½ï¿½Ì¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½È½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð·Å¶ï¿½ï¿½ï¿½ï¿½ß³ï¿½
 
 
-	//Ñ¡ÖÐµÚÒ»Ïî  ¼´ CPU
+	//Ñ¡ï¿½Ðµï¿½Ò»ï¿½ï¿½  ï¿½ï¿½ CPU
 
 
 	mPItemList.SetItemState(0,LVIS_SELECTED|LVIS_FOCUSED,LVIS_SELECTED|LVIS_FOCUSED);	 
@@ -634,16 +1599,16 @@ void CPerformanceBox::Init(void)
 void CPerformanceBox::GetCPUInfo(void)
 { 
 
-	CString strPath=_T("HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0");//×¢²á±í×Ó¼üÂ·¾¶  
-	CRegKey regkey;//¶¨Òå×¢²á±íÀà¶ÔÏó  
-	LONG lResult;//LONGÐÍ±äÁ¿£­·´Ó¦½á¹û  
-	lResult=regkey.Open(HKEY_LOCAL_MACHINE,LPCTSTR(strPath),KEY_QUERY_VALUE ); //´ò¿ª×¢²á±í¼ü   ×¢Òâ ÒªÓÃ ¶Á µÄÈ¨ÏÞ KEY_ALL_ACCESS ÔÚÄ³Ð©ÓÃ»§»áµ¼ÖÂ´íÎó
+	CString strPath=_T("HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0");//×¢ï¿½ï¿½ï¿½ï¿½Ó¼ï¿½Â·ï¿½ï¿½  
+	CRegKey regkey;//ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  
+	LONG lResult;//LONGï¿½Í±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½  
+	lResult=regkey.Open(HKEY_LOCAL_MACHINE,LPCTSTR(strPath),KEY_QUERY_VALUE ); //ï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½ï¿½   ×¢ï¿½ï¿½ Òªï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½È¨ï¿½ï¿½ KEY_ALL_ACCESS ï¿½ï¿½Ä³Ð©ï¿½Ã»ï¿½ï¿½áµ¼ï¿½Â´ï¿½ï¿½ï¿½
 	if (lResult==ERROR_SUCCESS)  
 	{  
 		WCHAR chCPUName[50] = {0};  
 		DWORD dwSize=50;   
 
-		//»ñÈ¡ProcessorNameString×Ö¶ÎÖµ  
+		//ï¿½ï¿½È¡ProcessorNameStringï¿½Ö¶ï¿½Öµ  
 		if (ERROR_SUCCESS == regkey.QueryStringValue(_T("ProcessorNameString"),chCPUName,&dwSize))  
 		{  
 			StrCPUName = chCPUName;  
@@ -655,18 +1620,18 @@ void CPerformanceBox::GetCPUInfo(void)
 	nLogicalProcessor  =1;
 
 
-	//²éÑ¯CPUÖ÷Æµ  
+	//ï¿½ï¿½Ñ¯CPUï¿½ï¿½Æµ  
 	DWORD dwValue;  
 	if (ERROR_SUCCESS == regkey.QueryDWORDValue(_T("~MHz"),dwValue))  
 	{  
 		MaxCPUSpeed = dwValue;  
 
 	}  
-	regkey.Close();//¹Ø±Õ×¢²á±í  
+	regkey.Close();//ï¿½Ø±ï¿½×¢ï¿½ï¿½ï¿½  
 
 	//UpdateData(FALSE);  
 
-	//»ñÈ¡CPUºËÐÄÊýÄ¿  
+	//ï¿½ï¿½È¡CPUï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿  
 	/*   SYSTEM_INFO si;  
 	memset(&si,0,sizeof(SYSTEM_INFO));  
 	GetSystemInfo(&si);  
@@ -679,7 +1644,7 @@ void CPerformanceBox::GetCPUInfo(void)
 
 	if(theApp.PerformanceInfo.nLogicalProcessor == 0)
 	{
-		// »ñÈ¡CPUºËÐÄÊýÄ¿  
+		// ï¿½ï¿½È¡CPUï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿  
 		SYSTEM_INFO si;  
 		memset(&si,0,sizeof(SYSTEM_INFO));  
 		GetSystemInfo(&si);  
@@ -843,7 +1808,7 @@ void CPerformanceBox::OnLvnItemchangedListPerformanceitem(NMHDR *pNMHDR, LRESULT
 	{
 
 
-		if(theApp.AppSettings.ProcessorDisplayMode  ==0 ) // ÏÔÊ¾×ÜCPU Ä£Ê½
+		if(theApp.AppSettings.ProcessorDisplayMode  ==0 ) // ï¿½ï¿½Ê¾ï¿½ï¿½CPU Ä£Ê½
 		{
 			pWnd=GetDlgItem(IDC_TIP3);if(pWnd!=NULL){ pWnd->ShowWindow(SW_SHOW); }
 			pWnd=GetDlgItem(IDC_TIP4);if(pWnd!=NULL){ pWnd->ShowWindow(SW_SHOW); }
@@ -869,7 +1834,7 @@ void CPerformanceBox::OnLvnItemchangedListPerformanceitem(NMHDR *pNMHDR, LRESULT
 		}
 
 	}
-	else //ÆäÆäËûÏîÄ¿Ê± ±êÇ©2 3 4 ¶¼ÏÔÊ¾£¡
+	else //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Ê± ï¿½ï¿½Ç©2 3 4 ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½
 	{
 		pWnd=GetDlgItem(IDC_TIP3);if(pWnd!=NULL){ pWnd->ShowWindow(SW_SHOW); }
 		pWnd=GetDlgItem(IDC_TIP4);if(pWnd!=NULL){ pWnd->ShowWindow(SW_SHOW); }
@@ -889,7 +1854,7 @@ void CPerformanceBox::OnLvnItemchangedListPerformanceitem(NMHDR *pNMHDR, LRESULT
 	if(pWnd!=NULL)
 	{					
 		StrTip = mPItemList.GetItemText(nSel,3);
-		pWnd->SetWindowTextW(StrTip); //ºóÁ½¸öÊÇ¿íºÍ¸ß²»ÊÇÎ»ÖÃ
+		pWnd->SetWindowTextW(StrTip); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í¸ß²ï¿½ï¿½ï¿½Î»ï¿½ï¿½
 	}
 
 
@@ -897,7 +1862,7 @@ void CPerformanceBox::OnLvnItemchangedListPerformanceitem(NMHDR *pNMHDR, LRESULT
 	if(pWnd!=NULL)
 	{					
 		StrTip = mPItemList.GetItemText(nSel,4);
-		pWnd->SetWindowTextW(StrTip); //ºóÁ½¸öÊÇ¿íºÍ¸ß²»ÊÇÎ»ÖÃ
+		pWnd->SetWindowTextW(StrTip); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í¸ß²ï¿½ï¿½ï¿½Î»ï¿½ï¿½
 	}
 
 
@@ -1007,9 +1972,9 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 
 		Iterations++;
 
-	} while ((dwRetVal == ERROR_BUFFER_OVERFLOW) && (Iterations < 3)); //3ÊÇ×î´óÖØÊÔ´ÎÊý
+	} while ((dwRetVal == ERROR_BUFFER_OVERFLOW) && (Iterations < 3)); //3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½
 
-	//³É¹¦£¬Êµ¼Ê»ñÈ¡ÐÅÏ¢
+	//ï¿½É¹ï¿½ï¿½ï¿½Êµï¿½Ê»ï¿½È¡ï¿½ï¿½Ï¢
 
 	if (dwRetVal == NO_ERROR)
 	{
@@ -1017,69 +1982,185 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 		// If successful, output some information from the data we received
 		pCurrAddresses = pAddresses;
 
-		CString StrIPv4,StrIPv6;
+			CString StrIPv4,StrIPv6,StrIPv6Link;
 		CString StrInfo,StrTemp;
 		while (pCurrAddresses)
 		{
-			if(pCurrAddresses->IfType != IF_TYPE_ETHERNET_CSMACD && pCurrAddresses->IfType != IF_TYPE_IEEE80211 ) 
-			{				
-				pCurrAddresses = pCurrAddresses->Next; continue;//
-			}		
-
-
-			CString StrTypeTitle = L" "; 
-			StrTypeTitle.LoadStringW(IDS_PITEM_NET);
-			if(pCurrAddresses->IfType==IF_TYPE_IEEE80211)
-			{
-				StrTypeTitle.LoadStringW(IDS_PITEM_WIRELESS);
-			}
-
-			CString StrName  ;
-			StrName= pCurrAddresses->Description;//Íø¿¨ÃèÊö    AdapterNameÊÇÊý×Ö×é³ÉµÄÃû³Æ
-			PerferListData *pPData = _InsertNetAdapterItem(StrTypeTitle,StrName,pCurrAddresses->IfIndex); 		
-
-			StrInfo = L"";
-			StrTemp.Format(L"%wS\n", pCurrAddresses->FriendlyName);
-			StrInfo=StrInfo+StrTemp;
-
-			pUnicast = pCurrAddresses->FirstUnicastAddress;
-			if (pUnicast != NULL)
-			{
-				WCHAR buff [1024];
-				DWORD bufflen = 1024;
-				StrIPv4=L""; StrIPv6=L"";
-				for (i = 0; pUnicast != NULL; i++)
+				if(pCurrAddresses->IfType != IF_TYPE_ETHERNET_CSMACD && pCurrAddresses->IfType != IF_TYPE_IEEE80211 )
 				{
-					// IPV4  
-					if (pUnicast->Address.lpSockaddr->sa_family == AF_INET)
-					{
-						sockaddr_in *sa_in = (sockaddr_in *)pUnicast->Address.lpSockaddr;
-						StrTemp = inet_ntoa (sa_in->sin_addr);				
-						StrIPv4=StrIPv4+StrTemp+L"  ";
-					}
-					//-------------------
-					else if (pUnicast->Address.lpSockaddr->sa_family == AF_INET6)
-					{
-						ZeroMemory(buff,dwSize); 
-						WSAAddressToString (pUnicast->Address.lpSockaddr, pUnicast->Address.iSockaddrLength,NULL, buff, &bufflen);
-						//MSG(WSAGetLastError() )
-						StrTemp = buff;				
-						StrIPv6 =StrIPv6+StrTemp+L"  ";
-					}
-
-					pUnicast = pUnicast->Next;
-
+				pCurrAddresses = pCurrAddresses->Next; continue;//
 				}
 
-				ZeroMemory(buff,dwSize); 
-				//StrTemp.Format(L"Number of Unicast Addresses: %d\n", i);
-				//MessageBox(Str); 
-			} 
+				// Filter: hide adapters that are not operationally up OR have no
+				// link speed. This matches what Windows 10/11 native Task Manager
+				// shows â€” virtual / disconnected / Bluetooth-PAN-inactive adapters
+				// are dropped. Win7-compatible (OperStatus / TransmitLinkSpeed have
+				// been in IP_ADAPTER_ADDRESSES since XP/Vista).
+				if(pCurrAddresses->OperStatus != IfOperStatusUp)
+				{
+					pCurrAddresses = pCurrAddresses->Next; continue;
+				}
+				if(pCurrAddresses->TransmitLinkSpeed == 0 && pCurrAddresses->ReceiveLinkSpeed == 0)
+				{
+					pCurrAddresses = pCurrAddresses->Next; continue;
+				}
 
-			StrInfo = StrInfo+StrTypeTitle+L"\n"+StrIPv4+L"\n"+StrIPv6;
-			pPData->pInfoBox->Info[6].StrInfo = StrInfo;
 
-			pPData->pInfoBox->SetColor();
+				CString StrTypeTitle = L" ";
+				StrTypeTitle.LoadStringW(IDS_PITEM_NET);
+				if(pCurrAddresses->IfType==IF_TYPE_IEEE80211)
+			{
+					StrTypeTitle.LoadStringW(IDS_PITEM_WIRELESS);
+				}
+
+				CString StrName  ;
+				StrName= pCurrAddresses->Description;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½    AdapterNameï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Éµï¿½ï¿½ï¿½ï¿½ï¿½
+				PerferListData *pPData = _InsertNetAdapterItem(StrTypeTitle,StrName,pCurrAddresses->IfIndex);
+
+				// ------------------------------------------------------------------
+				// Gather: FriendlyName, IPv4, IPv6 (single, prefer global unicast),
+				// and for wireless: connection type (PHY), SSID, signal quality.
+				// ------------------------------------------------------------------
+				StrInfo = L"";
+				StrTemp.Format(L"%wS", pCurrAddresses->FriendlyName);
+				StrInfo = StrTemp;
+
+				StrIPv4 = L"";
+				StrIPv6 = L"";       // preferred (global unicast)
+				StrIPv6Link = L"";   // fallback (link-local)
+
+				pUnicast = pCurrAddresses->FirstUnicastAddress;
+				if (pUnicast != NULL)
+				{
+					WCHAR buff[1024];
+					DWORD bufflen = 1024;
+					for (i = 0; pUnicast != NULL; i++)
+					{
+						if (pUnicast->Address.lpSockaddr->sa_family == AF_INET)
+						{
+							if(StrIPv4.IsEmpty())
+							{
+								sockaddr_in *sa_in = (sockaddr_in *)pUnicast->Address.lpSockaddr;
+								StrIPv4 = inet_ntoa(sa_in->sin_addr);
+							}
+						}
+						else if (pUnicast->Address.lpSockaddr->sa_family == AF_INET6)
+						{
+							const SOCKADDR* sa = pUnicast->Address.lpSockaddr;
+							ZeroMemory(buff, sizeof(buff));
+							bufflen = 1024;
+							WSAAddressToString((LPSOCKADDR)sa,
+							                   pUnicast->Address.iSockaddrLength,
+							                   NULL, buff, &bufflen);
+							CString s6 = buff;
+							if(_IsIPv6LinkLocal(sa))
+							{
+								if(StrIPv6Link.IsEmpty()) StrIPv6Link = s6;
+							}
+							else
+							{
+								if(StrIPv6.IsEmpty()) StrIPv6 = s6;
+							}
+						}
+
+						pUnicast = pUnicast->Next;
+
+					}
+				}
+				// If no global unicast was found, fall back to the link-local.
+				if(StrIPv6.IsEmpty()) StrIPv6 = StrIPv6Link;
+
+				// Connection type / SSID / signal: only meaningful for wireless.
+				CString StrConnType;
+				CString StrSSID;
+				CString StrSignal;
+				BOOL bWireless = (pCurrAddresses->IfType == IF_TYPE_IEEE80211);
+				BOOL bWlanOk = FALSE;
+				if(bWireless && pCurrAddresses->AdapterName != NULL)
+				{
+					// GetAdaptersAddresses returns AdapterName as an ANSI string
+					// "{XXXXXXXX-...}" but UuidFromStringW (esp. on Win7) rejects
+					// the curly braces AND expects a wide string. Strip the
+					// braces and convert the ANSI name to wide so we can build
+					// the binary GUID WlanQueryInterface needs.
+					CString braced;
+					if(pCurrAddresses->AdapterName != NULL)
+						braced = CA2W(pCurrAddresses->AdapterName);
+					braced.Trim();
+					if(braced.GetLength() > 0 && braced[0] == L'{')
+						braced.Delete(0);
+					if(braced.GetLength() > 0 && braced[braced.GetLength()-1] == L'}')
+						braced.Delete(braced.GetLength()-1);
+
+					GUID guid;
+					ZeroMemory(&guid, sizeof(guid));
+					RPC_WSTR rpcStr = (RPC_WSTR)(LPCTSTR)braced;
+					if(RPC_S_OK == UuidFromStringW(rpcStr, &guid))
+					{
+						StrConnType = _GetWlanPhyType(&guid);
+						StrSSID     = _GetWlanSsid(&guid);
+						ULONG q     = _GetWlanSignalQuality(&guid);
+						if(q > 0)
+						{
+							// 5-bar Unicode approximation of the Win10 signal icon:
+							//   â–‚  â–ƒ  â–„  â–…  â–ˆ (rising heights)
+							// Show bars filled up to quality/20 (0..5).
+							static const wchar_t* bars = L"\u2582\u2583\u2584\u2585\u2588";
+							int nFilled = (int)((q + 10) / 20); // round-half-up
+							if(nFilled < 0) nFilled = 0;
+							if(nFilled > 5) nFilled = 5;
+							CString s;
+							for(int k = 0; k < nFilled; k++) s += bars[k];
+							StrSignal.Format(L"%lu%%  %s", q, (LPCTSTR)s);
+						}
+						bWlanOk = TRUE;
+					}
+				}
+				if(StrConnType.IsEmpty())
+					StrConnType = bWireless ? L"Wi-Fi (unspecified)" : L"Ethernet";
+
+				// CInfoBox uses wcstok_s to split StrInfo by '\n' to align with
+				// the StrTitle labels. wcstok_s COLLAPSES consecutive delimiters,
+				// so a single empty value (e.g. missing SSID or signal) would
+				// shift every subsequent value up by one slot. To keep alignment
+				// we must NEVER emit an empty segment in the middle of the
+				// StrInfo string. Use an em-dash as a visible placeholder.
+				if(StrSSID.IsEmpty()   && bWireless) StrSSID   = L"\u2014"; // â€”
+				if(StrSignal.IsEmpty() && bWireless) StrSignal = L"\u2014"; // â€”
+
+				// Build StrInfo + StrTitle in the same line order.
+				if(bWireless)
+				{
+					pPData->pInfoBox->Info[6].StrTitle =
+						L"Adapter name:\n"
+						L"SSID:\n"
+						L"Connection type:\n"
+						L"IPv4 address:\n"
+						L"IPv6 address:\n"
+						L"Signal strength:";
+					pPData->pInfoBox->Info[6].StrInfo =
+						StrInfo    + L"\n" +
+						StrSSID    + L"\n" +
+						StrConnType + L"\n" +
+						StrIPv4    + L"\n" +
+						StrIPv6    + L"\n" +
+						StrSignal;
+				}
+				else
+				{
+					pPData->pInfoBox->Info[6].StrTitle =
+						L"Adapter name:\n"
+						L"Connection type:\n"
+						L"IPv4 address:\n"
+						L"IPv6 address:";
+					pPData->pInfoBox->Info[6].StrInfo =
+						StrInfo    + L"\n" +
+						StrConnType + L"\n" +
+						StrIPv4    + L"\n" +
+						StrIPv6;
+				}
+
+				pPData->pInfoBox->SetColor();
 
 
 
@@ -1134,7 +2215,7 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 	return 0;
 
 
-	//====================ÒÔÏÂÎª×¢²á±í¶ÁÈ¡·½Ê½ ÔÝÊ±±£Áô£¡£¡£¡£¡=================================
+	//====================ï¿½ï¿½ï¿½ï¿½Îª×¢ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ê½ ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½=================================
 
 
 	/*
@@ -1161,11 +2242,11 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 
 	//----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-	//  	System\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}Ã¶¾Ùºó ¶ÁÈ¡NetCfgInstanceId ¿ÉÒÔ»ñµÃÒ»¸öID
+	//  	System\\CurrentControlSet\\Control\\Class\\{4d36e972-e325-11ce-bfc1-08002be10318}Ã¶ï¿½Ùºï¿½ ï¿½ï¿½È¡NetCfgInstanceId ï¿½ï¿½ï¿½Ô»ï¿½ï¿½Ò»ï¿½ï¿½ID
 
-	//	     HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\Tcpip\Parameters\Interfaces\¼ÓÕâ¸öID   ¿ÉÒÔ¶ÁÈ¡ IPµØÖ·µÈÐÅÏ¢   
+	//	     HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\Tcpip\Parameters\Interfaces\ï¿½ï¿½ï¿½ï¿½ï¿½ID   ï¿½ï¿½ï¿½Ô¶ï¿½È¡ IPï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½Ï¢   
 
-	//	  HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}  ÍêÁËÁ´½ÓÃû³ÆµÈ
+	//	  HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Network\{4D36E972-E325-11CE-BFC1-08002BE10318}  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æµï¿½
 
 
 	//----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1186,16 +2267,16 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 	{
 	int NetType = 0;
 
-	if(lstrcmp( szData, L"ethernet") == 0 ) NetType = 1;//ÆÕÍ¨Íø¿¨
-	if(lstrcmp( szData, L"wlan,ethernet,vwifi") == 0 ) NetType = 2;//ÎÞÏßÍø¿¨
+	if(lstrcmp( szData, L"ethernet") == 0 ) NetType = 1;//ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½
+	if(lstrcmp( szData, L"wlan,ethernet,vwifi") == 0 ) NetType = 2;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-	if( NetType!= 0 )	 //	ÅÐ¶ÏÊÇ²»ÊÇÒÔÌ«Íø¿¨
+	if( NetType!= 0 )	 //	ï¿½Ð¶ï¿½ï¿½Ç²ï¿½ï¿½ï¿½ï¿½ï¿½Ì«ï¿½ï¿½ï¿½ï¿½
 	{
 
 	dwBufSize = 256;
 	if(RegQueryValueEx(hSubKey, L"*PhysicalMediaType", 0, &dwDataType, (BYTE*)szData, &dwBufSize) != ERROR_SUCCESS)
 	{
-	goto	LOOP_01  ;  //²»ÒªÓÃ continue ·ñÔò ÓÐÒ»¸öÂú×ã ¾Í »áÖ±½ÓÌø³öÑ­»·
+	goto	LOOP_01  ;  //ï¿½ï¿½Òªï¿½ï¿½ continue ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
 	}
 
 	dwBufSize = 256;	dwDataType = REG_SZ ;memset(szData, 0, sizeof(szData));
@@ -1203,7 +2284,7 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 	{
 	if(lstrcmp( szData, L"1") == 0)	
 	{
-	goto	LOOP_01  ;//²»ÒªÓÃ continue ·ñÔò ÓÐÒ»¸öÂú×ã ¾Í »áÖ±½ÓÌø³öÑ­»·
+	goto	LOOP_01  ;//ï¿½ï¿½Òªï¿½ï¿½ continue ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½
 	}
 
 
@@ -1216,18 +2297,18 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 	PerferListData *pPData =  new PerferListData;
 	CString StrName = szData;
 
-	// szData ÖÐ±ãÊÇÊÊÅäÆ÷ÏêÏ¸ÃèÊö
+	// szData ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½ï¿½ï¿½
 	int n =mPItemList.GetItemCount();
-	CString StrTypeTitle = L"Ethernet"; 
+	CString StrTypeTitle = L"Ethernet";
 	if(NetType == 2)
 	{
-	StrTypeTitle =  L"Wireless"; 
+	StrTypeTitle =  L"Wi-Fi";
 	}
 
 	mPItemList.InsertItem(n,StrTypeTitle);
 
 	mPItemList.SetItemText(n,1,L"S: 0 Kbps R: 0 Kbps");
-	mPItemList.SetItemText(n,2,StrName);  // ×¢²á±í DriverDesc ¶ÁÈ¡µ½ szData ÊÇÍø¿¨ÏÔÊ¾Ãû³Æ
+	mPItemList.SetItemText(n,2,StrName);  // ×¢ï¿½ï¿½ï¿½ DriverDesc ï¿½ï¿½È¡ï¿½ï¿½ szData ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
 	mPItemList.SetItemData(n,(DWORD_PTR)pPData);
 
 
@@ -1242,7 +2323,7 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 	pInfoBox->Type  = PM_ETHERNET;
 	pPData->ID = dwIndex-1;	
 
-	pPData->pWaveBox = pEthernetBox; //×¢ÒâË³Ðò±ØÐëÔÚSetItemDataÇ° ·ñÔòÓÐÎÊÌâ²»ÖªÎªºÎ£º(
+	pPData->pWaveBox = pEthernetBox; //×¢ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½SetItemDataÇ° ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â²»ÖªÎªï¿½Î£ï¿½(
 	pPData->pInfoBox = pInfoBox;
 	pPData->pWaveBox->DrawSecondWave = TRUE;
 	pPData->pOtherWnd = NULL;
@@ -1253,7 +2334,7 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 	pInfoBox->Info[0].StrInfo=L"0 Kbps";
 	pInfoBox->Info[2].StrInfo=L"0 Kbps";
 
-	pInfoBox->Info[0].Type=2;  pInfoBox->Info[2].Type=1; //Í¼ÀýÀàÐÍ
+	pInfoBox->Info[0].Type=2;  pInfoBox->Info[2].Type=1; //Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	pInfoBox->Info[6].StrTitle  = L"Adapter name:\nConnection type:\nIPv4 address:\nIPv6 address:";
 	pInfoBox->Info[6].rc.left-= 100;
 
@@ -1266,7 +2347,7 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 	pEthernetBox->SetLineColumn(1,1);
 	pEthernetBox->SetColor(RGB(167,79,1),RGB(238,222,207));
 
-	pPData->MaxVar = 100*1024/8; //Ä¬ÈÏ×î´óÖµ100Kbps
+	pPData->MaxVar = 100*1024/8; //Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½Öµ100Kbps
 
 
 	//	---------------  get Connect Name ---------
@@ -1292,7 +2373,7 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 	}
 
 	pInfoBox->Info[6].StrInfo.Format(L"%s\nEthernet\n",StrAdapterName );
-	_LoadNetworkStaticInfo (pPData); //×¢Òâ£ºÕâ¸öº¯ÊýÎ»ÖÃÒª·ÅÔÚ×îºó ·ñÔò pPDataÊý¾Ý²»È«»áÓÐÎÊÌâ
+	_LoadNetworkStaticInfo (pPData); //×¢ï¿½â£ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ pPDataï¿½ï¿½ï¿½Ý²ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 	//	---- Init Pdh  of ethernet Adapter----
@@ -1301,7 +2382,7 @@ int CPerformanceBox::AddEthernetAdapterToList(void)
 	StrName.Replace(L")",L"]");
 	StrName.Replace(L"/",L"_");
 
-	if ( PdhOpenQuery(NULL, NULL, &pPData->Query)== ERROR_SUCCESS )  //×Ü
+	if ( PdhOpenQuery(NULL, NULL, &pPData->Query)== ERROR_SUCCESS )  //ï¿½ï¿½
 	{
 
 	StrPdh.Format(L"\\Network Interface(%s)\\Bytes Total/sec", StrName );  
@@ -1385,16 +2466,16 @@ void CPerformanceBox::_UpdateCpuInfoBox(BOOL UpdateAll)
 	 
 
 	CurrentSpeed =  PPInfo[0].CurrentMhz;	
-	CurrentSpeed=CurrentSpeed/1000;//×¢ÒâÕâ¸öcpuÆµÂÊÊÇ ³ýÒÔ1000²»ÊÇ1024;
+	CurrentSpeed=CurrentSpeed/1000;//×¢ï¿½ï¿½ï¿½ï¿½ï¿½cpuÆµï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½1000ï¿½ï¿½ï¿½ï¿½1024;
 
 
 
 
 
 
-   /// CPU µ±Ç°ËÙ¶È¸ÃÔÚº¯Êý  UpdateAllPMInfo ÖÐ»ñÈ¡ ·ñÔò×÷³öÁÐ±í ²»Í¬²½
+   /// CPU ï¿½ï¿½Ç°ï¿½Ù¶È¸ï¿½ï¿½Úºï¿½ï¿½ï¿½  UpdateAllPMInfo ï¿½Ð»ï¿½È¡ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ ï¿½ï¿½Í¬ï¿½ï¿½
  
-	//Æô¶¯Ê±ÌáÇ°»ñÈ¡Ò»´Î·ñÔòÎÞÏÔÊ¾
+	//ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ç°ï¿½ï¿½È¡Ò»ï¿½Î·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
 
 	pInfoBoxCpu->Info[0].StrInfo.Format(L"%0.0f%%", theApp.PerformanceInfo.CpuUsage) ;
 	//pInfoBoxCpu->Info[1].StrInfo.Format(L"%0.2f GHz",CurrentSpeed);
@@ -1413,7 +2494,7 @@ void CPerformanceBox::_UpdateCpuInfoBox(BOOL UpdateAll)
 
 		CString StrMaxSpeed;
 
-		if(MaxCPUSpeed>1000) //×¢ÒâÕâ¸ö²»ÊÇ1024½øÖÆ
+		if(MaxCPUSpeed>1000) //×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1024ï¿½ï¿½ï¿½ï¿½
 		{
 			MaxCPUSpeed= MaxCPUSpeed/1000;
 			StrMaxSpeed.Format(L"%.2f GHz",MaxCPUSpeed);
@@ -1445,14 +2526,15 @@ int CPerformanceBox::AddDiskToList(int LastID)
 	DWORD dwBufSize = MAX_PATH;
 
 	WCHAR StrRegData[MAX_PATH] ;
-	WCHAR  RegData;
+	DWORD  RegData;
 
 	if(  ERROR_SUCCESS  != RegOpenKeyEx(HKEY_LOCAL_MACHINE,L"SYSTEM\\CurrentControlSet\\services\\Disk\\Enum",0,KEY_READ,&hKeyList) )
 	{
 		return 0;
 	}
 
-	RegQueryValueEx(hKeyList, L"Count", 0, &dwDataType, (BYTE*)&RegData, &dwBufSize );
+	dwBufSize = sizeof(RegData);
+	RegQueryValueEx(hKeyList, L"Count", 0, &dwDataType, (LPBYTE)&RegData, &dwBufSize );
 
 	int i,n;
 	n = (int) RegData;
@@ -1507,13 +2589,13 @@ int CPerformanceBox::AddDiskToList(int LastID)
 	 
 
 		mPItemList.SetItemText(nItem,1,L"0.00%");
-		mPItemList.SetItemText(nItem,2,StrRegData); //Ó²ÅÌÃû³Æ ±ÈÈç ADATA µÈµÈ
+		mPItemList.SetItemText(nItem,2,StrRegData); //Ó²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ADATA ï¿½Èµï¿½
 
 
 		
 
 		CWaveBox * pDiskBox= new CWaveBox;
-		CWaveBox * pDiskBox2= new CWaveBox; //µÚ¶þ¸ö ²¨ÐÎÍ¼
+		CWaveBox * pDiskBox2= new CWaveBox; //ï¿½Ú¶ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Í¼
 
 		PerferListData *pPData =  new PerferListData;
 		pInfoBox = new CInfoBox;
@@ -1524,9 +2606,9 @@ int CPerformanceBox::AddDiskToList(int LastID)
 		pPData->Type = PM_DISK;
 
 
-		//²âÊÔID ÊÇ·ñÓÐÐ§  µ±ID ²»ÊÇ×îºóÒ»¸ö µÄÓ²ÅÌ±»µ¯³öºó  iD±äÎª²»Á¬Ðø£»
+		//ï¿½ï¿½ï¿½ï¿½ID ï¿½Ç·ï¿½ï¿½ï¿½Ð§  ï¿½ï¿½ID ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ ï¿½ï¿½Ó²ï¿½Ì±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  iDï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-		pPData->ID = _TestDiskID(LastID);//´Ëº¯Êý»á½«ÕýÈ· Ó²ÅÌ´«¸ø pPData->ID ;
+		pPData->ID = _TestDiskID(LastID);//ï¿½Ëºï¿½ï¿½ï¿½ï¿½á½«ï¿½ï¿½È· Ó²ï¿½Ì´ï¿½ï¿½ï¿½ pPData->ID ;
 		LastID = pPData->ID+1;
 
 		//MSB(LastID)
@@ -1538,10 +2620,10 @@ int CPerformanceBox::AddDiskToList(int LastID)
 		pPData->pInfoBox = pInfoBox;
 		pPData->pOtherWnd = pDiskBox2;
 
-		pPData->MaxVar = 100*1024; //Ä¬ÈÏ×î´óÖµ100KB/s
+		pPData->MaxVar = 100*1024; //Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½Öµ100KB/s
 		pPData->StrOther1 = L"100 KB/s";
 
-		//pPData->StrOther0 = L" ";//Ô¤ÏÈ´æÈë26¸ö¿Õ¸ñÓÃÓÚ½ÓÊÕ¶ÔÓ¦Î»ÖÃÅÌ·ûÐÅÏ¢£¡£¡£¡£¡£¡£¡£¡
+		//pPData->StrOther0 = L" ";//Ô¤ï¿½È´ï¿½ï¿½ï¿½26ï¿½ï¿½ï¿½Õ¸ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½Õ¶ï¿½Ó¦Î»ï¿½ï¿½ï¿½Ì·ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  
 
 
@@ -1560,22 +2642,31 @@ int CPerformanceBox::AddDiskToList(int LastID)
 		pInfoBox->Info[3].StrTitle  = STR_DISKINFO_3 ;		 
 		pInfoBox->Info[6].StrTitle  = STR_DISKINFO_6 ;
 
-		pInfoBox->Info[2].Type=1;  pInfoBox->Info[3].Type=2; //Í¼ÀýÀàÐÍ
+		pInfoBox->Info[2].Type=1;  pInfoBox->Info[3].Type=2; //Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-		//Ð´Èë³õÊ¼Êý¾Ý ÎªÁËÊÓ¾õÐ§¹û ²»Í£¶Ù
+		//Ð´ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ Îªï¿½ï¿½ï¿½Ó¾ï¿½Ð§ï¿½ï¿½ ï¿½ï¿½Í£ï¿½ï¿½
 		pInfoBox->Info[0].StrInfo= L"0%";  pInfoBox->Info[1].StrInfo= L"0.0 ms";
-		pInfoBox->Info[2].StrInfo= L"0.0 KB/s";  pInfoBox->Info[3].StrInfo= L"0.0 KB/s"; //Í¼ÀýÀàÐÍ
+		pInfoBox->Info[2].StrInfo= L"0.0 KB/s";  pInfoBox->Info[3].StrInfo= L"0.0 KB/s"; //Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 		pInfoBox->Type = PM_DISK;
 
 		pInfoBox->Info[3].rc.OffsetRect(30,0);
 		pInfoBox->Info[6].rc.OffsetRect(22,0);
 
-		pPData->DataA=pPData->DataB=pPData->DataC =0;
+		pPData->DataA=pPData->DataB=pPData->DataC = pPData->DataD = 0;
+				pPData->QueryD = NULL;
+				pPData->CounterD = NULL;
+				pPData->CounterDR = NULL;
+				pPData->CounterDW = NULL;
+				pPData->PdhBaseline = FALSE;
+
+				// Disk activity comes from the WMI background monitor
+				// (g_WmiDisk[]) launched by EnsureWmiDiskMonitor() above.
+				// The per-tick loop reads from that cache.
 
 		pInfoBox->SetColor();
 
-		//---------------------------------¹Ì¶¨ÐÅÏ¢--------------------------------------
+		//---------------------------------ï¿½Ì¶ï¿½ï¿½ï¿½Ï¢--------------------------------------
 
 
 		
@@ -1675,7 +2766,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 			if(pPData==NULL)continue ;
 			if(pPData->pInfoBox == NULL)continue ;
 			
-			if(pPData->pInfoBox->IsWindowVisible()|| i==nSel)  //Êµ¼ÊÉÏÖ»ÓÐÒ»¸ö±»ÒÆ¶¯  ²»ÒªÓÃµ±Ç°Ñ¡¶¨ÏîÅÐ¶Ï ÒÆ¶¯ÄÄ¸ö ÒòÎª¿ÉÄÜ¸Ä±äÃ»ÓÐÑ¡ÖÐÏî£¡£¡£¡
+			if(pPData->pInfoBox->IsWindowVisible()|| i==nSel)  //Êµï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½  ï¿½ï¿½Òªï¿½Ãµï¿½Ç°Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ ï¿½Æ¶ï¿½ï¿½Ä¸ï¿½ ï¿½ï¿½Îªï¿½ï¿½ï¿½Ü¸Ä±ï¿½Ã»ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½î£¡ï¿½ï¿½ï¿½ï¿½
 			{
 				//PerferListData * pPData = (PerferListData *)mPItemList.GetItemData(i);
 				//if(pPData==NULL)continue ;
@@ -1688,7 +2779,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				pWnd=GetDlgItem(IDC_TIP2);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.top-15,80,15);  //ºóÁ½¸öÊÇ¿íºÍ¸ß²»ÊÇÎ»ÖÃ	
+					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.top-15,80,15);  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í¸ß²ï¿½ï¿½ï¿½Î»ï¿½ï¿½	
 					InvalidateIfVisible(pWnd);
 					
 				}
@@ -1696,7 +2787,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				pWnd=GetDlgItem(IDC_TIP1);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.left,rcWaveList.top-15,rcWaveList.Width()-80,15);  //ºóÁ½¸öÊÇ¿íºÍ¸ß²»ÊÇÎ»ÖÃ				
+					pWnd->MoveWindow(rcWaveList.left,rcWaveList.top-15,rcWaveList.Width()-80,15);  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í¸ß²ï¿½ï¿½ï¿½Î»ï¿½ï¿½				
 					InvalidateIfVisible(pWnd);
 				}
 
@@ -1713,7 +2804,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 
 
 
-				//²¨ÐÎÍ¼µ×²¿ÌáÊ¾¿ò¸ß¶È15
+				//ï¿½ï¿½ï¿½ï¿½Í¼ï¿½×²ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ß¶ï¿½15
 
 				if(pPData->Type == PM_MEMORY || pPData->Type == PM_DISK)
 				{
@@ -1736,7 +2827,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				
 				//----------------------------------------------
 
-				if(theApp.FlagSummaryView)//SummaryView×´Ì¬²¨ÐÎÍ¼ ³äÂú´°¿Ú
+				if(theApp.FlagSummaryView)//SummaryView×´Ì¬ï¿½ï¿½ï¿½ï¿½Í¼ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 				{
 					CRect rcTemp;
 					this->GetClientRect(rcTemp);
@@ -1771,7 +2862,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				pWnd=GetDlgItem(IDC_TIP3);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom,rcWaveList.Width()-80,15);  //ºóÁ½¸öÊÇ¿íºÍ¸ß²»ÊÇÎ»ÖÃ
+					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom,rcWaveList.Width()-80,15);  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í¸ß²ï¿½ï¿½ï¿½Î»ï¿½ï¿½
 					InvalidateIfVisible(pWnd);
 				}
 				pWnd=GetDlgItem(IDC_TIP4);
@@ -1788,19 +2879,19 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				pWnd=GetDlgItem(IDC_TIP5);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom+19,rcWaveList.Width()-80,15);  //ºóÁ½¸öÊÇ¿íºÍ¸ß²»ÊÇÎ»ÖÃ
+					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom+19,rcWaveList.Width()-80,15);  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í¸ß²ï¿½ï¿½ï¿½Î»ï¿½ï¿½
 					InvalidateIfVisible(pWnd);
 				}
 				pWnd=GetDlgItem(IDC_TIP6);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.bottom+19,80,15);  //ºóÁ½¸öÊÇ¿íºÍ¸ß²»ÊÇÎ»ÖÃ				
+					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.bottom+19,80,15);  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í¸ß²ï¿½ï¿½ï¿½Î»ï¿½ï¿½				
 					InvalidateIfVisible(pWnd);
 				}
 
 				
 
-				//------------------------------ÒÆ¶¯µÚ¶þ²¨ÐÎÍ¼------------------------------------
+				//------------------------------ï¿½Æ¶ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½Í¼------------------------------------
 
 				pBoxWnd = pPData->pOtherWnd;
 				if(pBoxWnd != NULL)
@@ -1827,7 +2918,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				pWnd = pPData->pInfoBox;
 				if(pWnd == NULL)continue ;
 
-				if(theApp.FlagSummaryView) //SummaryView×´Ì¬ÒÆ¶¯µ½¿ÉÒÔÒþ²ØµÄÎ»ÖÃ£¡
+				if(theApp.FlagSummaryView) //SummaryView×´Ì¬ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Øµï¿½Î»ï¿½Ã£ï¿½
 				{
 					pWnd->MoveWindow(rcWaveList.left,rcWaveList.bottom+10000,1,1);	
 				}
@@ -1843,13 +2934,13 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				pWnd=GetDlgItem(IDC_TIP7);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom,rcWaveList.Width()-80,15);  //ºóÁ½¸öÊÇ¿íºÍ¸ß²»ÊÇÎ»ÖÃ
+					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom,rcWaveList.Width()-80,15);  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í¸ß²ï¿½ï¿½ï¿½Î»ï¿½ï¿½
 					InvalidateIfVisible(pWnd);
 				}
 				pWnd=GetDlgItem(IDC_TIP8);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.bottom,80,15);  //ºóÁ½¸öÊÇ¿íºÍ¸ß²»ÊÇÎ»ÖÃ				
+					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.bottom,80,15);  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Í¸ß²ï¿½ï¿½ï¿½Î»ï¿½ï¿½				
 					InvalidateIfVisible(pWnd);
 				}
 
@@ -1939,7 +3030,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 
 //-----------------------------
 
-BOOL CPerformanceBox::_NumberIsPN(int Number) //ËØÊý
+BOOL CPerformanceBox::_NumberIsPN(int Number) //ï¿½ï¿½ï¿½ï¿½
 {
 	BOOL Ret;
 
@@ -1959,21 +3050,21 @@ void CPerformanceBox::_GetDiskOtherStaticInfo()
 { 
 
 
-	// ÒÔ·ÅÈëÏß³ÌÖÐ
+	// ï¿½Ô·ï¿½ï¿½ï¿½ï¿½ß³ï¿½ï¿½ï¿½
 
 
 	CString StrPagingfilePath;
 
 
-	CString strPath=_T("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management");//×¢²á±í×Ó¼üÂ·¾¶  
-	CRegKey regkey;//¶¨Òå×¢²á±íÀà¶ÔÏó  
-	LONG lResult;//LONGÐÍ±äÁ¿£­·´Ó¦½á¹û  
-	lResult=regkey.Open(HKEY_LOCAL_MACHINE,LPCTSTR(strPath),KEY_QUERY_VALUE ); //´ò¿ª×¢²á±í¼ü   ×¢Òâ ÒªÓÃ ¶Á µÄÈ¨ÏÞ KEY_ALL_ACCESS ÔÚÄ³Ð©ÓÃ»§»áµ¼ÖÂ´íÎó
+	CString strPath=_T("SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management");//×¢ï¿½ï¿½ï¿½ï¿½Ó¼ï¿½Â·ï¿½ï¿½  
+	CRegKey regkey;//ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  
+	LONG lResult;//LONGï¿½Í±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½  
+	lResult=regkey.Open(HKEY_LOCAL_MACHINE,LPCTSTR(strPath),KEY_QUERY_VALUE ); //ï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½ï¿½   ×¢ï¿½ï¿½ Òªï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½È¨ï¿½ï¿½ KEY_ALL_ACCESS ï¿½ï¿½Ä³Ð©ï¿½Ã»ï¿½ï¿½áµ¼ï¿½Â´ï¿½ï¿½ï¿½
 	if (lResult==ERROR_SUCCESS)  
 	{  
 		WCHAR StrData[90] = {0};  
 		DWORD dwSize=90;   
-		//»ñÈ¡ProcessorNameString×Ö¶ÎÖµ  
+		//ï¿½ï¿½È¡ProcessorNameStringï¿½Ö¶ï¿½Öµ  
 		if (ERROR_SUCCESS == regkey.QueryMultiStringValue(_T("ExistingPageFiles"),StrData,&dwSize))  
 		{  
 			StrPagingfilePath = StrData;  
@@ -1982,11 +3073,18 @@ void CPerformanceBox::_GetDiskOtherStaticInfo()
 	}  
 
 
-	regkey.Close();//¹Ø±Õ×¢²á±í  
+	regkey.Close();//ï¿½Ø±ï¿½×¢ï¿½ï¿½ï¿½  
 
 	//MSB_S(StrPagingfilePath);
 
-	WCHAR CharPagingfile = StrPagingfilePath.GetAt(StrPagingfilePath.Find(L':')-1);
+	// Bug fix Win7: StrPagingfilePath may be empty (no registry value) in which
+	// case Find(L':') returns -1 and -1-1=-2 -- GetAt(-2) is UB and corrupts stack.
+	WCHAR CharPagingfile = L' ';
+	int nColonIdx = StrPagingfilePath.Find(L':');
+	if (nColonIdx > 0 && nColonIdx < StrPagingfilePath.GetLength())
+	{
+		CharPagingfile = StrPagingfilePath.GetAt(nColonIdx - 1);
+	}
 
 	PerferListData * pData = NULL ;
 
@@ -2009,7 +3107,7 @@ void CPerformanceBox::_GetDiskOtherStaticInfo()
 		}
 
 
-		//-------------------- ÏµÍ³ÅÌÏà¹ØÐÅÏ¢ -------------------
+		//-------------------- ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ -------------------
 
 		CString StrSysPath;
 		::GetSystemDirectory(StrSysPath.GetBuffer(MAX_PATH),MAX_PATH);
@@ -2059,9 +3157,9 @@ void CPerformanceBox::UpdateInfoBox()
 		this->_UpdateMemoryInfoBox();
 	}
 
-	//if(pPData->Type == PM_ETHERNET) ÌØÊâ ²»ÔÚÕâÀïÖ´ÐÐ_UpdateNetworkInfoBox(nSel,pPData );
+	//if(pPData->Type == PM_ETHERNET) ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ï¿½_UpdateNetworkInfoBox(nSel,pPData );
 
-	//if(pPData->Type == PM_DISK)ÌØÊâ ²»ÔÚÕâÀïÖ´ÐÐ  this->_UpdateDiskInfoBox( );
+	//if(pPData->Type == PM_DISK)ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ï¿½  this->_UpdateDiskInfoBox( );
 
 
 
@@ -2251,7 +3349,7 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 	CMenu *pMenu;
 
 	PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_BASE ) );
-	pMenu = PopMenu.GetSubMenu(1);  //1ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+	pMenu = PopMenu.GetSubMenu(1);  //1ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 
 
  
@@ -2260,7 +3358,7 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 
 
 
-	//×¢Òâ:²»ÒªÍ¨¹ýÑ¡ÖÐÏîÀ´È·¶¨µ±Ç°ÏÔÊ¾ÄÇ¸öÉè±¸ÐÔÄÜ ÒòÎª¿ÉÄÜ¸ù±¾Ã»ÓÐÑ¡ÖÐÏî£¡£¡£¡
+	//×¢ï¿½ï¿½:ï¿½ï¿½ÒªÍ¨ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Ê¾ï¿½Ç¸ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Îªï¿½ï¿½ï¿½Ü¸ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½î£¡ï¿½ï¿½ï¿½ï¿½
 
 	int n= mPItemList.GetItemCount();
 
@@ -2270,7 +3368,7 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 	{
 		pData =(PerferListData *) mPItemList.GetItemData(i);
 		if(pData==NULL) continue;
-		//¾ö¶¨»ñÈ¡ÄÇ¸öÀàÐÍpData Õâ½«Ó°Ïì²Ëµ¥ÏÔÊ¾
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½Ç¸ï¿½ï¿½ï¿½ï¿½ï¿½pData ï¿½â½«Ó°ï¿½ï¿½Ëµï¿½ï¿½ï¿½Ê¾
 		if(pData->pInfoBox->IsWindowVisible())
 		{
 			break;
@@ -2283,7 +3381,7 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 	if(pData==NULL) return;
 
 
-	if(pData->Type != PM_CPU) //È¥µô²»¸ÃÔÚ´ËÏÔÊ¾µÄÏî
+	if(pData->Type != PM_CPU) //È¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
 	{
 		 
 		pMenu->DeleteMenu(0,MF_BYPOSITION);
@@ -2308,14 +3406,14 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 	GetCursorPos(&CurPos);
 
 	
-	int L1SubMenuID = 1; //View ×Ó²Ëµ¥Î»ÖÃ
+	int L1SubMenuID = 1; //View ï¿½Ó²Ëµï¿½Î»ï¿½ï¿½
 
 	if(pData->Type == PM_CPU)
 	{
-		L1SubMenuID = 4; //ÏÔÊ¾cpuÊ±ºòÎ»ÖÃ²»Í¬ÓÚÆäËû
+		L1SubMenuID = 4; //ï¿½ï¿½Ê¾cpuÊ±ï¿½ï¿½Î»ï¿½Ã²ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		if( ! rcBox.PtInRect(CurPos) )
 		{
-			L1SubMenuID = 3; //ÏÔÊ¾cpuÊ±ºòÎ»ÖÃ²»Í¬ÓÚÆäËû
+			L1SubMenuID = 3; //ï¿½ï¿½Ê¾cpuÊ±ï¿½ï¿½Î»ï¿½Ã²ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			pMenu->DeleteMenu(ID_PERFORMANCE_SHOWKERNELTIMES,MF_BYCOMMAND);
 		}
 	}
@@ -2396,7 +3494,7 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 
 
-	// ²¨ÐÎÍ¼ ÄÚ²¿»æÖÆ²ÉÓÃ 0¡«1  ¸¡µãÊýÊý¿ØÖÆÏÔÊ¾µãµÄY×ø±ê£¨±ÈÈç50% =  0.5£©  ¶ø²»ÊÇ°Ù·ÖÊý  ËùÒÔµÃµ½°Ù·ÖÊýµÄÒª×ª»¯ ÕâÑù±ÜÃâÖØ¸´³Ë³ý 100 
+	// ï¿½ï¿½ï¿½ï¿½Í¼ ï¿½Ú²ï¿½ï¿½ï¿½ï¿½Æ²ï¿½ï¿½ï¿½ 0ï¿½ï¿½1  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Yï¿½ï¿½ï¿½ê£¨ï¿½ï¿½ï¿½ï¿½50% =  0.5ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½ï¿½Ç°Ù·ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½ÔµÃµï¿½ï¿½Ù·ï¿½ï¿½ï¿½ï¿½ï¿½Òª×ªï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½Ë³ï¿½ 100 
 
 
 
@@ -2416,9 +3514,9 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 
 	
-	//ÎªÁË»æÖÆ memory composition
+	//Îªï¿½Ë»ï¿½ï¿½ï¿½ memory composition
 	theApp.PerformanceInfo.Mem_Modified =  PM.PdhGetInfo(L"\\Memory\\Modified Page List Bytes");	
-	//´Ë·½·¨»ñÈ¡ Mem_Standby¸ü¿É¿¿ 
+	//ï¿½Ë·ï¿½ï¿½ï¿½ï¿½ï¿½È¡ Mem_Standbyï¿½ï¿½ï¿½É¿ï¿½ 
 	if(iSel == 1)
 	theApp.PerformanceInfo.Mem_Standby = MyPMInfo.PhysicalAvailable*MyPMInfo.PageSize - PM.PdhGetInfo(L"\\Memory\\Free & Zero Page List Bytes");
 
@@ -2435,7 +3533,7 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 	//------------------------------------------------------------------------------------------------------------------------------------
 
-	// Ô¤ÏÈ¶¨ÒåÁË  PERFORMANCE_INFORMATION MyPMInfo;
+	// Ô¤ï¿½È¶ï¿½ï¿½ï¿½ï¿½ï¿½  PERFORMANCE_INFORMATION MyPMInfo;
 
 
  
@@ -2447,7 +3545,7 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 	if(theApp.PerformanceInfo.MemoryUsage>1.0  ) theApp.PerformanceInfo.MemoryUsage = 1.0;
 	
-	MemUsagePercent = theApp.PerformanceInfo.MemoryUsage *100;//// ×ªÎª°Ù·Ö±È
+	MemUsagePercent = theApp.PerformanceInfo.MemoryUsage *100;//// ×ªÎªï¿½Ù·Ö±ï¿½
 
 	if(ShowThisPage)
 	{
@@ -2459,7 +3557,7 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 	PerformanceData[1]=theApp.PerformanceInfo.MemoryUsage ;
 	PerformanceDataA[1] = PerformanceDataB[1] =PerformanceData[1];
-	theApp.PerformanceInfo.MemoryUsage = MemUsagePercent;// ×ªÎª°Ù·Ö±È
+	theApp.PerformanceInfo.MemoryUsage = MemUsagePercent;// ×ªÎªï¿½Ù·Ö±ï¿½
 
 
 
@@ -2473,85 +3571,80 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 	PerferListData *pPData = NULL;
 
 
-	ULONG64 RWTime;
-	ULONG64 TotalTime;
-
-
 	if(! FlagStartDiskMon )  goto SKIPDISK;
-	for(int nItem=2;nItem<n;nItem++)
-	{
-		
-		pPData = (PerferListData *)mPItemList.GetItemData(nItem);
-		if(pPData==NULL) continue ;
-		if(pPData->Type == PM_ETHERNET   ) break ; 
- 
-		DISK_PERFORMANCE DiskPerformance;
-		DiskPerformance=PM.GetDiskPerformance(pPData->ID);
 
+		// Start the WMI disk monitor thread once per session, BEFORE iterating
+		// the disk items. Previously EnsureWmiDiskMonitor() was called inside
+		// the per-disk loop, so if the system reported zero disks (registry
+		// enumeration failure, no physical drives yet, etc.) the WMI monitor
+		// thread was never spawned and the cache stayed at Ready=0 forever,
+		// leaving the disks at 0% even after a disk appeared.
+		EnsureWmiDiskMonitor(); // idempotent
+		// Also start the PDH fallback monitor. On Win7 systems where the
+		// "WMI Performance Adapter" service (wmiapsrv) is disabled (very
+		// common on Spanish/non-administrator Win7 installs) the WMI perf
+		// counter query returns no data and every disk stays at 0%. PDH
+		// reads PhysicalDisk counters directly via the same native API the
+		// Windows Task Manager uses, so it works regardless of WMI service
+		// state, admin rights, or system locale. The PDH cache is preferred
+		// over the WMI cache when it has data (Ready=1).
+		EnsurePdhDiskMonitor(); // idempotent
+
+		for(int nItem=2;nItem<n;nItem++)
+		{
+
+			pPData = (PerferListData *)mPItemList.GetItemData(nItem);
+			if(pPData==NULL) continue ;
+			if(pPData->Type == PM_ETHERNET   ) break ;
+
+			// Disk activity: read from the WMI background monitor cache.
+			// The cache is populated by Thread_MonitorWmiDisk() every ~1 s.
+			double dReadBps = 0, dWriteBps = 0, dActivePct = 0;
+			double AvgResponseTime = 0;
+
+			int diskIdx = pPData->ID;
+			// Prefer the PDH cache (no WMI dependency, works on every Win7
+			// build). Fall back to the WMI cache if PDH hasn't produced data
+			// for this disk yet (e.g. on systems where PDH instance names
+			// don't match the disk IDs).
+			if(diskIdx >= 0 && diskIdx < PDH_DISK_MAX && g_PdhDisk[diskIdx].Ready)
+			{
+				dReadBps   = g_PdhDisk[diskIdx].ReadBps;
+				dWriteBps  = g_PdhDisk[diskIdx].WriteBps;
+				dActivePct = g_PdhDisk[diskIdx].Pct;
+				if(!_finite(dReadBps)   || dReadBps < 0)   dReadBps = 0;
+				if(!_finite(dWriteBps)  || dWriteBps < 0)  dWriteBps = 0;
+				if(!_finite(dActivePct) || dActivePct < 0) dActivePct = 0;
+			}
+			else if(diskIdx >= 0 && diskIdx < WMI_DISK_MAX && g_WmiDisk[diskIdx].Ready)
+			{
+				dReadBps   = g_WmiDisk[diskIdx].ReadBps;
+				dWriteBps  = g_WmiDisk[diskIdx].WriteBps;
+				dActivePct = g_WmiDisk[diskIdx].Pct;
+				if(!_finite(dReadBps)   || dReadBps < 0)   dReadBps = 0;
+				if(!_finite(dWriteBps)  || dWriteBps < 0)  dWriteBps = 0;
+				if(!_finite(dActivePct) || dActivePct < 0) dActivePct = 0;
+			}
+
+		// AvgResponseTime isn't available via WMI (it's a separate perf
+		// counter that requires admin DISK_PERFORMANCE). Leave it at 0.
 
 		nDiskCount++;
 
-		//Read	
-
-		if(pPData->DataA<=0)
-		{
-			pPData->DataA = DiskPerformance.BytesRead.QuadPart;
-		}		
-
-		PerformanceDataA[nItem] = (double)(DiskPerformance.BytesRead.QuadPart- pPData->DataA)/theApp.AppSettings.TimerStep ;
-
+		//Read
+		PerformanceDataA[nItem] = dReadBps;
 		if(PerformanceDataA[nItem]<0.001)PerformanceDataA[nItem]=0.0;
 
-		pPData->DataA = DiskPerformance.BytesRead.QuadPart;
-
-		//Write		
-
-		if(pPData->DataB<=0)
-		{
-			pPData->DataB = DiskPerformance.BytesWritten.QuadPart;
-		}		
-		PerformanceDataB[nItem] = (double)(DiskPerformance.BytesWritten.QuadPart- pPData->DataB)/theApp.AppSettings.TimerStep ;
+		//Write
+		PerformanceDataB[nItem] = dWriteBps;
 		if(PerformanceDataB[nItem]<0.001)PerformanceDataB[nItem]=0.0;
-		pPData->DataB = DiskPerformance.BytesWritten.QuadPart;
 
+		//Active % - PDH % Disk Time is 0..100; DISK_PERFORMANCE was 0..1.
+		PerformanceData[nItem] = dActivePct/100.0;
+		if(!_finite(PerformanceData[nItem])||PerformanceData[nItem]<0) PerformanceData[nItem]=0;
+		if(PerformanceData[nItem]>1) PerformanceData[nItem]=1;
 
-
-
-		//------------- ÁíÐÐ»ñÈ¡ ÌØ±ðÐèÒªµÄÊý¾Ý---------- ÒòÎªdisk ÒªÏÔÊ¾Á½¸ö¶ÀÁ¢²¨ÐÎÍ¼
-
-
-		RWTime = DiskPerformance.ReadTime.QuadPart+DiskPerformance.WriteTime.QuadPart;  //RWTime´Ë´Î¶ÁÐ´Ê±¼ä
-	    TotalTime = DiskPerformance.IdleTime.QuadPart+RWTime;
-		
-		//´ËÊ±  pPData->DataC±£´æÁËÉÏ´Î¶ÁÐ´Ê±¼ä pPData->DataD±£´æÁËÉÏ´Î×ÜÊ±¼ä
-		PerformanceData[nItem] =  (double)(RWTime-pPData->DataC)/( TotalTime - pPData->DataD); //
-
-		pPData->DataD = TotalTime;// 
-		//--------------------------------------------------------------------------
-
-
-		//Æ½¾ùÏìÓ¦Ê±¼ä
-		double AvgResponseTime = 0;
-
-		if(ShowThisPage||theApp.UpTimeSec<10)
-		{
-			 
-
-			if(pPData->DataC <= 0)
-			{
-				pPData->DataC = RWTime;
-			}			
-
-			AvgResponseTime = 	(double)( RWTime-pPData->DataC)/2/10000/theApp.AppSettings.TimerStep; //×¢Òâ±ØÐë³ýÒÔ theApp.AppSettings.TimerStep ²ÅÊÇÕýÈ·½á¹û£¡£¡£¡			
-
-			
-
-		}
-		
-		pPData->DataC =RWTime;//ÎÞÂÛ´ËÒ³ÊÇ·ñÏÔÊ¾¶¼ÓÐ¸üÐÂ ·ñÔòÓ°Ïì ´ÅÅÌÊ¹ÓÃÂÊ»ñÈ¡
-
-
-		if(pPData->pInfoBox->IsWindowVisible())//ÔÚÊý¾Ý±»¸Ä±äÖ®Ç°µ÷ÓÃ
+		if(pPData->pInfoBox->IsWindowVisible())
 		{
 			_UpdateDiskInfoBox(pPData,PerformanceDataA[nItem],PerformanceDataB[nItem],PerformanceData[nItem]*100,AvgResponseTime);
 		}
@@ -2576,22 +3669,66 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 
 		if(ShowThisPage)		{
-			
-			StrTemp.Format(L"%0.2f%%",PerformanceData[nItem]*100); //´ËÊ±Îª°Ù·ÖÖ®¼¸
+
+			double DiskPct = PerformanceData[nItem]*100;
+			// Bug fix Win7 non-admin: clamp NaN/Inf so the inline disk % in the
+			// list never prints "-nan%" or "inf%".
+			if(_finite(DiskPct) == 0) DiskPct = 0;
+			if(DiskPct < 0) DiskPct = 0;
+			if(DiskPct > 100) DiskPct = 100;
+			StrTemp.Format(L"%0.2f%%",DiskPct); //ï¿½ï¿½Ê±Îªï¿½Ù·ï¿½Ö®ï¿½ï¿½
 			//mPItemList.SetItemText(nItem,1,StrTemp);
 			MySetItem(nItem,StrTemp);
-		}	
+		}
 
 		SumDiskUsage = SumDiskUsage+PerformanceData[nItem];
-		
+
+
 
 	}
 
-	
-	 
-	 theApp.PerformanceInfo.TotalDiskUsage = SumDiskUsage/nDiskCount*100;
- 
-	 
+
+
+	// Prefer the PDH "_Total" aggregate instance for the header % â€” that's
+	// what Windows Task Manager uses, and it correctly reflects system-wide
+	// disk activity (rather than masking a busy disk by averaging across an
+	// idle one). Fall back to the WMI _Total instance if PDH hasn't seen
+	// it yet, and finally to the per-disk average only when neither source
+	// reported an aggregate.
+	if(g_PdhDiskTotalReady)
+	{
+		double totalPct = g_PdhDiskTotalPct;
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct < 0)   totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
+	}
+	else if(g_WmiDiskTotalReady)
+	{
+		double totalPct = g_WmiDiskTotalPct;
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct < 0)   totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
+	}
+	else if(nDiskCount > 0)
+	{
+		// Bug fix Win7 non-admin: previous code divided by nDiskCount
+		// unconditionally, producing NaN (-nan%) in the disk header when no
+		// physical disk counters were available (typical on Win7 non-admin).
+		// Guard the divide.
+		double avgPct = SumDiskUsage/nDiskCount*100;
+		if(_finite(avgPct) == 0) avgPct = 0;
+		if(avgPct < 0)   avgPct = 0;
+		if(avgPct > 100) avgPct = 100;
+		theApp.PerformanceInfo.TotalDiskUsage = avgPct;
+	}
+	else
+	{
+		theApp.PerformanceInfo.TotalDiskUsage = 0;
+	}
+
+
 
 SKIPDISK:
  
@@ -2626,11 +3763,11 @@ SKIPDISK:
 
 				ULONG Index =pIfTable->Table[i].InterfaceIndex;
 
-				map<int, int>::iterator Iter= NetAdapterList.find((int)Index); // <Íø¿¨ID,ÁÐ±íÏîÄ¿ID>
+				map<int, int>::iterator Iter= NetAdapterList.find((int)Index); // <ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ð±ï¿½ï¿½ï¿½Ä¿ID>
 				int nItemID;
 
 				
-				if(Iter != NetAdapterList.end())//´æÔÚ
+				if(Iter != NetAdapterList.end())//ï¿½ï¿½ï¿½ï¿½
 				{
 					nNetCount++;
 
@@ -2643,8 +3780,8 @@ SKIPDISK:
 					{							
 						 
 
-						// InOctets  OutOctetsµ¥Î»Îª×Ö½Ú
-						//------------½ÓÊÕ
+						// InOctets  OutOctetsï¿½ï¿½Î»Îªï¿½Ö½ï¿½
+						//------------ï¿½ï¿½ï¿½ï¿½
 						if(pPData->DataA==0)    
 						{
 							PerformanceDataA[nItemID]=0;
@@ -2654,7 +3791,7 @@ SKIPDISK:
 							PerformanceDataA[nItemID]= (double)(pIfTable->Table[i].InOctets - pPData->DataA)/(double)theApp.AppSettings.TimerStep;
 						}
 
-						//------------·¢ËÍ
+						//------------ï¿½ï¿½ï¿½ï¿½
 						if(pPData->DataB==0) 	
 						{
 							PerformanceDataB[nItemID] =0;
@@ -2667,7 +3804,7 @@ SKIPDISK:
 
 						double ThisUsaeg = (PerformanceDataA[nItemID]+PerformanceDataB[nItemID])/(pIfTable->Table[i].TransmitLinkSpeed/8);
 
-						//·ÀÖ¹³öÏÖ¸ºÖµ
+						//ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½Ö¸ï¿½Öµ
 						if(ThisUsaeg>0.001)
 						{
 							SumNetUsage = SumNetUsage+ThisUsaeg;
@@ -2722,7 +3859,7 @@ SKIPDISK:
 
 	if(nNetCount>0)
 	{
-		theApp.PerformanceInfo.TotalNetUsage = SumNetUsage/nNetCount*100; //°Ù·Ö±È
+		theApp.PerformanceInfo.TotalNetUsage = SumNetUsage/nNetCount*100; //ï¿½Ù·Ö±ï¿½
 	}
 	else
 	{
@@ -2733,7 +3870,7 @@ SKIPDISK:
 
 
 
-	//----------------------------------¸üÐÂ²¨ÐÎÍ¼-----------------------------
+	//----------------------------------ï¿½ï¿½ï¿½Â²ï¿½ï¿½ï¿½Í¼-----------------------------
 
 
 
@@ -2747,13 +3884,13 @@ SKIPDISK:
 
 
 
-	//---------------¶àcpuÏÔÊ¾×´Ì¬ »ñÈ¡Êý¾Ý¼°¸üÐÂ ÊÓÍ¼---------------------
+	//---------------ï¿½ï¿½cpuï¿½ï¿½Ê¾×´Ì¬ ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ý¼ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Í¼---------------------
 
 	double CpuUsage,KernelUsage;
 
 
 
-	_GetLogicalProcessorUsage(pCpuBox, &CpuUsage,&KernelUsage); //¾ßÌåÖ´ÐÐº¯Êý
+	_GetLogicalProcessorUsage(pCpuBox, &CpuUsage,&KernelUsage); //ï¿½ï¿½ï¿½ï¿½Ö´ï¿½Ðºï¿½ï¿½ï¿½
 
 	pPData = (PerferListData *)mPItemList.GetItemData(0);
 	if(pPData!=NULL) 
@@ -2781,7 +3918,7 @@ SKIPDISK:
 	}
 
 
-	//----------------------ÕûÌåcpu----------------------
+	//----------------------ï¿½ï¿½ï¿½ï¿½cpu----------------------
 
 	memmove(&pTotalCpuBox->Num[0][0],&pTotalCpuBox->Num[0][1],ArraySize);
 	memmove(&pTotalCpuBox->Num2[0][0],&pTotalCpuBox->Num2[0][1],ArraySize);
@@ -2802,8 +3939,8 @@ SKIPDISK:
 	pTotalCpuBox->Num2[0][60] =(float)PerformanceDataB[0];
 
 	
-	//CPUµ±Ç°ËÙ¶È 
-	//Õâ¸öÖ´ÐÐÔÚ¸üÐÂÓÒ²à¸÷ÖÖÐÅÏ¢¿òÖ®Ç°  ËùÒÔ _UpdateCpuInfoBoxÖÐ²»ÓÃÔÙ³Ô»ñÈ¡ CurrentSpeed
+	//CPUï¿½ï¿½Ç°ï¿½Ù¶ï¿½ 
+	//ï¿½ï¿½ï¿½Ö´ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ö®Ç°  ï¿½ï¿½ï¿½ï¿½ _UpdateCpuInfoBoxï¿½Ð²ï¿½ï¿½ï¿½ï¿½Ù³Ô»ï¿½È¡ CurrentSpeed
 
 	if(ShowThisPage)
 	{
@@ -2823,7 +3960,7 @@ SKIPDISK:
 
 
 
-	//---------------  ÆäËû µÄ ÏÔÊ¾¸üÐÂ---------------------
+	//---------------  ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½---------------------
 
 
 
@@ -2833,10 +3970,17 @@ SKIPDISK:
 		pPData = (PerferListData *)mPItemList.GetItemData(nItem);
 		if(pPData==NULL) continue ;
 		pBox = pPData->pWaveBox;
-		pBox2= (CWaveBox *)pPData->pOtherWnd;	
+		// Bug fix Win7: pPData->pOtherWnd is CMemCompBox* for memory items and
+		// NULL for net items. Cast unconditionally to CWaveBox* and deref Num/Num2
+		// corrupts heap. Only treat as CWaveBox for disk items.
+		pBox2 = NULL;
+		if(pPData->Type == PM_DISK)
+		{
+			pBox2 = (CWaveBox *)pPData->pOtherWnd;
+		}
 		if(pBox==NULL)  continue ;
 
-		//----------------Êý¾ÝÇ°ÒÆ-------------------
+		//----------------ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½-------------------
 
 
 
@@ -2850,7 +3994,7 @@ SKIPDISK:
 
 		}*/
 
-		if(pPData->Type == PM_DISK)   //°üº¬ µÚ¶þ¸öbox
+		if(pPData->Type == PM_DISK)   //ï¿½ï¿½ï¿½ï¿½ ï¿½Ú¶ï¿½ï¿½ï¿½box
 		{
 			if(pBox2!=NULL)
 			{/*
@@ -2867,7 +4011,7 @@ SKIPDISK:
 				pBox2->Num[0][60] =(float) PerformanceDataA[nItem];			
 				pBox2->Num2[0][60] = (float)PerformanceDataB[nItem];
 
-				if(pBox2->IsWindowVisible())pBox2->Invalidate(); //±ØÐëÅÐ¶Ï IsWindowVisible ·ñÔò²¨ÐÎ»­ÂÒ
+				if(pBox2->IsWindowVisible())pBox2->Invalidate(); //ï¿½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½ IsWindowVisible ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½
 
 			}
 
@@ -3108,6 +4252,12 @@ void CPerformanceBox::_UpdateDiskInfoBox(PerferListData* pData,double Read,doubl
 	if(!ShowThisPage) return ;
 
 
+	// Bug fix Win7 non-admin: clamp NaN/Inf/negative on ActiveTime so the disk
+	// percentage display never prints "-nan%" or "<huge>%".
+	if(_finite(ActiveTime) == 0) ActiveTime = 0;
+	if(ActiveTime < 0) ActiveTime = 0;
+	if(ActiveTime > 100) ActiveTime = 100;
+
 	pData->pInfoBox->Info[0].StrInfo.Format(L"%.0f%%",ActiveTime );
 
 
@@ -3219,7 +4369,7 @@ void CPerformanceBox::_GetLogicalProcessorUsage(CWaveBox *pBox,double * pTotalUs
 
 	for(int cpuloopcount = 0; cpuloopcount < nLogicalProcessor; cpuloopcount++) 
 	{
-		//-----------Êý¾ÝÇ°ÒÆ---------------
+		//-----------ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½---------------
 		/*for(int i=0;i<61-1;i++)
 		{
 		pBox->Num[cpuloopcount][i] = pBox->Num[cpuloopcount][i+1];
@@ -3278,7 +4428,7 @@ void CPerformanceBox::_GetLogicalProcessorUsage(CWaveBox *pBox,double * pTotalUs
 
 }
 
-void CPerformanceBox::_DetermineRowCol(int nLogicalProcessor , int * pNRow, int * pNCol)//È·¶¨¶àcpu²¨ÐÎÍ¼·ÖÎª¼¸ÐÐ¼¸ÁÐÏÔÊ¾
+void CPerformanceBox::_DetermineRowCol(int nLogicalProcessor , int * pNRow, int * pNCol)//È·ï¿½ï¿½ï¿½ï¿½cpuï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½Îªï¿½ï¿½ï¿½Ð¼ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
 {
 	int nRow =  (int)sqrt( (float) nLogicalProcessor );
 
@@ -3286,7 +4436,7 @@ void CPerformanceBox::_DetermineRowCol(int nLogicalProcessor , int * pNRow, int 
 
 	while(1)
 	{
-		if(	nLogicalProcessor%nRow == 0) //¿ÉÒÔÕû³ýÔòÓÃÕâ¸ö×÷ÎªÐÐÊý ·ñÔò¼õÒ» Ö±µ½ÄÜÕû³ý
+		if(	nLogicalProcessor%nRow == 0) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ò» Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 			break;
 		}
@@ -3359,7 +4509,7 @@ void CPerformanceBox::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysM
 		int DiskCount = 0;
 		int SelectedDiskID = -1;
 
-	    int FirstDiskItemID = 2; //µÚÒ»¸ö´ÅÅÌÏîÄ¿ÔÚ×ó²àÏîÄ¿ÁÐ±íÖÐµÄID
+	    int FirstDiskItemID = 2; //ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½Ð±ï¿½ï¿½Ðµï¿½ID
 
 			 
 		for(int i = FirstDiskItemID;  i<ItemCount ;i++ ) 
@@ -3374,7 +4524,7 @@ void CPerformanceBox::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysM
 			}
 		}
 
-		Flag = (DiskCount>0)?MF_ENABLED:MF_GRAYED;  //¸ù¾ÝÊÇ·ñÓÐ´ÅÅÌ¾ö¶¨
+		Flag = (DiskCount>0)?MF_ENABLED:MF_GRAYED;  //ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Ð´ï¿½ï¿½Ì¾ï¿½ï¿½ï¿½
 		pPopupMenu->EnableMenuItem(2,MF_BYPOSITION|Flag  );  
 		if(SelectedDiskID>=0)
 		{
@@ -3520,7 +4670,7 @@ double CPerformanceBox::_TryToChangeDiskMaxVar( double DataA,double DataB,Perfer
 
 	RetMaxVar = 100*1024;
 
-	if(nM == 0) //KB ¼¶±ð
+	if(nM == 0) //KB ï¿½ï¿½ï¿½ï¿½
 	{
 		if(nK<200 )
 		{
@@ -3586,15 +4736,15 @@ double CPerformanceBox::_TryToChangeDiskMaxVar( double DataA,double DataB,Perfer
 
 	}
 
-	if(RetMaxVar!=pPData->MaxVar) //ÐèÒª±ä¸ü
+	if(RetMaxVar!=pPData->MaxVar) //ï¿½ï¿½Òªï¿½ï¿½ï¿½
 	{
-		double Per = RetMaxVar/pPData->MaxVar ;//±ä»»±ÈÂÊ
+		double Per = RetMaxVar/pPData->MaxVar ;//ï¿½ä»»ï¿½ï¿½ï¿½ï¿½
 		CWaveBox *pBox2= (CWaveBox *)pPData->pOtherWnd;	
 
-		for(int i=0;i<61;i++) //µÚ61 ¸ö ÓÃËã
+		for(int i=0;i<61;i++) //ï¿½ï¿½61 ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		{
-			pBox2->Num[0][i] =(float)(pBox2->Num[0][i]/Per) ;//±ä»»ÎªÐÂ±ÈÀý
-			pBox2->Num2[0][i] =(float)(pBox2->Num2[0][i]/Per) ;//±ä»»ÎªÐÂ±ÈÀý
+			pBox2->Num[0][i] =(float)(pBox2->Num[0][i]/Per) ;//ï¿½ä»»Îªï¿½Â±ï¿½ï¿½ï¿½
+			pBox2->Num2[0][i] =(float)(pBox2->Num2[0][i]/Per) ;//ï¿½ä»»Îªï¿½Â±ï¿½ï¿½ï¿½
 		}
 
 		pPData->StrOther1 = Str;
@@ -3638,7 +4788,7 @@ double CPerformanceBox::_TryToChangeNetworkMaxVar(double DataA,double DataB,Perf
 	RetMaxVar = 100*1024/8;
 
 
-	if(nM == 0) //KB ¼¶±ð
+	if(nM == 0) //KB ï¿½ï¿½ï¿½ï¿½
 	{
 		if(nK<200 )
 		{
@@ -3712,16 +4862,16 @@ double CPerformanceBox::_TryToChangeNetworkMaxVar(double DataA,double DataB,Perf
 
 
 
-	if( RetMaxVar !=pPData->MaxVar) //ÐèÒª±ä¸ü
+	if( RetMaxVar !=pPData->MaxVar) //ï¿½ï¿½Òªï¿½ï¿½ï¿½
 	{
 
-		double Per = RetMaxVar/pPData->MaxVar ;//±ä»»±ÈÂÊ
+		double Per = RetMaxVar/pPData->MaxVar ;//ï¿½ä»»ï¿½ï¿½ï¿½ï¿½
 		CWaveBox *pBox2= (CWaveBox *)pPData->pWaveBox;	
 
-		for(int i=0;i<61;i++) //µÚ61 ¸ö ÓÃËã
+		for(int i=0;i<61;i++) //ï¿½ï¿½61 ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
 		{
-			pBox2->Num[0][i] =(float)(pBox2->Num[0][i]/Per) ;//±ä»»ÎªÐÂ±ÈÀý
-			pBox2->Num2[0][i] =(float)(pBox2->Num2[0][i]/Per) ;//±ä»»ÎªÐÂ±ÈÀý
+			pBox2->Num[0][i] =(float)(pBox2->Num[0][i]/Per) ;//ï¿½ä»»Îªï¿½Â±ï¿½ï¿½ï¿½
+			pBox2->Num2[0][i] =(float)(pBox2->Num2[0][i]/Per) ;//ï¿½ä»»Îªï¿½Â±ï¿½ï¿½ï¿½
 		}
 
 		pPData->StrOther1 = Str;
@@ -3751,7 +4901,7 @@ void CPerformanceBox::_LoadDiskStaticInfo(PerferListData * pData)
 	pData->StrOther0 = GetDrivelettersFormDiskID(pData->ID);
 
  
-	// -------------------- ÈÝÁ¿ -----------------------
+	// -------------------- ï¿½ï¿½ï¿½ï¿½ -----------------------
 
 	CString StrDev,Str ;
 	StrDev.Format(L"\\\\.\\PhysicalDrive%d",pData->ID);
@@ -3791,15 +4941,15 @@ void CPerformanceBox::_LoadDiskStaticInfo(PerferListData * pData)
 	CloseHandle(hDevice);
 
 
-	// -------------------- ¸ñÊ½»¯ÈÝÁ¿ -----------------------
+	// -------------------- ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ -----------------------
 
 	LONGLONG DiskFmtSize=0;
 
-	WCHAR strRootPath[]={L"c:\\"};//´ø¸ùÄ¿Â¼±ê¼ÇµÄ´ÅÅÌ·ûºÅ
-	DWORD dwSectorsPerCluster=0;//Ã¿´ØÖÐÉÈÇøÊý
-	DWORD dwBytesPerSector=0;//Ã¿ÉÈÇøÖÐ×Ö½ÚÊý
-	DWORD dwFreeClusters=0;//Ê£Óà´ØÊý
-	DWORD dwTotalClusters=0;//×Ü´ØÊý
+	WCHAR strRootPath[]={L"c:\\"};//ï¿½ï¿½ï¿½ï¿½Ä¿Â¼ï¿½ï¿½ÇµÄ´ï¿½ï¿½Ì·ï¿½ï¿½ï¿½
+	DWORD dwSectorsPerCluster=0;//Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	DWORD dwBytesPerSector=0;//Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½
+	DWORD dwFreeClusters=0;//Ê£ï¿½ï¿½ï¿½ï¿½ï¿½
+	DWORD dwTotalClusters=0;//ï¿½Ü´ï¿½ï¿½ï¿½
 	int n =	0;	
 
 
@@ -3816,9 +4966,9 @@ void CPerformanceBox::_LoadDiskStaticInfo(PerferListData * pData)
 
 		if (GetDiskFreeSpace(strRootPath,&dwSectorsPerCluster,&dwBytesPerSector,&dwFreeClusters,&dwTotalClusters))
 		{
-			//m_dwVolSize=dwTotalClusters*dwSectorsPerCluster*dwBytesPerSector;//²»ÄÜÕâÑù£¬·ñÔòÔ½½ç
+			//m_dwVolSize=dwTotalClusters*dwSectorsPerCluster*dwBytesPerSector;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô½ï¿½ï¿½
 			double VolSize=dwSectorsPerCluster*dwBytesPerSector/(1024.*1024.);	 
-			//m_dVolSize=dwTotalClusters*dd;//¸Ã´ÅÅÌ×Ü´óÐ¡
+			//m_dVolSize=dwTotalClusters*dd;//ï¿½Ã´ï¿½ï¿½ï¿½ï¿½Ü´ï¿½Ð¡
 			DiskFmtSize = (LONGLONG) (DiskFmtSize+VolSize*dwTotalClusters);
 
 
@@ -3861,7 +5011,7 @@ void CPerformanceBox::OnNMRClickListPerformanceitem(NMHDR *pNMHDR, LRESULT *pRes
 	CMenu PopMenu;
 	CMenu *pMenu= NULL;
 	PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_BASE) );
-	pMenu = PopMenu.GetSubMenu(5);  //5ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+	pMenu = PopMenu.GetSubMenu(5);  //5ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 
 	CPoint CurPos ;
 	GetCursorPos(&CurPos); 
@@ -3922,7 +5072,7 @@ PerferListData * CPerformanceBox::_InsertNetAdapterItem(CString StrType, CString
 	mPItemList.InsertItem(n,StrType);
 
 	mPItemList.SetItemText(n,1,L"S: 0 Kbps R: 0 Kbps");
-	mPItemList.SetItemText(n,2,StrDescription);  // ×¢²á±í DriverDesc ¶ÁÈ¡µ½ szData ÊÇÍø¿¨ÏÔÊ¾Ãû³Æ
+	mPItemList.SetItemText(n,2,StrDescription);  // ×¢ï¿½ï¿½ï¿½ DriverDesc ï¿½ï¿½È¡ï¿½ï¿½ szData ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
 	mPItemList.SetItemData(n,(DWORD_PTR)pPData);
 
 	CInfoBox *pInfoBox = NULL;
@@ -3951,7 +5101,7 @@ PerferListData * CPerformanceBox::_InsertNetAdapterItem(CString StrType, CString
 	pInfoBox->Info[0].StrInfo=L"0 Kbps";
 	pInfoBox->Info[2].StrInfo=L"0 Kbps";
 
-	pInfoBox->Info[0].Type=2;  pInfoBox->Info[2].Type=1; //Í¼ÀýÀàÐÍ
+	pInfoBox->Info[0].Type=2;  pInfoBox->Info[2].Type=1; //Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	pInfoBox->Info[6].StrTitle  = STR_NETWORKINFO_6;
 	pInfoBox->Info[6].rc.left-= 100;
 
@@ -3962,7 +5112,7 @@ PerferListData * CPerformanceBox::_InsertNetAdapterItem(CString StrType, CString
 	pEthernetBox->SetLineColumn(1,1);
 	pEthernetBox->SetColor(theApp.AppSettings.NetworkColor);
 
-	pPData->MaxVar = 100*1024/8; //Ä¬ÈÏ×î´óÖµ100Kbps	
+	pPData->MaxVar = 100*1024/8; //Ä¬ï¿½ï¿½ï¿½ï¿½ï¿½Öµ100Kbps	
 	NetAdapterList[IfIndex] = n;
  
 	return pPData;
@@ -4112,16 +5262,16 @@ BOOL CPerformanceBox::SetTipText( UINT ID, NMHDR * pTTTStruct, LRESULT * pResult
 {
 	TOOLTIPTEXT *pTooltipText = (TOOLTIPTEXT *)pTTTStruct;
 	
-	HWND hWnd = (HWND)(pTTTStruct->idFrom); //µÃµ½ÏàÓ¦´°¿ÚID£¬ÓÐ¿ÉÄÜÊÇHWND 
+	HWND hWnd = (HWND)(pTTTStruct->idFrom); //ï¿½Ãµï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½IDï¿½ï¿½ï¿½Ð¿ï¿½ï¿½ï¿½ï¿½ï¿½HWND 
 
  
-	if (pTooltipText->uFlags & TTF_IDISHWND) //±íÃ÷nIDÊÇ·ñÎªHWND 
+	if (pTooltipText->uFlags & TTF_IDISHWND) //ï¿½ï¿½ï¿½ï¿½nIDï¿½Ç·ï¿½ÎªHWND 
 	{    
 		PerferListData *pPData = (PerferListData *) mPItemList.GetItemData(1);
 		if(pPData!=NULL)
 		{
 			CMemCompBox *pMemCompBox =(CMemCompBox *)( pPData->pOtherWnd);
-			if(pMemCompBox->m_hWnd == hWnd)//´ÓHWNDµÃµ½IDÖµ£¬µ±È»ÄãÒ²¿ÉÒÔÍ¨¹ýHWNDÖµÀ´ÅÐ¶Ï
+			if(pMemCompBox->m_hWnd == hWnd)//ï¿½ï¿½HWNDï¿½Ãµï¿½IDÖµï¿½ï¿½ï¿½ï¿½È»ï¿½ï¿½Ò²ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½HWNDÖµï¿½ï¿½ï¿½Ð¶ï¿½
 			{		
 
 				//pTooltipText->lpszText = L"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
@@ -4159,28 +5309,74 @@ void CPerformanceBox::_GetDiskLetterUseWmi(void)
 
 	while (pEnumerator)
 	{
-		HRESULT hr = pEnumerator->Next(WBEM_INFINITE, 1,    &pclsObj, &uReturn);
-		if(0 == uReturn)  {break;}
-		VARIANT vtProp;
+		HRESULT hr = pEnumerator->Next(WBEM_INFINITE, 1, &pclsObj, &uReturn);
+		if(0 == uReturn || FAILED(hr))  {break;}
 
-		// Get the value of the Name property
+		// Bug fix Win7 heap-corruption: vtProp must be VariantInit'd and each
+		// Get() must be checked for success before reading bstrVal. The previous
+		// code reused vtProp between two Get() calls without VariantClear between
+		// them, and never initialised the variant - reading vtProp.bstrVal on a
+		// failed Get() returned random stack/heap data, which CString::operator=
+		// would then try to SysFreeString on at destruction. That was corrupting
+		// the heap, surfacing later as STATUS_HEAP_CORRUPTION in ntdll.dll.
+		VARIANT vtProp;
+		VariantInit(&vtProp);
 		hr = pclsObj->Get(L"Dependent", 0, &vtProp, 0, 0);
-		StrVolume = vtProp.bstrVal;
+		if(SUCCEEDED(hr) && V_VT(&vtProp) == VT_BSTR && vtProp.bstrVal != NULL)
+		{
+			StrVolume = vtProp.bstrVal;
+		}
+		else
+		{
+			StrVolume.Empty();
+		}
+		VariantClear(&vtProp);
+
+		VariantInit(&vtProp);
 		hr = pclsObj->Get(L"Antecedent", 0, &vtProp, 0, 0);
-		StrDisk = vtProp.bstrVal;
+		if(SUCCEEDED(hr) && V_VT(&vtProp) == VT_BSTR && vtProp.bstrVal != NULL)
+		{
+			StrDisk = vtProp.bstrVal;
+		}
+		else
+		{
+			StrDisk.Empty();
+		}
+		VariantClear(&vtProp);
 		StrPartitionID = StrDisk;
 
+		if(StrVolume.IsEmpty())
+		{
+			pclsObj->Release();
+			continue;
+		}
 
 		StrVolume= StrVolume.Right(4);
 		StrVolume.Remove(L'\"');
 
-		int n=StrDisk.Find(L'#');
-		StrDisk.Delete(0,n+1);
-		n=StrDisk.Find(L',');  //×¢Òâ²»ÒªÖ±½ÓÈ¡µÚÒ»¸ö×÷ÎªÎïÀíÓ²ÅÌID  ÒòÎª¿ÉÄÜ³¬¹ý9¸ö £¨²»Ö¹Ò»Î»Êý×Ö£©
-		StrDisk =StrDisk.Left(n);  
+		if(StrDisk.IsEmpty())
+		{
+			pclsObj->Release();
+			continue;
+		}
 
-		StrPartitionID = StrPartitionID.Right(2); //×îºóÁ½Î»¿ÉÄÜÊÇ·ÖÇøºÅ   ÀàËÆÈçÏÂÐÎÊ½ rtition.DeviceID="Disk #4, Partition #0"
-		//if(StrPartitionID.Left(1)==L"#")//Ö»ÓÐÒ»Î»Êý
+		int n=StrDisk.Find(L'#');
+		if(n < 0)
+		{
+			pclsObj->Release();
+			continue;
+		}
+		StrDisk.Delete(0,n+1);
+		n=StrDisk.Find(L',');  //×¢ï¿½â²»ÒªÖ±ï¿½ï¿½È¡ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½Ó²ï¿½ï¿½ID  ï¿½ï¿½Îªï¿½ï¿½ï¿½Ü³ï¿½ï¿½ï¿½9ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ö¹Ò»Î»ï¿½ï¿½ï¿½Ö£ï¿½
+		if(n < 0)
+		{
+			pclsObj->Release();
+			continue;
+		}
+		StrDisk =StrDisk.Left(n);
+
+		StrPartitionID = StrPartitionID.Right(2); //ï¿½ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ rtition.DeviceID="Disk #4, Partition #0"
+		//if(StrPartitionID.Left(1)==L"#")//Ö»ï¿½ï¿½Ò»Î»ï¿½ï¿½
 		//{
 		//	//StrPartitionID = StrPartitionID.Right(1);
 		//}
@@ -4190,7 +5386,7 @@ void CPerformanceBox::_GetDiskLetterUseWmi(void)
 		DiskID = _wtoi(StrDisk);
 
 		int i=2;
-		 
+
 		while(1)
 		{
 
@@ -4199,17 +5395,15 @@ void CPerformanceBox::_GetDiskLetterUseWmi(void)
 			if(pData->Type==PM_ETHERNET)break;
 			if(pData->ID == DiskID && (pData->StrOther0.Find(StrVolume.GetAt(0))<0))
 			{
-				// ´Ë´¦½«ÅÌ·ûÐ´Èë·ÖÇø¶ÔÓ¦µÄÎ»ÖÃ ±ÈÈçµÚ0·ÖÇøÅÌ·ûÊÇAÔò Éè×Ö·û´®µÚ0¸ö×Ö·ûÎªA
+				// ï¿½Ë´ï¿½ï¿½ï¿½ï¿½Ì·ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½Î»ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½ï¿½Ì·ï¿½ï¿½ï¿½Aï¿½ï¿½ ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½Ö·ï¿½ÎªA
 
 				if(pData->StrOther0  != L" ")StrVolume =L" "+StrVolume;
-				pData->StrOther0 = pData->StrOther0+StrVolume; 
+				pData->StrOther0 = pData->StrOther0+StrVolume;
 			}
 			i++;
 		}
 
-		
 
-		VariantClear(&vtProp);
 
 		pclsObj->Release();
 
@@ -4242,14 +5436,76 @@ void CPerformanceBox::_FakeSelPItem(int ID)
 	   mPItemList.SetItemState(ID,LVIS_SELECTED|LVIS_FOCUSED,LVIS_SELECTED|LVIS_FOCUSED);
 }
 
-double CPerformanceBox::_GetSurrentCpuSpeed(void)  //µ¥Î»ÊÇ GHz
+double CPerformanceBox::_GetSurrentCpuSpeed(void)  //ï¿½ï¿½Î»ï¿½ï¿½ GHz
 {
 	double  CurrentSpeed = 0.0;
-	PROCESSOR_POWER_INFORMATION  PPInfo;
-	CallNtPowerInformation( ProcessorInformation,NULL, 0,&PPInfo, sizeof(PPInfo)*theApp.PerformanceInfo.nLogicalProcessor );
+	// Bug fix Win7: previous code used a single PROCESSOR_POWER_INFORMATION on stack
+	// but told CallNtPowerInformation the buffer was nLogicalProcessor structs wide.
+	// When nLogicalProcessor > 1 the kernel writes past the single struct and
+	// corrupts the stack of the caller (eventually corrupting UpdateAllPMInfo GS cookie).
+	int nLP = theApp.PerformanceInfo.nLogicalProcessor;
+	if(nLP < 1) nLP = 1;
+	PROCESSOR_POWER_INFORMATION  *PPInfo = new PROCESSOR_POWER_INFORMATION[nLP];
+	memset(PPInfo, 0, sizeof(PROCESSOR_POWER_INFORMATION)*nLP);
+	CallNtPowerInformation( ProcessorInformation,NULL, 0,PPInfo, sizeof(PROCESSOR_POWER_INFORMATION)*nLP );
 
-	CurrentSpeed = PPInfo.CurrentMhz;	
-	CurrentSpeed=CurrentSpeed/1000;//×¢ÒâÕâ¸öcpuÆµÂÊÊÇ ³ýÒÔ1000²»ÊÇ1024;
+	ULONG CurMhz = PPInfo[0].CurrentMhz;
+	ULONG MaxMhz = PPInfo[0].MaxMhz;
+
+	delete [] PPInfo;
+
+	// Defensive clamp: garbage from API (or 0/NaN when API fails) must not reach display.
+	if(_finite((double)CurMhz) == 0) CurMhz = 0;
+	if(CurMhz > 100000) CurMhz = 100000;
+	if(_finite((double)MaxMhz) == 0) MaxMhz = 0;
+	if(MaxMhz > 100000) MaxMhz = 100000;
+
+	// Preferred: the WMI-based current-clock-speed monitor. On Windows 10 +
+	// modern CPUs (AMD Zen CPPC, Intel Speed Shift) this reflects the actual
+	// current P-state, including turbo / boost - the same source Win10's
+	// native task manager uses. Polled every 2 s on a background thread.
+	EnsureWmiCpuSpeedMonitor();
+	if(InterlockedCompareExchange(&g_WmiCpuReady, 0, 0) != 0)
+	{
+		LONG wmi = InterlockedCompareExchange(&g_WmiCpuMhz, 0, 0);
+		if(wmi > 50 && wmi < 100000)
+		{
+			CurrentSpeed = (double)wmi / 1000.0;
+			return CurrentSpeed;
+		}
+	}
+
+	// Fallback: the OS-reported CurrentMhz when it is *less* than MaxMhz
+	// (i.e. the OS actually has live P-state info). Works on older CPUs and
+	// on Win7 + Intel with proper ACPI.
+	if(CurMhz > 0 && MaxMhz > 0 && CurMhz < MaxMhz)
+	{
+		CurrentSpeed = (double)CurMhz / 1000.0;
+		return CurrentSpeed;
+	}
+
+	// Fallback: live RDTSC measurement. Works on Intel CPUs where TSC ticks
+	// at the core clock, NOT on AMD Zen (TSC is rated-frequency there).
+	EnsureCpuSpeedMonitor();
+	if(InterlockedCompareExchange(&g_CpuSpeedReady, 0, 0) != 0)
+	{
+		LONG measured = InterlockedCompareExchange(&g_CpuSpeedMhz, 0, 0);
+		if(measured > 0 && measured < 100000)
+		{
+			CurrentSpeed = (double)measured / 1000.0;
+			return CurrentSpeed;
+		}
+	}
+
+	// Last resort: report MaxMhz / 1000 so the field is at least populated.
+	if(MaxMhz > 0)
+	{
+		CurrentSpeed = (double)MaxMhz / 1000.0;
+	}
+	else if(CurMhz > 0)
+	{
+		CurrentSpeed = (double)CurMhz / 1000.0;
+	}
 
 	return CurrentSpeed;
 }
