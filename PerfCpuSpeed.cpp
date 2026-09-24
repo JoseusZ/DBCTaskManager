@@ -2,65 +2,103 @@
 #include "stdafx.h"
 #include "PerfCpuSpeed.h"
 
-#include <intrin.h>
+#include <pdh.h>
+#pragma comment(lib, "pdh.lib")
+
 #include <process.h>
 #include <comdef.h>
 
-static volatile LONG  s_CpuSpeedMhz   = 0;
-static volatile LONG  s_CpuSpeedReady = 0;
-static HANDLE         s_hCpuSpeedThread = NULL;
-static volatile LONG  s_CpuSpeedStop    = 0;
+// ============================================================================
+//  PDH-based "% Processor Performance" monitor (Win10-style PRIMARY source)
+//
+//  Windows 10/11 task manager computes the live CPU speed as:
+//      fCurrentGhz = fBaseGhz * (% Processor Performance / 100.0)
+//
+//  On Intel Core (any generation, Nehalem -> current) and AMD Zen
+//  (Ryzen / Threadripper / EPYC), % Processor Performance exceeds 100 %
+//  when the cores are in Turbo / Boost state. On Windows 7 and on CPUs
+//  that don't expose CPPC the counter is either missing or pinned to 100 %.
+//
+//  The counter path is opened with PdhAddEnglishCounterW so it resolves
+//  against the English counter names regardless of the user locale
+//  (es-ES, es-MX, fr-FR, de-DE, ja-JP, ...).
+// ============================================================================
 
-static volatile LONG  s_WmiCpuMhz   = 0;
-static volatile LONG  s_WmiCpuReady = 0;
-static HANDLE         s_hWmiCpuThread = NULL;
-static volatile LONG  s_WmiCpuStop    = 0;
+static HQUERY          s_hPdhQuery   = NULL;
+static HCOUNTER        s_hPdhCounter = NULL;
+static volatile double s_PdhPct      = 0.0;   // latest % Processor Performance
+static volatile LONG   s_PdhReady    = 0;
+static HANDLE          s_hPdhThread  = NULL;
+static volatile LONG   s_PdhStop     = 0;
 
-static UINT __stdcall Thread_MonitorCpuSpeed(LPVOID lparam)
+static volatile LONG   s_WmiCpuMhz      = 0;
+static volatile LONG   s_WmiCpuReady    = 0;
+static HANDLE          s_hWmiCpuThread  = NULL;
+static volatile LONG   s_WmiCpuStop     = 0;
+
+// Some older Windows SDKs ship pdh.h without PdhAddEnglishCounterW; forward
+// declare it so the binary still links on a Vista-or-newer runtime.
+#if !defined(PdhAddEnglishCounterW) && (_WIN32_WINNT < 0x0600)
+PDH_STATUS WINAPI PdhAddEnglishCounterW(PDH_HQUERY hQuery,
+									   LPCWSTR    szFullCounterPath,
+									   DWORD_PTR  dwUserData,
+									   PDH_HCOUNTER *phCounter);
+#endif
+
+static UINT __stdcall Thread_MonitorPdhCpuPerformance(LPVOID lparam)
 {
 	(void)lparam;
 
-	HANDLE hThread = GetCurrentThread();
-	SetThreadAffinityMask(hThread, 1);
-
-	LARGE_INTEGER qpcFreq;
-	if(!QueryPerformanceFrequency(&qpcFreq) || qpcFreq.QuadPart <= 0)
-		return 0;
-
-	LARGE_INTEGER startQpc; QueryPerformanceCounter(&startQpc);
-	unsigned __int64 startTsc = __rdtsc();
-
-	const DWORD SampleMs = 250;
-	while(s_CpuSpeedStop == 0)
+	for(int attempt = 0; attempt < 10 && s_PdhStop == 0; attempt++)
 	{
-		Sleep(SampleMs);
-
-		LARGE_INTEGER endQpc; QueryPerformanceCounter(&endQpc);
-		unsigned __int64 endTsc = __rdtsc();
-
-		LONGLONG deltaQpc = endQpc.QuadPart - startQpc.QuadPart;
-		unsigned __int64 deltaTsc = endTsc - startTsc;
-
-		if(deltaQpc <= 0 || deltaTsc == 0)
-			continue;
-
-		double seconds = (double)deltaQpc / (double)qpcFreq.QuadPart;
-		if(seconds <= 0)
-			continue;
-
-		double mhz = (double)deltaTsc / (seconds * 1.0e6);
-
-		if(_finite(mhz) == 0) continue;
-		if(mhz < 100.0) continue;
-		if(mhz > 20000.0) continue;
-
-		LONG mhzInt = (LONG)(mhz + 0.5);
-		InterlockedExchange(&s_CpuSpeedMhz, mhzInt);
-		InterlockedExchange(&s_CpuSpeedReady, 1);
-
-		startQpc = endQpc;
-		startTsc = endTsc;
+		if(PdhOpenQuery(NULL, 0, &s_hPdhQuery) == ERROR_SUCCESS && s_hPdhQuery)
+			break;
+		s_hPdhQuery = NULL;
+		Sleep(500);
 	}
+	if(!s_hPdhQuery) return 0;
+
+	PDH_STATUS s = PdhAddEnglishCounterW(s_hPdhQuery,
+		L"\\Processor Information(_Total)\\% Processor Performance",
+		0, &s_hPdhCounter);
+	if(s != ERROR_SUCCESS || !s_hPdhCounter)
+	{
+		PdhCloseQuery(s_hPdhQuery);
+		s_hPdhQuery   = NULL;
+		s_hPdhCounter = NULL;
+		return 0;
+	}
+
+	// "% Processor Performance" is a rate-based counter - it needs two
+	// collects before a meaningful value can be read. Prime it here.
+	PdhCollectQueryData(s_hPdhQuery);
+	Sleep(1000);
+
+	while(s_PdhStop == 0)
+	{
+		PdhCollectQueryData(s_hPdhQuery);
+
+		PDH_FMT_COUNTERVALUE v;
+		PDH_STATUS g = PdhGetFormattedCounterValue(s_hPdhCounter,
+			PDH_FMT_DOUBLE, NULL, &v);
+		if(g == ERROR_SUCCESS)
+		{
+			double pct = v.doubleValue;
+			if(!_finite(pct)) pct = 0.0;
+			if(pct < 0.0)    pct = 0.0;
+			// Note: pct can legitimately exceed 100.0 for Turbo/Boost -
+			// do not clamp here.
+			s_PdhPct = pct;
+			InterlockedExchange(&s_PdhReady, 1);
+		}
+
+		Sleep(1000);
+	}
+
+	PdhRemoveCounter(s_hPdhCounter);
+	PdhCloseQuery(s_hPdhQuery);
+	s_hPdhQuery   = NULL;
+	s_hPdhCounter = NULL;
 	return 0;
 }
 
@@ -143,28 +181,34 @@ static UINT __stdcall Thread_MonitorWmiCpuSpeed(LPVOID lparam)
 			InterlockedExchange(&s_WmiCpuReady, 1);
 		}
 
-		for(int i = 0; i < 20 && s_WmiCpuStop == 0; i++) Sleep(100);
+		// 3000 ms sampling interval - reduce WMI overhead when this is
+		// only acting as a fallback for the PDH primary source.
+		for(int i = 0; i < 30 && s_WmiCpuStop == 0; i++) Sleep(100);
 	}
 
 	if(ownCom) CoUninitialize();
 	return 0;
 }
 
-void PerfCpuSpeed_Start(void)
+void PerfPdhCpuPerf_Start(void)
 {
-	if(s_hCpuSpeedThread != NULL) return;
-	InterlockedExchange(&s_CpuSpeedStop, 0);
-	s_hCpuSpeedThread = (HANDLE)_beginthreadex(NULL, 0, Thread_MonitorCpuSpeed, NULL, 0, NULL);
+	if(s_hPdhThread != NULL) return;
+	InterlockedExchange(&s_PdhStop, 0);
+	s_hPdhThread = (HANDLE)_beginthreadex(NULL, 0,
+		Thread_MonitorPdhCpuPerformance, NULL, 0, NULL);
 }
 
-void PerfCpuSpeed_Stop(void)
+void PerfPdhCpuPerf_Stop(void)
 {
-	if(s_hCpuSpeedThread == NULL) return;
-	InterlockedExchange(&s_CpuSpeedStop, 1);
-	WaitForSingleObject(s_hCpuSpeedThread, 3000);
-	CloseHandle(s_hCpuSpeedThread);
-	s_hCpuSpeedThread = NULL;
+	if(s_hPdhThread == NULL) return;
+	InterlockedExchange(&s_PdhStop, 1);
+	WaitForSingleObject(s_hPdhThread, 3000);
+	CloseHandle(s_hPdhThread);
+	s_hPdhThread = NULL;
 }
+
+double PerfPdhCpuPerf_GetPct(void)   { return s_PdhPct; }
+LONG   PerfPdhCpuPerf_GetReady(void) { return InterlockedCompareExchange(&s_PdhReady, 0, 0); }
 
 void PerfWmiCpu_Start(void)
 {
@@ -182,7 +226,29 @@ void PerfWmiCpu_Stop(void)
 	s_hWmiCpuThread = NULL;
 }
 
-LONG PerfCpuSpeed_GetMhz(void)   { return InterlockedCompareExchange(&s_CpuSpeedMhz,   0, 0); }
-LONG PerfCpuSpeed_GetReady(void) { return InterlockedCompareExchange(&s_CpuSpeedReady, 0, 0); }
 LONG PerfWmiCpu_GetMhz(void)     { return InterlockedCompareExchange(&s_WmiCpuMhz,     0, 0); }
 LONG PerfWmiCpu_GetReady(void)   { return InterlockedCompareExchange(&s_WmiCpuReady,   0, 0); }
+
+// ---------------------------------------------------------------------------
+//  PerfIsWindows7: returns TRUE when the running OS is Windows 7 (NT 6.1).
+//
+//  Implemented via VerifyVersionInfoW so it stays correct even under a
+//  manifest that lies to GetVersion(). The helper is referenced from both
+//  the cascade (to gate the software Turbo estimator) and the Performance
+//  view UI (to show the disclaimer).
+// ---------------------------------------------------------------------------
+BOOL PerfIsWindows7(void)
+{
+	OSVERSIONINFOEXW osvi;
+	ZeroMemory(&osvi, sizeof(osvi));
+	osvi.dwOSVersionInfoSize = sizeof(osvi);
+	osvi.dwMajorVersion = 6;
+	osvi.dwMinorVersion = 1;
+
+	ULONGLONG mask = 0;
+	mask = VerSetConditionMask(mask, VER_MAJORVERSION, VER_EQUAL);
+	mask = VerSetConditionMask(mask, VER_MINORVERSION, VER_EQUAL);
+
+	return VerifyVersionInfoW(&osvi,
+		VER_MAJORVERSION | VER_MINORVERSION, mask) != FALSE;
+}

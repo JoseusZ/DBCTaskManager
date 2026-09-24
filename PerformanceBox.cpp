@@ -1,13 +1,13 @@
 ﻿// PerformanceView.cpp : implementation file
-//
+
 
 #include "stdafx.h"
 #include "DBCTaskman.h"
 #include "PerformanceBox.h"
 #include "MemCompBox.h"
 #include "SMBIOS.h"
-#include <intrin.h>      // __rdtsc
-#include <process.h>     // _beginthreadex
+#include <intrin.h>      
+#include <process.h>     
 
 // inet_ntop / INET_ADDRSTRLEN — declared in <ws2tcpip.h>.
 #include <ws2tcpip.h>
@@ -26,7 +26,7 @@
 extern "C" {
 #include <powrprof.h>
 }
-#pragma comment(lib , "PowrProf.lib") // 
+#pragma comment(lib , "PowrProf.lib") 
 
 
 
@@ -34,7 +34,7 @@ extern "C" {
 #include <atlbase.h>
 
 // #include <Iphlpapi.h>
-#pragma comment(lib , "Iphlpapi.lib") //��������
+#pragma comment(lib , "Iphlpapi.lib") 
 
 // CPerformanceBox
 
@@ -43,10 +43,7 @@ static  CPerformanceBox* pThisBoxView;
 
 static   BOOL FlagStartDiskMon = FALSE;
 
-// Single shared storage for the two NT API function pointers that were
-// declared 'static' in stdafx.h. Every translation unit that #includes stdafx.h
-// got its own uninitialized copy; PerformanceBox_Cpu.cpp called through a NULL
-// pointer at line 173 and crashed inside the periodic timer.
+
 API_NtQuerySystemInformation  MyNtQuerySystemInformation       = NULL;
 PROCNTQSIP                    MyNtQueryInformationProcess      = NULL;
 
@@ -86,6 +83,108 @@ UINT Thread_LoadDiskStaticInfo(LPVOID lparam)
 	return 0;
 }
 
+// ============================================================================
+// ComputeHeaderDiskUsage
+//   Returns the disk %% to display in the Processes tab header (and the
+//   MiniDlg header bar) — a number in [0, 100].
+//
+//   PRIMARY: per-disk average over the disks the per-disk cascade produced
+//   a real sample for (one of the branches 'K' / 'P' / 'W' / 'S' / 'N' /
+//   'D'). This is the same set of values the Performance tab shows for each
+//   disk; their average is therefore the value the user expects to see in
+//   the header — and it matches Windows Task Manager's own header, which
+//   also reports the per-disk average.
+//
+//   FALLBACKS (used only when the per-disk cascade produced no valid sample
+//   at all — extremely rare; happens if every disk failed every source):
+//   kernel-timer sum, then the aggregated external counters (PDH, WMI,
+//   NtSys). These do NOT in general equal the per-disk average, which is
+//   why the per-disk average is the primary source and the aggregations
+//   only step in as a safety net.
+//
+//   *outBranch receives a one-char tag identifying the source that won:
+//     'A' = Average of per-disk cascade values (PRIMARY)
+//     'K' = Kernel SumRWTime / SumTotalTime
+//     'P' = PDH \PhysicalDisk(_Total)\%% Disk Time
+//     'S' = PDH process busy fraction
+//     'W' = WMI _Total instance
+//     'N' = NtSys busy fraction
+//     '-' = nothing answered (returns 0)
+// ============================================================================
+static double ComputeHeaderDiskUsage(double  sumDiskUsage,
+									 int     nValidDiskSamples,
+									 ULONG64 sumRWTime,
+									 ULONG64 sumTotalTime,
+									 char*   outBranch)
+{
+	if(outBranch) *outBranch = '-';
+
+	
+	if(nValidDiskSamples > 0)
+	{
+		double avg = (sumDiskUsage / (double)nValidDiskSamples) * 100.0;
+		if(_finite(avg) == 0) avg = 0;
+		if(avg <   0) avg =   0;
+		if(avg > 100) avg = 100;
+		if(outBranch) *outBranch = 'A';
+		return avg;
+	}
+
+	
+	if(sumTotalTime > 0)
+	{
+		double totalPct = (double)sumRWTime / (double)sumTotalTime * 100.0;
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct <   0) totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		if(outBranch) *outBranch = 'K';
+		return totalPct;
+	}
+
+
+	if(PerfPdhDisk_GetTotalReady() && PerfPdhDisk_GetTotalEverNonZero())
+	{
+		double totalPct = PerfPdhDisk_GetTotalPct();
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct <   0) totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		if(outBranch) *outBranch = 'P';
+		return totalPct;
+	}
+
+	if(PerfPdhProcIo_GetReady() && PerfPdhProcIo_GetSystemBps() > 0.0)
+	{
+		double totalPct = PerfPdhProcIo_GetSystemBusyPct();
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct <   0) totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		if(outBranch) *outBranch = 'S';
+		return totalPct;
+	}
+
+	if(PerfWmiDisk_GetTotalReady() && PerfWmiDisk_GetTotalEverNonZero())
+	{
+		double totalPct = PerfWmiDisk_GetTotalPct();
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct <   0) totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		if(outBranch) *outBranch = 'W';
+		return totalPct;
+	}
+
+	if(PerfNtSys_GetReady())
+	{
+		double totalPct = PerfNtSys_GetTotalPct();
+		if(_finite(totalPct) == 0) totalPct = 0;
+		if(totalPct <   0) totalPct = 0;
+		if(totalPct > 100) totalPct = 100;
+		if(outBranch) *outBranch = 'N';
+		return totalPct;
+	}
+
+	return 0;
+}
+
 //============================
 
 
@@ -114,12 +213,20 @@ CPerformanceBox::CPerformanceBox()
 
 CPerformanceBox::~CPerformanceBox()
 {
-	PerfCpuSpeed_Stop();
+	// Stop the PDH monitor (Win10-style primary) and the WMI fallback
+	// (3 s polling). The RDTSC + QPC sampler was retired because the
+	// Invariant TSC on Intel Sandy Bridge / Core / AMD Zen makes it
+	// report only the nominal clock.
+	PerfPdhCpuPerf_Stop();
 	PerfWmiCpu_Stop();
 	PerfWmiDisk_Stop();
 	PerfPdhDisk_Stop();
 	PerfNtSys_Stop();
 	PerfPdhProcIo_Stop();
+
+	// Release the Segoe UI font handle allocated in OnCreate().
+	if(mFontTurboNote.GetSafeHandle() != NULL)
+		mFontTurboNote.DeleteObject();
 }
 
 void CPerformanceBox::DoDataExchange(CDataExchange* pDX)
@@ -257,6 +364,15 @@ HBRUSH CPerformanceBox::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 			//pDC->SetBkColor(RGB(251, 247, 200));
 			//pDC->SetBkMode(TRANSPARENT);
 			//  return (HBRUSH) m_brush.GetSafeHandle();
+		}
+
+		if(nID == IDC_TURBO_NOTE)
+		{
+			// Gray secondary text, same hue as IDC_TIP1 / IDC_TIP2.
+			// Font is the native Segoe UI captured in OnCreate().
+			pDC->SetTextColor(RGB(112, 112, 112));
+			if(mFontTurboNote.GetSafeHandle() != NULL)
+				pDC->SelectObject(&mFontTurboNote);
 		}
 
 		StaticFont.DeleteObject();
@@ -666,6 +782,11 @@ LRESULT CPerformanceBox::OnUMTimer(WPARAM wParam, LPARAM lParam)
 
 	UpdateAllPMInfo();
 
+	// Keep the Win 7 Turbo disclaimer aligned with the current page /
+	// selection so it appears as soon as the user lands on the CPU tab
+	// and disappears when they switch to Memory / Disk / Wi-Fi.
+	_RefreshTurboNoteVisibility();
+
 	// mPItemList.SetRedraw(1);
 
 	nStep++;
@@ -694,6 +815,11 @@ void CPerformanceBox::OnLvnItemchangedListPerformanceitem(NMHDR *pNMHDR, LRESULT
 
 
 	int n = mPItemList.GetItemCount();
+
+	// Re-evaluate the Win 7 Turbo disclaimer visibility now that the
+	// selected item has changed (it is only meaningful when CPU is
+	// the active entry, since the disclaimer sits under IDC_ITEMNAME).
+	_RefreshTurboNoteVisibility();
 
 
 
@@ -998,6 +1124,11 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 	double SumDiskUsage=0; int nDiskCount=0;
 	int nTotalDisks = 0;
+	// nValidDiskSamples counts only disks whose per-disk cascade produced
+	// a real source on this tick (branch K/P/W/S/N/D, not '-'). Disks that
+	// produced no data are excluded from the header's denominator so they
+	// do not drag down the average when their source failed.
+	int nValidDiskSamples = 0;
 	ULONG64 SumRWTime=0, SumTotalTime=0;
 
 
@@ -1349,6 +1480,14 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 		nDiskCount++;
 
+		// A disk counts as a "valid sample" for the header average only
+		// when the per-disk cascade produced a real source on this tick
+		// (branch 'K','P','W','S','N','D'). A '-'-branch means we had no
+		// data for this disk and it must NOT appear in the denominator —
+		// otherwise a single empty failure drags every other disk down.
+		if(branch != '-')
+			nValidDiskSamples++;
+
 		//Read
 		PerformanceDataA[nItem] = dReadBps;
 		if(PerformanceDataA[nItem]<0.001)PerformanceDataA[nItem]=0.0;
@@ -1406,110 +1545,56 @@ int CPerformanceBox::UpdateAllPMInfo(void)
 
 	}
 
-	// The header pulls its value from one of these in priority order:
-	//   1. Sum of kernel disk timers across all physical disks (PRIMARY,
-	//      admin-only). Works on every Win7 build with admin rights and
-	//      does not depend on the WMI service, PDH counter registration,
-	//      or any perf counter DLL.
-	//   2. PDH _Total instance — trusted only when it has produced a
-	//      non-zero sample at least once. The Ready flag alone is NOT
-	//      enough: on Win7 non-admin sessions where perfdisk.dll isn't
-	//      loaded, PdhGetFormattedCounterValue returns success-with-zero
-	//      forever, so Ready goes to 1 with Pct=0. Without EverNonZero
-	//      we'd be locked at 0% during a real file copy.
-	//   3. WMI _Total instance (Ready-only — same trade-off as PDH, but
-	//      WMI usually fails outright in restricted sessions rather than
-	//      silently returning zero).
-	//   4. NtQuerySystemInformation aggregate (last-resort; uses per-
-	//      process transfer counts that come from the kernel directly,
-	//      so the bytes/sec values are real even in non-admin sessions.
-	//      The percentage is a "busy fraction" — fraction of 100 ms
-	//      windows with any I/O — which is more sensitive than PDH's
-	//      "% Disk Time" and can read inflated during heavy I/O, but is
-	//      strictly better than pinning the header at 0% forever).
-	//   5. Per-disk average (final fallback only when nothing else
-	//      answered).
-	if(SumTotalTime > 0)
+	// ---------------------------------------------------------------
+	// Header disk %% — PRIMARY = per-disk average, FALLBACKS = the
+	// aggregated external counters (used only when NO per-disk sample
+	// was produced). All logic is in ComputeHeaderDiskUsage() above.
+	//
+	// Why the priority swap (was: K sum → PDH _Total → … → per-disk
+	// average at the very bottom): the aggregated counters are not a
+	// pure average of per-disk %%, so for the well-known scenario
+	// where N physical disks are present and only one of them is at
+	// 100%% busy with the others idle, they read inflated (e.g.
+	// ~67%% for N=5 with one disk busy). The Performance tab already
+	// displays the per-disk %%s correctly, so the header should be
+	// their simple average — which matches what Windows Task Manager
+	// itself reports and what the user expects.
+	// ---------------------------------------------------------------
+	char  hdrBranch = '-';
+	double headerPct = ComputeHeaderDiskUsage(SumDiskUsage,
+											  nValidDiskSamples,
+											  SumRWTime,
+											  SumTotalTime,
+											  &hdrBranch);
+	theApp.PerformanceInfo.TotalDiskUsage = headerPct;
+
+	// Diagnostic: log which branch produced the header value, throttled
+	// to the first 20 ticks / every branch change / >5%% drift, so the
+	// user can see in dbc_dbg_io.log that the per-disk average ('A') is
+	// the one being chosen and the resulting %% agrees with the
+	// Performance tab.
 	{
-		// Kernel-timer sum: aggregate (ReadTime+WriteTime) / (IdleTime+RWTime)
-		// across all physical disks that responded to IOCTL_DISK_PERFORMANCE.
-		// This is what the original DBC source effectively reported — the sum
-		// of the per-disk kernel busy fractions combined into a system-wide
-		// busy fraction.
-		double totalPct = (double)SumRWTime / (double)SumTotalTime * 100.0;
-		if(_finite(totalPct) == 0) totalPct = 0;
-		if(totalPct < 0)   totalPct = 0;
-		if(totalPct > 100) totalPct = 100;
-		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
-	}
-	else if(PerfPdhDisk_GetTotalReady() && PerfPdhDisk_GetTotalEverNonZero())
-	{
-		// PDH "_Total" instance — only trusted once it has produced a
-		// non-zero value at some point. After that, a 0%% reading means
-		// the disk is genuinely idle. The EverNonZero check protects us
-		// from the "PDH answered success but always returns 0" failure
-		// mode that happens on Win7 non-admin when perfdisk.dll isn't
-		// loaded for the user session.
-		double totalPct = PerfPdhDisk_GetTotalPct();
-		if(_finite(totalPct) == 0) totalPct = 0;
-		if(totalPct < 0)   totalPct = 0;
-		if(totalPct > 100) totalPct = 100;
-		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
-	}
-	else if(PerfPdhProcIo_GetReady() && PerfPdhProcIo_GetSystemBps() > 0.0)
-	{
-		// Per-process PDH sum fallback for the header disk %%. Fires
-		// when PhysicalDisk PDH counters are broken (VirtualBox +
-		// non-admin Win7 is the typical case where \Process(*)\IO Data
-		// Bytes works but \PhysicalDisk(_Total)\%% Disk Time is stuck
-		// at 0). The busy fraction is a rolling 10 s "fraction of
-		// ticks with any I/O" — same shape as NtSys below, but works
-		// in environments where NtSys's struct offsets are wrong for
-		// the OS build.
-		double totalPct = PerfPdhProcIo_GetSystemBusyPct();
-		if(_finite(totalPct) == 0) totalPct = 0;
-		if(totalPct < 0)   totalPct = 0;
-		if(totalPct > 100) totalPct = 100;
-		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
-	}
-	else if(PerfWmiDisk_GetTotalReady() && PerfWmiDisk_GetTotalEverNonZero())
-	{
-		// WMI "_Total" instance — same EverNonZero gate as the per-disk
-		// cascade above, so a broken-but-Ready WMI provider doesn't lock
-		// the header at 0% in non-admin sessions.
-		double totalPct = PerfWmiDisk_GetTotalPct();
-		if(_finite(totalPct) == 0) totalPct = 0;
-		if(totalPct < 0)   totalPct = 0;
-		if(totalPct > 100) totalPct = 100;
-		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
-	}
-	else if(PerfNtSys_GetReady())
-	{
-		// NtQuerySystemInformation aggregate — sampled busy fraction over
-		// a 10 s rolling window of 100 ms slices. Source: per-process
-		// transfer counts summed across all processes on every poll. A 0%
-		// reading here is a real "no disk activity right now", not a broken
-		// counter (those would have failed PerfNtSys_GetReady), so we trust
-		// it even when it is 0.
-		double totalPct = PerfNtSys_GetTotalPct();
-		if(_finite(totalPct) == 0) totalPct = 0;
-		if(totalPct < 0)   totalPct = 0;
-		if(totalPct > 100) totalPct = 100;
-		theApp.PerformanceInfo.TotalDiskUsage = totalPct;
-	}
-	else if(nDiskCount > 0)
-	{
-		// Final fallback: simple per-disk average. Guard the divide so
-		// non-admin systems with no counters don't print -nan%.
-		double avgPct = SumDiskUsage/nDiskCount*100;
-		if(_finite(avgPct) == 0) avgPct = 0;
-		if(avgPct < 0)   avgPct = 0;
-		if(avgPct > 100) avgPct = 100;
-		theApp.PerformanceInfo.TotalDiskUsage = avgPct;
-	}
-	else
-	{
-		theApp.PerformanceInfo.TotalDiskUsage = 0;
+		static LONG   hdrSeq       = 0;
+		static int    prevBranch   = 0;
+		static double prevPct      = -1.0;
+		LONG seq = InterlockedIncrement(&hdrSeq);
+		BOOL first20  = (seq <= 20);
+		BOOL brChange = (prevBranch != hdrBranch);
+		BOOL driftBig = (prevPct < 0.0)
+					 || ((prevPct - headerPct) >  5.0)
+					 || ((prevPct - headerPct) < -5.0);
+		if(first20 || brChange || driftBig)
+		{
+			prevBranch = hdrBranch;
+			prevPct    = headerPct;
+			_DbgIoLog("HEADER disk: branch=%c pct=%.1f (nValid=%d nDisk=%d sumPct=%.3f K_RW=%llu K_TT=%llu PDH_T=%.1f WMI_T=%.1f NtPct=%.1f)",
+				hdrBranch, headerPct,
+				nValidDiskSamples, nDiskCount, SumDiskUsage,
+				(unsigned long long)SumRWTime, (unsigned long long)SumTotalTime,
+				PerfPdhDisk_GetTotalPct(),
+				PerfWmiDisk_GetTotalPct(),
+				PerfNtSys_GetTotalPct());
+		}
 	}
 
 
@@ -1702,16 +1787,13 @@ SKIPDISK:
 	}
 
 
-	//----------------------����cpu----------------------
+
+	//----------------------cpu----------------------
 
 	memmove(&pTotalCpuBox->Num[0][0],&pTotalCpuBox->Num[0][1],ArraySize);
 	memmove(&pTotalCpuBox->Num2[0][0],&pTotalCpuBox->Num2[0][1],ArraySize);
 
-	/*for(int i=0;i<61-1;i++)
-	{
-	pTotalCpuBox->Num[0][i] = pTotalCpuBox->Num[0][i+1];
-	pTotalCpuBox->Num2[0][i] = pTotalCpuBox->Num2[0][i+1];
-	}*/
+	
 
 
 	theApp.PerformanceInfo.CpuUsage = CpuUsage*100;
@@ -1719,12 +1801,11 @@ SKIPDISK:
 	PerformanceDataA[0] = PerformanceData[0]= CpuUsage;
 	PerformanceDataB[0] =KernelUsage;
 
-	pTotalCpuBox->Num[0][60] = (float)PerformanceDataA[0]; //
+	pTotalCpuBox->Num[0][60] = (float)PerformanceDataA[0]; 
 	pTotalCpuBox->Num2[0][60] =(float)PerformanceDataB[0];
 
 	
-	//CPU��ǰ�ٶ� 
-	//���ִ���ڸ����Ҳ������Ϣ��֮ǰ  ���� _UpdateCpuInfoBox�в����ٳԻ�ȡ CurrentSpeed
+
 
 	if(ShowThisPage)
 	{
@@ -1738,13 +1819,6 @@ SKIPDISK:
 
 	}
 
-
-
-
-
-
-
-	//---------------  ���� �� ��ʾ����---------------------
 
 
 
@@ -1764,29 +1838,15 @@ SKIPDISK:
 		}
 		if(pBox==NULL)  continue ;
 
-		//----------------����ǰ��-------------------
-
 
 
 		memmove(&pBox->Num[0][0],&pBox->Num[0][1],ArraySize);
 		memmove(&pBox->Num2[0][0],&pBox->Num2[0][1],ArraySize);
-		/*
-		for(int i=0;i<61-1;i++)
-		{
-		pBox->Num[0][i] = pBox->Num[0][i+1];
-		pBox->Num2[0][i] = pBox->Num2[0][i+1];
 
-		}*/
-
-		if(pPData->Type == PM_DISK)   //���� �ڶ���box
+		if(pPData->Type == PM_DISK)   
 		{
 			if(pBox2!=NULL)
-			{/*
-			 for(int i=0;i<61-1;i++)
-				{
-				pBox2->Num[0][i] = pBox2->Num[0][i+1];
-				pBox2->Num2[0][i] = pBox2->Num2[0][i+1];
-				}*/
+			{
 
 				memmove(&pBox2->Num[0][0], &pBox2->Num[0][1],ArraySize);
 				memmove(&pBox2->Num2[0][0],&pBox2->Num2[0][1],ArraySize);
@@ -1795,7 +1855,7 @@ SKIPDISK:
 				pBox2->Num[0][60] =(float) PerformanceDataA[nItem];			
 				pBox2->Num2[0][60] = (float)PerformanceDataB[nItem];
 
-				if(pBox2->IsWindowVisible())pBox2->Invalidate(); //�����ж� IsWindowVisible �����λ���
+				if(pBox2->IsWindowVisible())pBox2->Invalidate(); 
 
 			}
 
@@ -2004,12 +2064,10 @@ void CPerformanceBox::OnViewMemory()
 
 void CPerformanceBox::OnPop_PerformanceListShowHideGraphs()
 {
-	//theApp.AppSettings.PerformanceListShowGraph =   (theApp.AppSettings.PerformanceListShowGraph==0)?1:0 ;
+	
 
 	theApp.AppSettings.PerformanceListShowGraph =   (theApp.AppSettings.PerformanceListShowGraph==0)?1:0 ;
 	mPItemList.SetRowHeight(20);
-	//this->GetParent()->PostMessageW(WM_COMMAND,ID_PERFORMANCETYPE_HIDEGRAPHS);//UM_PERFORMANCELIST_SYTLECHANGED
-	
 
 }
 
@@ -2084,7 +2142,88 @@ int CPerformanceBox::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	pContextBox=NULL;
 
 
+	// ------------------------------------------------------------------
+	//  Build the native Segoe UI font used by the Win7 Turbo disclaimer
+	//  (IDC_TURBO_NOTE). We pull the caption font from the system
+	//  non-client metrics so the typeface tracks the running OS: on
+	//  Windows 7 / Vista it is Tahoma (the closest "native" equivalent),
+	//  on Windows 8/8.1 it is Segoe UI, and on Windows 10/11 it remains
+	//  Segoe UI.
+	// ------------------------------------------------------------------
+	{
+		NONCLIENTMETRICS ncm;
+		ZeroMemory(&ncm, sizeof(ncm));
+		ncm.cbSize = sizeof(ncm);
+		if(SystemParametersInfoW(SPI_GETNONCLIENTMETRICS,
+			sizeof(ncm), &ncm, 0) != FALSE)
+		{
+			// The caption font on Win10/11 is Segoe UI at ~ -12 (9pt).
+			// Adjust to ~ 9pt (-12 px @96 DPI) for the disclaimer.
+			LOGFONTW lf = ncm.lfCaptionFont;
+			lf.lfHeight = -12;
+			if(!lf.lfFaceName[0])
+			{
+				// Fall back to Segoe UI if the OS left the face empty.
+				wcscpy_s(lf.lfFaceName, LF_FACESIZE, L"Segoe UI");
+			}
+			mFontTurboNote.CreateFontIndirectW(&lf);
+		}
+		else
+		{
+			// Last-resort: hard-coded Segoe UI 9pt.
+			mFontTurboNote.CreateFontW(-12, 0, 0, 0, FW_NORMAL, FALSE, FALSE,
+				0, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+				CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+				DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+		}
+
+		// Hide the disclaimer by default; _RefreshTurboNoteVisibility()
+		// will surface it on Windows 7 when the CPU page is selected.
+		if(CWnd *pNote = GetDlgItem(IDC_TURBO_NOTE))
+			pNote->ShowWindow(SW_HIDE);
+	}
+
+	// Apply the visibility decision once now; the periodic OnUMTimer
+	// tick will keep it in sync as the user navigates between tabs.
+	_RefreshTurboNoteVisibility();
+
 	return 0;
+}
+
+void CPerformanceBox::_RefreshTurboNoteVisibility(void)
+{
+	CWnd *pNote = GetDlgItem(IDC_TURBO_NOTE);
+	if(pNote == NULL) return;
+
+	// Only show the disclaimer when:
+	//   1. the running OS is Windows 7, AND
+	//   2. the Performance tab is currently visible AND the CPU item
+	//      is the selected one (the layout mirrors IDC_ITEMNAME which
+	//      is right of the "CPU" label and changes per selection).
+	BOOL bCpuSelected = FALSE;
+	if(ShowThisPage)
+	{
+		int nSel = mPItemList.GetNextItem(-1, LVNI_SELECTED);
+		if(nSel >= 0)
+		{
+			PerferListData *pData = (PerferListData *)mPItemList.GetItemData(nSel);
+			if(pData && pData->Type == PM_CPU)
+				bCpuSelected = TRUE;
+		}
+	}
+
+	const BOOL bWin7   = (PerfIsWindows7() != FALSE);
+	const int  nCmdShow = (bWin7 && bCpuSelected) ? SW_SHOW : SW_HIDE;
+
+	pNote->ShowWindow(nCmdShow);
+	if(nCmdShow == SW_SHOW)
+	{
+		// Refresh geometry and force a repaint so the gray Segoe UI
+		// text shows immediately instead of being hidden behind the
+		// dialog template background.
+		PlaceAllCtrl();
+		InvalidateIfVisible(pNote);
+	}
 }
 
 void CPerformanceBox::OnPop_ChangeGraphToNumaNodes()
@@ -2156,10 +2295,10 @@ BOOL CPerformanceBox::SetTipText( UINT ID, NMHDR * pTTTStruct, LRESULT * pResult
 {
 	TOOLTIPTEXT *pTooltipText = (TOOLTIPTEXT *)pTTTStruct;
 	
-	HWND hWnd = (HWND)(pTTTStruct->idFrom); //�õ���Ӧ����ID���п�����HWND 
+	HWND hWnd = (HWND)(pTTTStruct->idFrom); 
 
  
-	if (pTooltipText->uFlags & TTF_IDISHWND) //����nID�Ƿ�ΪHWND 
+	if (pTooltipText->uFlags & TTF_IDISHWND) 
 	{    
 		PerferListData *pPData = (PerferListData *) mPItemList.GetItemData(1);
 		if(pPData!=NULL)
@@ -2171,10 +2310,6 @@ BOOL CPerformanceBox::SetTipText( UINT ID, NMHDR * pTTTStruct, LRESULT * pResult
 				//pTooltipText->lpszText = L"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 			
 				pTooltipText->lpszText=(LPWSTR)(LPCTSTR) pMemCompBox->GetMemCompType() ;
-			//	StringCchCopy(pTooltipText->lpszText,MAX_PATH,pMemCompBox->GetMemCompType());
-
-				//theApp.m_pMainWnd->SetWindowTextW(pMemCompBox->GetMemCompType());
-				//pTooltipText->lpszText =(LPWSTR) pMemCompBox->GetMemCompType() ;
 			}		
 		}
 	}
@@ -2245,7 +2380,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 			if(pPData==NULL)continue ;
 			if(pPData->pInfoBox == NULL)continue ;
 			
-			if(pPData->pInfoBox->IsWindowVisible()|| i==nSel)  //ʵ����ֻ��һ�����ƶ�  ��Ҫ�õ�ǰѡ�����ж� �ƶ��ĸ� ��Ϊ���ܸı�û��ѡ�������
+			if(pPData->pInfoBox->IsWindowVisible()|| i==nSel)  
 			{
 				//PerferListData * pPData = (PerferListData *)mPItemList.GetItemData(i);
 				//if(pPData==NULL)continue ;
@@ -2254,11 +2389,11 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				if(pBoxWnd == NULL)continue ;
 
 
-				//------------------------------------------------------------------
+
 				pWnd=GetDlgItem(IDC_TIP2);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.top-15,80,15);  //�������ǿ��͸߲���λ��	
+					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.top-15,80,15); 
 					InvalidateIfVisible(pWnd);
 					
 				}
@@ -2266,24 +2401,9 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				pWnd=GetDlgItem(IDC_TIP1);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.left,rcWaveList.top-15,rcWaveList.Width()-80,15);  //�������ǿ��͸߲���λ��				
+					pWnd->MoveWindow(rcWaveList.left,rcWaveList.top-15,rcWaveList.Width()-80,15);			
 					InvalidateIfVisible(pWnd);
 				}
-
-
-
-
-				//--------
-
-
-
-
-
-				//------------------------------------------------------------------
-
-
-
-				//����ͼ�ײ���ʾ��߶�15
 
 				if(pPData->Type == PM_MEMORY || pPData->Type == PM_DISK)
 				{
@@ -2303,10 +2423,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				}
 
 
-				
-				//----------------------------------------------
-
-				if(theApp.FlagSummaryView)//SummaryView״̬����ͼ ��������
+				if(theApp.FlagSummaryView)
 				{
 					CRect rcTemp;
 					this->GetClientRect(rcTemp);
@@ -2326,22 +2443,14 @@ void CPerformanceBox::PlaceAllCtrl(void)
 
 				pHotBox->MoveWindow(rcWaveList);
 				InvalidateIfVisible(pHotBox);
-				
-
-
-				//----------------------------------------------
 
 				pBoxWnd->MoveWindow(rcWaveList);
 				InvalidateIfVisible(pBoxWnd);
 
-			
-
-				//------------------------------------------------------------------
-
 				pWnd=GetDlgItem(IDC_TIP3);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom,rcWaveList.Width()-80,15);  //�������ǿ��͸߲���λ��
+					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom,rcWaveList.Width()-80,15);  
 					InvalidateIfVisible(pWnd);
 				}
 				pWnd=GetDlgItem(IDC_TIP4);
@@ -2350,27 +2459,21 @@ void CPerformanceBox::PlaceAllCtrl(void)
 					pWnd->MoveWindow(rcWaveList.right-50,rcWaveList.bottom,50,15);
 					InvalidateIfVisible(pWnd);
 				}
-				//-----------
-
-			
 
 
 				pWnd=GetDlgItem(IDC_TIP5);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom+19,rcWaveList.Width()-80,15);  //�������ǿ��͸߲���λ��
+					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom+19,rcWaveList.Width()-80,15);  
 					InvalidateIfVisible(pWnd);
 				}
 				pWnd=GetDlgItem(IDC_TIP6);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.bottom+19,80,15);  //�������ǿ��͸߲���λ��				
+					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.bottom+19,80,15);			
 					InvalidateIfVisible(pWnd);
 				}
 
-				
-
-				//------------------------------�ƶ��ڶ�����ͼ------------------------------------
 
 				pBoxWnd = pPData->pOtherWnd;
 				if(pBoxWnd != NULL)
@@ -2397,7 +2500,7 @@ void CPerformanceBox::PlaceAllCtrl(void)
 				pWnd = pPData->pInfoBox;
 				if(pWnd == NULL)continue ;
 
-				if(theApp.FlagSummaryView) //SummaryView״̬�ƶ����������ص�λ�ã�
+				if(theApp.FlagSummaryView) 
 				{
 					pWnd->MoveWindow(rcWaveList.left,rcWaveList.bottom+10000,1,1);	
 				}
@@ -2408,18 +2511,16 @@ void CPerformanceBox::PlaceAllCtrl(void)
 
 				InvalidateIfVisible(pWnd);
 
-				//---------------------
-
 				pWnd=GetDlgItem(IDC_TIP7);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom,rcWaveList.Width()-80,15);  //�������ǿ��͸߲���λ��
+					pWnd->MoveWindow(rcWaveList.left+2,rcWaveList.bottom,rcWaveList.Width()-80,15);  
 					InvalidateIfVisible(pWnd);
 				}
 				pWnd=GetDlgItem(IDC_TIP8);
 				if(pWnd!=NULL)
 				{					 
-					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.bottom,80,15);  //�������ǿ��͸߲���λ��				
+					pWnd->MoveWindow(rcWaveList.right-80,rcWaveList.bottom,80,15);  			
 					InvalidateIfVisible(pWnd);
 				}
 
@@ -2434,26 +2535,9 @@ void CPerformanceBox::PlaceAllCtrl(void)
 
 	}
 
-
-
-
-
-
-
-
-	//--------------
-
 	CWnd *pWnd= NULL;
 	CRect rcTemp;
 	CRect rcTemp2;
-
-
-
-	//	rcTemp.SetRect(5,12,205,rc.bottom);
-	//mPItemList.MoveWindow(rcTemp);
-
-
-
 
 
 
@@ -2469,21 +2553,6 @@ void CPerformanceBox::PlaceAllCtrl(void)
 
 
 
-	/*pWnd=GetDlgItem(IDC_TIP2);
-	if(pWnd!=NULL)
-	{
-
-	pWnd->GetWindowRect(rcTemp);
-	this->ScreenToClient(rcTemp);
-	int W=rcTemp.Width();
-	rcTemp.right = rc.right-25;
-	rcTemp.left=rcTemp.right-W;
-	pWnd->MoveWindow(rcTemp);
-	}*/
-
-
-
-
 
 	pWnd=GetDlgItem(IDC_ITEMNAME);
 	if(pWnd!=NULL)
@@ -2495,6 +2564,18 @@ void CPerformanceBox::PlaceAllCtrl(void)
 		rcTemp.left=rcTemp2.right+5;
 		pWnd->MoveWindow(rcTemp);
 		InvalidateIfVisible(pWnd);
+
+		// Position the Win7 Turbo disclaimer immediately below
+		// IDC_ITEMNAME, sharing the same right-aligned geometry so it
+		// visually "hangs" off the CPU model name on the right side.
+		if(CWnd *pNote = GetDlgItem(IDC_TURBO_NOTE))
+		{
+			CRect rcNote(rcTemp);
+			rcNote.top    = rcTemp.bottom + 1;
+			rcNote.bottom = rcNote.top + 14;   // ~ one line of 9pt text
+			pNote->MoveWindow(rcNote);
+			InvalidateIfVisible(pNote);
+		}
 	}
 
 
@@ -2529,10 +2610,6 @@ void CPerformanceBox::UpdateInfoBox()
 		this->_UpdateMemoryInfoBox();
 	}
 
-	//if(pPData->Type == PM_ETHERNET) ���� ��������ִ��_UpdateNetworkInfoBox(nSel,pPData );
-
-	//if(pPData->Type == PM_DISK)���� ��������ִ��  this->_UpdateDiskInfoBox( );
-
 
 
 	pPData->pInfoBox->Invalidate();
@@ -2551,16 +2628,7 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 	CMenu *pMenu;
 
 	PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_BASE ) );
-	pMenu = PopMenu.GetSubMenu(1);  //1�� ��� ��Ӧ�� �˵� �ͱ�ǩ˳���Ӧ
-
-
- 
-
-	 
-
-
-
-	//ע��:��Ҫͨ��ѡ������ȷ����ǰ��ʾ�Ǹ��豸���� ��Ϊ���ܸ���û��ѡ�������
+	pMenu = PopMenu.GetSubMenu(1); 
 
 	int n= mPItemList.GetItemCount();
 
@@ -2570,7 +2638,6 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 	{
 		pData =(PerferListData *) mPItemList.GetItemData(i);
 		if(pData==NULL) continue;
-		//������ȡ�Ǹ�����pData �⽫Ӱ��˵���ʾ
 		if(pData->pInfoBox->IsWindowVisible())
 		{
 			break;
@@ -2583,7 +2650,7 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 	if(pData==NULL) return;
 
 
-	if(pData->Type != PM_CPU) //ȥ�������ڴ���ʾ����
+	if(pData->Type != PM_CPU)
 	{
 		 
 		pMenu->DeleteMenu(0,MF_BYPOSITION);
@@ -2608,25 +2675,17 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 	GetCursorPos(&CurPos);
 
 	
-	int L1SubMenuID = 1; //View �Ӳ˵�λ��
+	int L1SubMenuID = 1; 
 
 	if(pData->Type == PM_CPU)
 	{
-		L1SubMenuID = 4; //��ʾcpuʱ��λ�ò�ͬ������
+		L1SubMenuID = 4; 
 		if( ! rcBox.PtInRect(CurPos) )
 		{
-			L1SubMenuID = 3; //��ʾcpuʱ��λ�ò�ͬ������
+			L1SubMenuID = 3;
 			pMenu->DeleteMenu(ID_PERFORMANCE_SHOWKERNELTIMES,MF_BYCOMMAND);
 		}
 	}
-
-
-
-
-
-	//--------------------------------
- 
-
 	
 	int iDiskMenu =0;
 	UINT BaseID = ID_DISK_NONE;
@@ -2661,9 +2720,6 @@ void CPerformanceBox::OnContextMenu(CWnd* pWnd, CPoint point)
 		pSubMenu2->DeleteMenu(0,MF_BYPOSITION);
 
 	}
-
-
-	//--------------------------------
 
 
 
@@ -2730,9 +2786,6 @@ void CPerformanceBox::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysM
 	UINT Flag = (theApp.FlagSummaryView) ? MF_CHECKED:MF_UNCHECKED;
 	pPopupMenu->CheckMenuItem(ID_PERFORMANCE_GRAPHSUMMARYVIEW,MF_BYCOMMAND|Flag);
 
-
-
-	//-------------------------
 	int iSel = mPItemList.GetNextItem( -1, LVNI_SELECTED );
 
 	switch(iSel)
@@ -2761,7 +2814,7 @@ void CPerformanceBox::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysM
 		int DiskCount = 0;
 		int SelectedDiskID = -1;
 
-	    int FirstDiskItemID = 2; //��һ��������Ŀ�������Ŀ�б��е�ID
+	    int FirstDiskItemID = 2;
 
 			 
 		for(int i = FirstDiskItemID;  i<ItemCount ;i++ ) 
@@ -2776,7 +2829,7 @@ void CPerformanceBox::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysM
 			}
 		}
 
-		Flag = (DiskCount>0)?MF_ENABLED:MF_GRAYED;  //�����Ƿ��д��̾���
+		Flag = (DiskCount>0)?MF_ENABLED:MF_GRAYED;
 		pPopupMenu->EnableMenuItem(2,MF_BYPOSITION|Flag  );  
 		if(SelectedDiskID>=0)
 		{
@@ -2786,79 +2839,6 @@ void CPerformanceBox::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysM
 
 		
 	}
-
-
-
-
-	//ASSERT(pPopupMenu != NULL);
-
-	//CCmdUI state;
-	//state.m_pMenu = pPopupMenu;
-	//ASSERT(state.m_pOther == NULL);
-	//ASSERT(state.m_pParentMenu == NULL);
-
-	//HMENU hParentMenu;
-	//if (AfxGetThreadState()->m_hTrackingMenu == pPopupMenu->m_hMenu)
-	//	state.m_pParentMenu = pPopupMenu;    // Parent == child for tracking popup.
-	//else if ((hParentMenu = ::GetMenu(m_hWnd)) != NULL)
-	//{
-	//	CWnd* pParent = this;
-
-	//	if (pParent != NULL &&	(hParentMenu = ::GetMenu(pParent->m_hWnd)) != NULL)
-	//	{
-	//		int nIndexMax = ::GetMenuItemCount(hParentMenu);
-	//		for (int nIndex = 0; nIndex < nIndexMax; nIndex++)
-	//		{
-	//			if (::GetSubMenu(hParentMenu, nIndex) == pPopupMenu->m_hMenu)
-	//			{
-
-	//				state.m_pParentMenu = CMenu::FromHandle(hParentMenu);
-	//				break;
-	//			}
-	//		}
-	//	}
-	//}
-
-	//state.m_nIndexMax = pPopupMenu->GetMenuItemCount();
-	//for (state.m_nIndex = 0; state.m_nIndex < state.m_nIndexMax;state.m_nIndex++)
-	//{
-	//	state.m_nID = pPopupMenu->GetMenuItemID(state.m_nIndex);
-	//	if (state.m_nID == 0)
-	//		continue; // Menu separator or invalid cmd - ignore it.
-
-	//	ASSERT(state.m_pOther == NULL);
-	//	ASSERT(state.m_pMenu != NULL);
-	//	if (state.m_nID == (UINT)-1)
-	//	{
-	//		// Possibly a popup menu, route to first item of that popup.
-	//		state.m_pSubMenu = pPopupMenu->GetSubMenu(state.m_nIndex);
-	//		if (state.m_pSubMenu == NULL ||	(state.m_nID = state.m_pSubMenu->GetMenuItemID(0)) == 0 ||state.m_nID == (UINT)-1)
-	//		{
-	//			continue;       // First item of popup can't be routed to.
-	//		}
-	//		state.DoUpdate(this, TRUE);   // Popups are never auto disabled.
-	//	}
-	//	else
-	//	{
-
-	//		state.m_pSubMenu = NULL;
-	//		state.DoUpdate(this, FALSE);
-	//	}
-
-	//	// Adjust for menu deletions and additions.
-	//	UINT nCount = pPopupMenu->GetMenuItemCount();
-	//	if (nCount < state.m_nIndexMax)
-	//	{
-	//		state.m_nIndex -= (state.m_nIndexMax - nCount);
-	//		while (state.m_nIndex < nCount &&	pPopupMenu->GetMenuItemID(state.m_nIndex) == state.m_nID)
-	//		{
-	//			state.m_nIndex++;
-	//		}
-	//	}
-	//	state.m_nIndexMax = nCount;
-	//}
-
-
 
 }
 
@@ -2870,7 +2850,7 @@ void CPerformanceBox::OnNMRClickListPerformanceitem(NMHDR *pNMHDR, LRESULT *pRes
 	CMenu PopMenu;
 	CMenu *pMenu= NULL;
 	PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_BASE) );
-	pMenu = PopMenu.GetSubMenu(5);  //5�� ��� ��Ӧ�� �˵� �ͱ�ǩ˳���Ӧ
+	pMenu = PopMenu.GetSubMenu(5);
 
 	CPoint CurPos ;
 	GetCursorPos(&CurPos); 
@@ -2881,8 +2861,6 @@ void CPerformanceBox::OnNMRClickListPerformanceitem(NMHDR *pNMHDR, LRESULT *pRes
 	}
 
 	pMenu->TrackPopupMenu(TPM_LEFTALIGN,CurPos.x,CurPos.y,this);
-
-	//----------
 
 	*pResult = 0;
 }

@@ -277,6 +277,7 @@
 #define IDI_LOGOTEXTICON                1060
 #define IDC_WS                          1061
 #define IDC_STATIC_A                    1061
+#define IDC_TURBO_NOTE                  1080
 #define IDC_PEAKWS                      1062
 #define IDC_LIST_THREADS                1062
 #define IDC_WS_PRIVATE                  1063
@@ -471,7 +472,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        169
 #define _APS_NEXT_COMMAND_VALUE         32949
-#define _APS_NEXT_CONTROL_VALUE         1063
+#define _APS_NEXT_CONTROL_VALUE         1081
 #define _APS_NEXT_SYMED_VALUE           168
 #endif
 #endif

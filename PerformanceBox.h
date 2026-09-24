@@ -120,7 +120,17 @@ protected:
 //	virtual void PreSubclassWindow();
 public:
 	double MaxCPUSpeed;
+	double fBaseGhz;   // Nominal base clock in GHz (read once from
+					   // HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0\~MHz
+					   // in GetCPUInfo() and used by the Win10-style
+					   // fCurrentGhz = fBaseGhz * (pct / 100.0) cascade).
 //	afx_msg void OnSizing(UINT fwSide, LPRECT pRect);
+	CFont mFontTurboNote;   // Segoe UI native font for the Win7 disclaimer
+							// rendered below IDC_ITEMNAME on the Performance
+							// page. Created in OnCreate(), deleted in the
+							// destructor. Only visible when PerfIsWindows7()
+							// returns TRUE AND the CPU tab is selected.
+	void _RefreshTurboNoteVisibility(void);
 	afx_msg void OnUpdatePerformancetypeHidegraphs(CCmdUI *pCmdUI);
 	PerferListData * _InsertNetAdapterItem(CString StrType, CString StrDescription,int IfIndex);
 	CRuntimeClass *pViewClass;

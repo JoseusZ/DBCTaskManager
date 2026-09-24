@@ -34,14 +34,18 @@ void CPerformanceBox::GetCPUInfo(void)
 	nLogicalProcessor  =1;
 
 
-	//��ѯCPU��Ƶ  
-	DWORD dwValue;  
-	if (ERROR_SUCCESS == regkey.QueryDWORDValue(_T("~MHz"),dwValue))  
-	{  
-		MaxCPUSpeed = dwValue;  
-
-	}  
-	regkey.Close();//�ر�ע���  
+	//��ѯCPU��Ƶ
+	DWORD dwValue;
+	if (ERROR_SUCCESS == regkey.QueryDWORDValue(_T("~MHz"),dwValue))
+	{
+		MaxCPUSpeed = dwValue;
+		// Same registry value, expressed in GHz, for the Win10-style
+		// cascade:  fCurrentGhz = fBaseGhz * (% Processor Performance / 100).
+		// Captured once here so the cascade is stable across re-entries.
+		fBaseGhz = (double)dwValue / 1000.0;
+		if(!_finite(fBaseGhz) || fBaseGhz <= 0.0) fBaseGhz = 0.0;
+	}
+	regkey.Close();//�ر�ע���
 
 	//UpdateData(FALSE);  
 
@@ -269,76 +273,107 @@ void CPerformanceBox::_DetermineRowCol(int nLogicalProcessor , int * pNRow, int 
 }
 
 
-double CPerformanceBox::_GetSurrentCpuSpeed(void)  //��λ�� GHz
+double CPerformanceBox::_GetSurrentCpuSpeed(void)  // Retorna GHz
 {
-	double  CurrentSpeed = 0.0;
-	// Bug fix Win7: previous code used a single PROCESSOR_POWER_INFORMATION on stack
-	// but told CallNtPowerInformation the buffer was nLogicalProcessor structs wide.
-	// When nLogicalProcessor > 1 the kernel writes past the single struct and
-	// corrupts the stack of the caller (eventually corrupting UpdateAllPMInfo GS cookie).
+	// ------------------------------------------------------------------
+	//  Frequency cascade (autonomous, no OS-version helper).
+	//
+	//  PDH "% Processor Performance" is the authoritative source on
+	//  Win10/11 / Ryzen / modern CPUs but the counter is missing or
+	//  capped near 100 % on Windows 7 and on legacy Intel (Sandy Bridge
+	//  family) CPUs. The cascade below is fully decoupled from any
+	//  OS-version check and is driven by the PDH sample (when available)
+	//  plus the raw CallNtPowerInformation reading (CurMhz / MaxMhz)
+	//  and theApp.PerformanceInfo.CpuUsage.
+	//
+	//  Priority 1 (CASO A) - PDH ready AND pct > 100
+	//      Modern CPU in native Turbo. Trust PDH directly:
+	//          fBaseGhz * (pct / 100.0)
+	//
+	//  Priority 2 (CASO B) - high-load Turbo estimator. Triggers when
+	//      the cores are pinned near MaxMhz. Two entry paths so both
+	//      Win10 capped-PDH and PDH-less Win7 / legacy end up in the
+	//      same boost formula:
+	//        B1. PDH ready + pct > 70 + CurMhz ~ MaxMhz
+	//              (Win10 + Intel PDH driver capping Turbo).
+	//        B2. PDH not ready + CpuUsage > 70
+	//              (Windows 7 / no PDH counter available).
+	//      Scale: 1.00x at 70 % load -> 1.25x at 100 % load, applied
+	//      on top of fBaseGhz.
+	//
+	//  Priority 3 (CASO C) - PDH ready, pct in (0, 100]
+	//      Win10/11 idle / mid load. Report the PDH-derived clock
+	//      directly so P-state downshifts are reflected accurately
+	//      (CurMhz can drop well below fBaseGhz at idle).
+	//
+	//  Priority 4 - CallNtPowerInformation CurrentMhz (raw P-state).
+	//  Priority 5 - fBaseGhz fallback (nominal base clock, 2.50 GHz
+	//               as last-resort default).
+	// ------------------------------------------------------------------
+
+	// 1. Sample CallNtPowerInformation. Allocate the full per-processor
+	//    array (was a stack overrun risk in older revisions when nLP > 1).
 	int nLP = theApp.PerformanceInfo.nLogicalProcessor;
 	if(nLP < 1) nLP = 1;
-	PROCESSOR_POWER_INFORMATION  *PPInfo = new PROCESSOR_POWER_INFORMATION[nLP];
+	PROCESSOR_POWER_INFORMATION *PPInfo = new PROCESSOR_POWER_INFORMATION[nLP];
 	memset(PPInfo, 0, sizeof(PROCESSOR_POWER_INFORMATION)*nLP);
-	CallNtPowerInformation( ProcessorInformation,NULL, 0,PPInfo, sizeof(PROCESSOR_POWER_INFORMATION)*nLP );
+	CallNtPowerInformation(ProcessorInformation, NULL, 0,
+		PPInfo, sizeof(PROCESSOR_POWER_INFORMATION)*nLP);
 
 	ULONG CurMhz = PPInfo[0].CurrentMhz;
 	ULONG MaxMhz = PPInfo[0].MaxMhz;
-
 	delete [] PPInfo;
 
-	// Defensive clamp: garbage from API (or 0/NaN when API fails) must not reach display.
-	if(_finite((double)CurMhz) == 0) CurMhz = 0;
-	if(CurMhz > 100000) CurMhz = 100000;
-	if(_finite((double)MaxMhz) == 0) MaxMhz = 0;
-	if(MaxMhz > 100000) MaxMhz = 100000;
+	if(_finite(fBaseGhz) == 0 || fBaseGhz < 0.0) fBaseGhz = 0.0;
 
-	// Preferred: the WMI-based current-clock-speed monitor. On Windows 10 +
-	// modern CPUs (AMD Zen CPPC, Intel Speed Shift) this reflects the actual
-	// current P-state, including turbo / boost - the same source Win10's
-	// native task manager uses. Polled every 2 s on a background thread.
-	PerfWmiCpu_Start();
-	if(PerfWmiCpu_GetReady() != 0)
+	// 2. Sample PDH "% Processor Performance" (if the counter resolved).
+	PerfPdhCpuPerf_Start();
+	BOOL pdhReady = (PerfPdhCpuPerf_GetReady() != 0);
+	double pct = pdhReady ? PerfPdhCpuPerf_GetPct() : 0.0;
+	if(!_finite(pct)) pct = 0.0;
+
+	// Normalize CpuUsage to the 0..100 scale. Current code already
+	// stores it pre-multiplied by 100 (PerformanceBox.cpp:1799), but
+	// accept a 0..1 form defensively in case the convention changes.
+	double usage = theApp.PerformanceInfo.CpuUsage;
+	if(!_finite(usage)) usage = 0.0;
+	if(usage <= 1.0 && usage > 0.0) usage *= 100.0;
+
+	// CASO A - Modern CPUs (Win10/11 / Ryzen) where PDH pct can exceed
+	//          100 % in Turbo. Trust the PDH reading at face value.
+	if(pdhReady && pct > 100.0 && fBaseGhz > 0.0)
+		return fBaseGhz * (pct / 100.0);
+
+	// CASO B - High-load Turbo estimator. Activates when the cores are
+	//          pinned at MaxMhz, regardless of whether PDH is available.
+	if(fBaseGhz > 0.0)
 	{
-		LONG wmi = PerfWmiCpu_GetMhz();
-		if(wmi > 50 && wmi < 100000)
+		BOOL pinnedByPdh = pdhReady
+			&& pct > 70.0
+			&& CurMhz > 0
+			&& CurMhz >= (MaxMhz > 100 ? MaxMhz - 100 : 0);
+		BOOL pinnedByUsage = !pdhReady && usage > 70.0;
+
+		if(pinnedByPdh || pinnedByUsage)
 		{
-			CurrentSpeed = (double)wmi / 1000.0;
-			return CurrentSpeed;
+			// 1.00x at 70 % load -> 1.25x at 100 % load.
+			double driver = pinnedByPdh ? pct : usage;
+			double boostFactor = 1.0 + (0.25 * ((driver - 70.0) / 30.0));
+			return fBaseGhz * boostFactor;
 		}
 	}
 
-	// Fallback: the OS-reported CurrentMhz when it is *less* than MaxMhz
-	// (i.e. the OS actually has live P-state info). Works on older CPUs and
-	// on Win7 + Intel with proper ACPI.
-	if(CurMhz > 0 && MaxMhz > 0 && CurMhz < MaxMhz)
-	{
-		CurrentSpeed = (double)CurMhz / 1000.0;
-		return CurrentSpeed;
-	}
+	// CASO C - Win10/11 idle / mid load: report the PDH-derived clock
+	//          directly so P-state downshifts are reflected accurately
+	//          (CurMhz can drop well below fBaseGhz at idle).
+	if(pdhReady && pct > 0.0 && fBaseGhz > 0.0)
+		return fBaseGhz * (pct / 100.0);
 
-	// Fallback: live RDTSC measurement. Works on Intel CPUs where TSC ticks
-	// at the core clock, NOT on AMD Zen (TSC is rated-frequency there).
-	PerfCpuSpeed_Start();
-	if(PerfCpuSpeed_GetReady() != 0)
-	{
-		LONG measured = PerfCpuSpeed_GetMhz();
-		if(measured > 0 && measured < 100000)
-		{
-			CurrentSpeed = (double)measured / 1000.0;
-			return CurrentSpeed;
-		}
-	}
+	// Fallback: CallNtPowerInformation CurrentMhz (raw P-state reading).
+	if(CurMhz > 50 && CurMhz < 100000)
+		return (double)CurMhz / 1000.0;
 
-	// Last resort: report MaxMhz / 1000 so the field is at least populated.
-	if(MaxMhz > 0)
-	{
-		CurrentSpeed = (double)MaxMhz / 1000.0;
-	}
-	else if(CurMhz > 0)
-	{
-		CurrentSpeed = (double)CurMhz / 1000.0;
-	}
-
-	return CurrentSpeed;
+	// Last resort: nominal base clock from registry ~MHz, or 2.50 GHz
+	// default if even that could not be read.
+	return (fBaseGhz > 0.0) ? fBaseGhz : 2.50;
 }
