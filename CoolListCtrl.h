@@ -20,9 +20,9 @@ typedef  struct  CoolListData
 	ULONGLONG  IOLast;
 
 
-//-------------
-	double CoolUsageArray[11] ; //仅限于此程序 11个足够了！！！//记录每列使数值热度！！！用于控制颜色深度
-	//-------------
+
+	double CoolUsageArray[11] ; 
+
 	int SortID;
 	CString StrTitle;
 
@@ -66,6 +66,11 @@ public:
 	afx_msg void OnNMDblclk(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClick(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg void OnMouseLeave();
+	BOOL m_bMouseTracking;     // TrackMouseEvent activo
+	int  m_nHotArrowItem;      // Item sobre el que esta el cursor (-1 = ninguno)
+	int  m_nHotArrowSubItem;   // Subitem (normalmente 0, columna Name)
 	afx_msg void OnLvnDeleteitem(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnSetFocus(CWnd *pOldWnd);
 	afx_msg void OnKillFocus(CWnd *pNewWnd);

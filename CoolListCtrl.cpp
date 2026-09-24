@@ -20,6 +20,9 @@ CCoolListCtrl::CCoolListCtrl()
 	, CurrentSortColumn(0)
 	, FlagDrawAllColumns(FALSE)
 	, pColStatusArray(NULL)
+	, m_bMouseTracking(FALSE)
+	, m_nHotArrowItem(-1)
+	, m_nHotArrowSubItem(-1)
 
 {
 
@@ -46,6 +49,8 @@ BEGIN_MESSAGE_MAP(CCoolListCtrl, CListCtrl)
 	ON_NOTIFY_REFLECT(NM_DBLCLK, &CCoolListCtrl::OnNMDblclk)
 	ON_NOTIFY_REFLECT(NM_CLICK, &CCoolListCtrl::OnNMClick)
 	ON_WM_LBUTTONDOWN()
+	ON_WM_MOUSEMOVE()
+	ON_WM_MOUSELEAVE()
 
 	ON_NOTIFY_REFLECT(LVN_DELETEITEM, &CCoolListCtrl::OnLvnDeleteitem)
 	ON_NOTIFY(HDN_ITEMCHANGINGA, 0, &CCoolListCtrl::OnHdnItemchanging)
@@ -279,23 +284,15 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		rcItem.right = rcItem.left + ItemW;
 
-		//--------------------------------------
+		
 
-		if (pListData->SubType == PARENT_ITEM_OPEN || pListData->SubType == SUB_ITEM)  //展开子项状态 背景色
+		if (pListData->SubType == PARENT_ITEM_OPEN || pListData->SubType == SUB_ITEM) 
 		{
 
 			//pDC-> FillSolidRect ( rcItem, RGB(249,249,249) );
 			if (IsProcList)
 				Graph.FillRectangle(&SolidBrush(Color(6, 0, 0, 0)), rcItem.left, rcItem.top, rcItem.Width(), rcItem.Height());
 		}
-
-
-
-
-
-
-
-		//---------------------------------
 
 
 		CRect rcSelBar;
@@ -347,7 +344,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 
 
-		if (pListData->pPData != NULL)  //不是分类标题
+		if (pListData->pPData != NULL)  
 		{
 			int dPos;
 			dPos = (ItemHeight - 16) / 2;
@@ -358,7 +355,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 
 
-			//-------------------- 展开or折叠 的箭头-------------------
+			
 			CRect rcArrow;
 
 			GetSubItemRect(nItem, 0, LVIR_BOUNDS, rcArrow);
@@ -370,7 +367,18 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 			{
 				if (theApp.FlagThemeActive)
 				{
-					DrawThemeBackground(hTheme, pDC->m_hDC, TVP_GLYPH, GLPS_OPENED, rcArrow, NULL);
+					// Importante: la PARTE cambia segun el estado del cursor.
+					// - Normal: TVP_GLYPH + GLPS_OPENED (gris nativo).
+					// - Hot:    TVP_HOTGLYPH + HGLPS_OPENED (azul nativo de Win10/11).
+					// Usar TVP_GLYPH con HGLPS_* renderiza el mismo glifo gris porque
+					// las constantes tienen el mismo ID numerico (1, 2) en vsstyle.h.
+					CPoint ptCur;
+					if (::GetCursorPos(&ptCur))
+						ScreenToClient(&ptCur);
+					const BOOL bHot = (m_nHotArrowItem == (int)nItem) && rcArrow.PtInRect(ptCur);
+					const int nPart = bHot ? TVP_HOTGLYPH : TVP_GLYPH;
+					const int nState = bHot ? HGLPS_OPENED : GLPS_OPENED;
+					DrawThemeBackground(hTheme, pDC->m_hDC, nPart, nState, rcArrow, NULL);
 				}
 				else
 				{
@@ -382,7 +390,15 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 			{
 				if (theApp.FlagThemeActive)
 				{
-					DrawThemeBackground(hTheme, pDC->m_hDC, TVP_GLYPH, GLPS_CLOSED, rcArrow, NULL);
+					// Ver comentario en PARENT_ITEM_OPEN: la parte debe cambiar
+					// a TVP_HOTGLYPH para obtener el chevron azul en hover.
+					CPoint ptCur;
+					if (::GetCursorPos(&ptCur))
+						ScreenToClient(&ptCur);
+					const BOOL bHot = (m_nHotArrowItem == (int)nItem) && rcArrow.PtInRect(ptCur);
+					const int nPart = bHot ? TVP_HOTGLYPH : TVP_GLYPH;
+					const int nState = bHot ? HGLPS_CLOSED : GLPS_CLOSED;
+					DrawThemeBackground(hTheme, pDC->m_hDC, nPart, nState, rcArrow, NULL);
 				}
 				else
 				{
@@ -390,20 +406,18 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 				}
 			}
 
-			//---------------------------------------------------------------------
 
 
 
-
-			if (pListData->SubType == SUB_ITEM)  //子项（进程主窗口）只绘制第一列
+			if (pListData->SubType == SUB_ITEM)  
 			{
 
-				rcCol0.left += 10;  //缩进
+				rcCol0.left += 10;  
 
 			}
 
-			//--------------
-			if (pListData->iImage == -1) //为了其他（User）列表
+		
+			if (pListData->iImage == -1)
 			{
 				::ImageList_Draw(theApp.mImagelistNormal.m_hImageList, 0, pDC->m_hDC, rcCol0.left + 5 + LINE_H2 - 23, rcItem.top + dPos, ILD_TRANSPARENT); //16是图标实际尺寸
 
@@ -467,12 +481,12 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 			Align = pColStatusArray[i].Align;
 
 
-			if (pListData->pPData == NULL) //分组标题
+			if (pListData->pPData == NULL) 
 			{
 
 				pDC->SelectObject(theApp.mTitleFont);
 
-				rcText.left = rcText.left - 8 - 14; //除去图标位置
+				rcText.left = rcText.left - 8 - 14; 
 
 				if (IsProcList == FALSE)
 				{
@@ -483,7 +497,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 				pDC->SetTextColor(RGB(0, 0, 0));
 
 
-				break;// 只画一列
+				break;
 			}
 
 			if (i == 0)
@@ -491,8 +505,8 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 				rcText.left += LINE_H2;
 			}
 
-			//-------------------------------
-			if (theApp.FlagThemeActive)//启用主题
+			
+			if (theApp.FlagThemeActive)
 			{
 				COLORREF TextColor(RGB(0, 0, 0));
 				if (lvItem.state & LVIS_SELECTED)
@@ -530,29 +544,23 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		//GroupTitleFont.DeleteObject();
 
-		//-----------
-
 
 
 		CRect rc;
 		GetClientRect(rc);
 
 
-
-		//--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
 		//pDC->SelectObject(&LinePen2);
-		if (pListData->SubType == PARENT_ITEM_OPEN)  //展开的父项 
+		if (pListData->SubType == PARENT_ITEM_OPEN)  
 		{
 
 			Graph.DrawLine(&Pen(Color(23, 0, 0, 0), 1), 0, rcItem.top, rcItem.right, rcItem.top);
 
 		}
 
-		//---------------------------------------------------------------------------------------------------------------------------------------------
+		
 
-		if (pListData->SubType == PARENT_ITEM_CLOSE || pListData->SubType == PARENT_ITEM_NOSUB || pListData->pPData == NULL)  //不展开的父项 完成 展开总体项集合 的下部线的绘制
+		if (pListData->SubType == PARENT_ITEM_CLOSE || pListData->SubType == PARENT_ITEM_NOSUB || pListData->pPData == NULL)
 		{
 			if (nItem - 1 >= 0)
 			{
@@ -582,7 +590,6 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 }
 void CCoolListCtrl::MeasureItem(LPMEASUREITEMSTRUCT lpMeasureItemStruct)
 {
-	// TODO: 在此添加消息处理程序代码和/或调用默认值
 
 
 	lpMeasureItemStruct->itemHeight = LINE_H2;
@@ -595,10 +602,7 @@ void CCoolListCtrl::SetImageList(HIMAGELIST hIMGList)
 
 	hImageList = hIMGList;
 	::SendMessage(m_hWnd, LVM_SETIMAGELIST, (WPARAM)LVSIL_SMALL, (LPARAM)hIMGList);
-
-
-
-	//------------------------------------
+	
 	HDITEM              hdItem;
 	hdItem.mask = HDI_FORMAT | HDI_HEIGHT;
 	for (int i = 0; i < CoolheaderCtrl.GetItemCount(); i++)
@@ -627,10 +631,6 @@ void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 	// TODO: Add your control notification handler code here
 	// AfxMessageBox(L"ddd");
 
-
-
-
-	//检测鼠标hot
 
 	CRect rcItem, rcList, rcOldHot;
 	this->GetClientRect(rcList);
@@ -668,7 +668,7 @@ void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-void CCoolListCtrl::PreSubclassWindow() //标题
+void CCoolListCtrl::PreSubclassWindow() 
 {
 	// TODO: Add your specialized code here and/or call the base class
 
@@ -701,9 +701,7 @@ void CCoolListCtrl::OnNMDblclk(NMHDR* pNMHDR, LRESULT* pResult)
 
 void CCoolListCtrl::OnNMClick(NMHDR *pNMHDR, LRESULT *pResult)
 {
-	// NM_CLICK se dispara DESPUES de WM_LBUTTONUP, cuando la seleccion nativa
-	// ya fue aplicada por el control. Aqui restauramos la logica original de
-	// expansion/colapso por clic simple sobre la flecha/icono del proceso.
+
 	LPNMITEMACTIVATE pItemActivate = (LPNMITEMACTIVATE)pNMHDR;
 	*pResult = 0;
 
@@ -712,9 +710,7 @@ void CCoolListCtrl::OnNMClick(NMHDR *pNMHDR, LRESULT *pResult)
 		APPLISTDATA* pData = (APPLISTDATA*)GetItemData(pItemActivate->iItem);
 		if (pData != NULL)
 		{
-			// Si es un proceso (no titulo de grupo) y el clic cae en la zona
-			// del icono/flecha de expansion (x < LINE_H2), solicitamos al padre
-			// que abra o cierre la lista de subprocesos.
+			
 			if ((pData->pPData != NULL) && (pItemActivate->ptAction.x < LINE_H2))
 			{
 				this->GetParent()->PostMessage(UM_DBCLICK_LSIT, (WPARAM)pItemActivate->iItem);
@@ -728,10 +724,7 @@ void CCoolListCtrl::OnNMClick(NMHDR *pNMHDR, LRESULT *pResult)
 
 void CCoolListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
 {
-	// Unica responsabilidad de este handler: bloquear la seleccion nativa cuando
-	// el clic ocurre en el area blanca a la derecha de la ultima columna visible.
-	// La deteccion de la flecha de expansion se hace en OnNMClick (que se dispara
-	// despues de WM_LBUTTONUP, cuando la seleccion ya fue aplicada).
+
 	int nLastColumnRight = 0;
 	CHeaderCtrl* pHeader = GetHeaderCtrl();
 	if (pHeader && pHeader->GetItemCount() > 0 && GetItemCount() > 0)
@@ -1307,4 +1300,111 @@ void CCoolListCtrl::_DrawGroupIconClassic(CDC* pdc, CRect Rc, BOOL Open)
 	}
 
 
+}
+
+// ---------------------------------------------------------------------------
+// Rastreo del cursor para el efecto hover sobre el chevron de expansion.
+// El dibujado normal del control ya pinta la fila hot (mediante OnLvnHotTrack
+// y nHot). Aqui solo anadimos la deteccion especifica del rect del chevron
+// para conmutar GLPS_OPENED/CLOSED a GLPS_HOTED en OnCustomDraw.
+// ---------------------------------------------------------------------------
+
+// Devuelve el item y subitem cuyo chevron esta bajo 'point', o (-1,-1) si no
+// hay chevron bajo el cursor. Recorre solo filas padre (PARENT_ITEM_OPEN/CLOSE).
+static void _FindArrowUnderCursor(CCoolListCtrl* pList, CPoint point, int& nItem, int& nSubItem)
+{
+	nItem = -1;
+	nSubItem = -1;
+	if (pList == NULL) return;
+
+	const int nCount = pList->GetItemCount();
+	for (int i = 0; i < nCount; i++)
+	{
+		APPLISTDATA* pData = (APPLISTDATA*)pList->GetItemData(i);
+		if (pData == NULL) continue;
+		if (pData->SubType != PARENT_ITEM_OPEN && pData->SubType != PARENT_ITEM_CLOSE)
+			continue;
+
+		CRect rcArrow;
+		if (!pList->GetSubItemRect(i, 0, LVIR_BOUNDS, rcArrow))
+			continue;
+
+		// El chevron ocupa solo el cuadrado inicial de la primera columna,
+		// del mismo ancho que la altura de la fila (como en OnCustomDraw).
+		rcArrow.right = rcArrow.left + rcArrow.Height();
+
+		if (rcArrow.PtInRect(point))
+		{
+			nItem = i;
+			nSubItem = 0;
+			return;
+		}
+	}
+}
+
+void CCoolListCtrl::OnMouseMove(UINT nFlags, CPoint point)
+{
+	// Si aun no estamos rastreando, solicitar WM_MOUSELEAVE al sistema.
+	if (!m_bMouseTracking)
+	{
+		TRACKMOUSEEVENT tme = { 0 };
+		tme.cbSize = sizeof(tme);
+		tme.hwndTrack = m_hWnd;
+		tme.dwFlags = TME_LEAVE;
+		tme.dwHoverTime = 0;
+		_TrackMouseEvent(&tme);
+		m_bMouseTracking = TRUE;
+	}
+
+	// Determinar si el cursor esta sobre algun chevron de expansion.
+	int nNewHotItem = -1;
+	int nNewHotSub = -1;
+	_FindArrowUnderCursor(this, point, nNewHotItem, nNewHotSub);
+
+	if (nNewHotItem != m_nHotArrowItem || nNewHotSub != m_nHotArrowSubItem)
+	{
+		// Invalidar SOLO el area del chevron anterior y del nuevo para evitar
+		// repintar todo el control y reducir el parpadeo. Usamos la fila del
+		// item como aproximacion conservadora del rect a repintar.
+		if (m_nHotArrowItem >= 0)
+		{
+			CRect rcRow;
+			if (GetItemRect(m_nHotArrowItem, rcRow, LVIR_BOUNDS))
+				InvalidateRect(rcRow, FALSE);
+		}
+		if (nNewHotItem >= 0)
+		{
+			CRect rcRow;
+			if (GetItemRect(nNewHotItem, rcRow, LVIR_BOUNDS))
+				InvalidateRect(rcRow, FALSE);
+		}
+
+		m_nHotArrowItem = nNewHotItem;
+		m_nHotArrowSubItem = nNewHotSub;
+	}
+
+	CListCtrl::OnMouseMove(nFlags, point);
+}
+
+void CCoolListCtrl::OnMouseLeave()
+{
+	m_bMouseTracking = FALSE;
+
+	// Si saliamos del control con un chevron hot, repintarlo para volver a
+	// su estado normal (GLPS_OPENED/GLPS_CLOSED en lugar de GLPS_HOTED).
+	if (m_nHotArrowItem >= 0)
+	{
+		CRect rcRow;
+		if (GetItemRect(m_nHotArrowItem, rcRow, LVIR_BOUNDS))
+		{
+			m_nHotArrowItem = -1;
+			m_nHotArrowSubItem = -1;
+			InvalidateRect(rcRow, FALSE);
+		}
+		else
+		{
+			m_nHotArrowItem = -1;
+			m_nHotArrowSubItem = -1;
+		}
+	}
 }
