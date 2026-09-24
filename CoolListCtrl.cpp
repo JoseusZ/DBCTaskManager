@@ -1,4 +1,4 @@
-﻿// CoolListCtrl.cpp : implementation file
+﻿﻿// CoolListCtrl.cpp : implementation file
 //
 
 #include "stdafx.h"
@@ -172,10 +172,18 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 	else if (CDDS_ITEMPREPAINT == pLVCD->nmcd.dwDrawStage)
 	{
 
-		// This is the beginning of an item 's paint cycle. 
+		// This is the beginning of an item 's paint cycle.
 		LVITEM lvItem;
 
 		int  nItem = static_cast <int> (pLVCD->nmcd.dwItemSpec);
+
+		// Determinar si la aplicacion es la ventana activa en Windows.
+		// GetFocus() puede devolver NULL si ningun control hijo tiene foco,
+		// por eso se valida tambien contra el nivel superior activo.
+		HWND hFocus = ::GetFocus();
+		CWnd* pTopLevel = GetTopLevelParent();
+		BOOL bListHasFocus = (hFocus == m_hWnd) || ::IsChild(m_hWnd, hFocus) ||
+			(pTopLevel != NULL && pTopLevel->GetSafeHwnd() == ::GetActiveWindow());
 
 		//COLORREF crBkgnd; 
 
@@ -300,10 +308,10 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 			if (pListData->pPData != NULL)
 			{
 				if (theApp.FlagThemeActive)
-					DrawThemeBackground(hTheme, pDC->m_hDC, LVP_LISTITEM, LISS_SELECTED, rcSelBar, NULL);
+					DrawThemeBackground(hTheme, pDC->m_hDC, LVP_LISTITEM, bListHasFocus ? LISS_SELECTED : LISS_SELECTEDNOTFOCUS, rcSelBar, NULL);
 				else
 				{
-					pDC->FillSolidRect(rcSelBar, ::GetSysColor(COLOR_HIGHLIGHT));
+					pDC->FillSolidRect(rcSelBar, bListHasFocus ? ::GetSysColor(COLOR_HIGHLIGHT) : ::GetSysColor(COLOR_BTNFACE));
 					//Graph.FillRectangle(&SolidBrush(Color(60,112,192,231)),rcSelBar.left,rcSelBar.top,rcSelBar.Width(),rcSelBar.Height());
 					//pDC->Draw3dRect(rcSelBar,RGB(112,192,231),RGB(112,192,231));
 				}
@@ -504,7 +512,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 			{
 				if (lvItem.state & LVIS_SELECTED)
 				{
-					pDC->SetTextColor(::GetSysColor(COLOR_HIGHLIGHTTEXT));
+					pDC->SetTextColor(bListHasFocus ? ::GetSysColor(COLOR_HIGHLIGHTTEXT) : ::GetSysColor(COLOR_BTNTEXT));
 					pDC->DrawText(StrSubItem, rcText, DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | Align);
 					pDC->SetTextColor(theApp.WndTextColor);
 				}
