@@ -45,6 +45,7 @@ BEGIN_MESSAGE_MAP(CCoolListCtrl, CListCtrl)
 	ON_NOTIFY_REFLECT(LVN_HOTTRACK, &CCoolListCtrl::OnLvnHotTrack)
 	ON_NOTIFY_REFLECT(NM_DBLCLK, &CCoolListCtrl::OnNMDblclk)
 	ON_NOTIFY_REFLECT(NM_CLICK, &CCoolListCtrl::OnNMClick)
+	ON_WM_LBUTTONDOWN()
 
 	ON_NOTIFY_REFLECT(LVN_DELETEITEM, &CCoolListCtrl::OnLvnDeleteitem)
 	ON_NOTIFY(HDN_ITEMCHANGINGA, 0, &CCoolListCtrl::OnHdnItemchanging)
@@ -698,31 +699,72 @@ void CCoolListCtrl::OnNMDblclk(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-void CCoolListCtrl::OnNMClick(NMHDR* pNMHDR, LRESULT* pResult)
+void CCoolListCtrl::OnNMClick(NMHDR *pNMHDR, LRESULT *pResult)
 {
-	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
-	// TODO: Add your control notification handler code here
+	// NM_CLICK se dispara DESPUES de WM_LBUTTONUP, cuando la seleccion nativa
+	// ya fue aplicada por el control. Aqui restauramos la logica original de
+	// expansion/colapso por clic simple sobre la flecha/icono del proceso.
+	LPNMITEMACTIVATE pItemActivate = (LPNMITEMACTIVATE)pNMHDR;
+	*pResult = 0;
 
-	if (pNMItemActivate->iItem >= 0)
+	if (pItemActivate->iItem >= 0)
 	{
-
-		CPoint CurPos;
-		::GetCursorPos(&CurPos);
-
-		this->ScreenToClient(&CurPos);
-
-
-		APPLISTDATA* pData = (APPLISTDATA*)GetItemData(pNMItemActivate->iItem);
-		if ((pData->pPData != NULL) && (CurPos.x < LINE_H2))
+		APPLISTDATA* pData = (APPLISTDATA*)GetItemData(pItemActivate->iItem);
+		if (pData != NULL)
 		{
-			this->GetParent()->PostMessage(UM_DBCLICK_LSIT, (WPARAM)pNMItemActivate->iItem);
+			// Si es un proceso (no titulo de grupo) y el clic cae en la zona
+			// del icono/flecha de expansion (x < LINE_H2), solicitamos al padre
+			// que abra o cierre la lista de subprocesos.
+			if ((pData->pPData != NULL) && (pItemActivate->ptAction.x < LINE_H2))
+			{
+				this->GetParent()->PostMessage(UM_DBCLICK_LSIT, (WPARAM)pItemActivate->iItem);
+			}
 		}
 
+		// Notificar al padre para refrescar el panel de detalle del item activo.
 		this->GetParent()->PostMessageW(UM_ITEMCHANGED_COOLLIST);
+	}
+}
 
+void CCoolListCtrl::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	// Unica responsabilidad de este handler: bloquear la seleccion nativa cuando
+	// el clic ocurre en el area blanca a la derecha de la ultima columna visible.
+	// La deteccion de la flecha de expansion se hace en OnNMClick (que se dispara
+	// despues de WM_LBUTTONUP, cuando la seleccion ya fue aplicada).
+	int nLastColumnRight = 0;
+	CHeaderCtrl* pHeader = GetHeaderCtrl();
+	if (pHeader && pHeader->GetItemCount() > 0 && GetItemCount() > 0)
+	{
+		CRect rcLastSubItem;
+		if (GetSubItemRect(0, pHeader->GetItemCount() - 1, LVIR_BOUNDS, rcLastSubItem))
+		{
+			nLastColumnRight = rcLastSubItem.right;
+		}
 	}
 
-	*pResult = 0;
+	if (nLastColumnRight > 0 && point.x > nLastColumnRight)
+	{
+		SetFocus();
+
+		// Limpia solo los items actualmente seleccionados (sin SetItemState(-1, ...),
+		// que en algunos estilos de CListCtrl activa LVIS_SELECTED en todas las filas).
+		POSITION pos = GetFirstSelectedItemPosition();
+		while (pos)
+		{
+			int nItem = GetNextSelectedItem(pos);
+			SetItemState(nItem, 0, LVIS_SELECTED | LVIS_FOCUSED);
+		}
+
+		// Retornamos sin llamar a CListCtrl::OnLButtonDown para impedir
+		// que el control nativo aplique la seleccion en la zona vacia.
+		return;
+	}
+
+	// Clic dentro del area de columnas: delegamos a la clase base para que
+	// Windows aplique la seleccion nativa durante WM_LBUTTONUP. La expansion
+	// por clic simple sobre la flecha se gestiona desde OnNMClick.
+	CListCtrl::OnLButtonDown(nFlags, point);
 }
 
 //void CCoolListCtrl::OnLvnDeleteallitems(NMHDR *pNMHDR, LRESULT *pResult)

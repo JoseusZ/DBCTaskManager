@@ -65,13 +65,12 @@ public:
 
 	afx_msg void OnNMDblclk(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMClick(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
 	afx_msg void OnLvnDeleteitem(NMHDR *pNMHDR, LRESULT *pResult);
-	// BUG 2 fix - repaint on focus change so the selected rows switch
-	// between the active and inactive highlight tones immediately.
 	afx_msg void OnSetFocus(CWnd *pOldWnd);
 	afx_msg void OnKillFocus(CWnd *pNewWnd);
 	int DeleteItemAndSub(int iItem);
-	BOOL DrawAllColForSubItem;	 //重要标记 
+	BOOL DrawAllColForSubItem;	 
  	
 
 	BOOL IsProcList;
