@@ -96,7 +96,8 @@ static UINT Thread_DeleteData(LPVOID pParam)
 
 	if(pData == NULL) return -1; //
 
-	Sleep(2000) ; //延迟删除防止排序未完成 数据已经删除造成错误
+	Sleep(0); //短暂挂起让任何挂起的主线程消息处理完成,然后立即删除(避免长时间悬空指针)
+	
 
 	delete  pData ;
 	pData = NULL;

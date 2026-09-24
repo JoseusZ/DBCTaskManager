@@ -79,7 +79,7 @@ using namespace std;
 
 
 
-//´ÅÅÌÃ¶¾Ù
+//ï¿½ï¿½ï¿½ï¿½Ã¶ï¿½ï¿½
 #include "setupapi.h"  
 #include <WinIoCtl.h>  
 #include <ntddscsi.h>  
@@ -132,8 +132,8 @@ using namespace std;
 #define  LINE_H1   (22)
 #define  LINE_H2   (28)
 
-#define   SORT_UP    0    //ÉýÐòÅÅÁÐ
-#define   SORT_DOWN    1 //½µÐòÅÅÁÐ
+#define   SORT_UP    0    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+#define   SORT_DOWN    1 //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 #define  APP   (1)
@@ -148,12 +148,12 @@ using namespace std;
 #define  UM_PROCEXIT   (WM_USER+101)
 #define  UM_DBCLICK_LSIT   (WM_USER+102)
 #define  UM_ADD_STARTUPITEM   (WM_USER+103)
-#define  UM_BASELISTOK   (WM_USER+104) //×î»ù±¾µÄ½ø³ÌÁÐ±íÔØÈëÍê³É£¡
-#define  UM_ALLINFO_OK   (WM_USER+105) //½ø³ÌÈ«²¿ÐÅÏ¢ÔØÈëÍê³É£¡
+#define  UM_BASELISTOK   (WM_USER+104) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É£ï¿½
+#define  UM_ALLINFO_OK   (WM_USER+105) //ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É£ï¿½
 #define  UM_TOGGLE_TMMODE   (WM_USER+106) 
 
-#define  UM_ADD_PROC_SIMPEL_LIST   (WM_USER+107) //Ìí¼Óµ½simple list 
-//#define  UM_DEL_PROC_SIMPEL_LIST   (WM_USER+108) //´Ó simple list  É¾³ý
+#define  UM_ADD_PROC_SIMPEL_LIST   (WM_USER+107) //ï¿½ï¿½ï¿½Óµï¿½simple list 
+//#define  UM_DEL_PROC_SIMPEL_LIST   (WM_USER+108) //ï¿½ï¿½ simple list  É¾ï¿½ï¿½
 
 
 
@@ -303,26 +303,26 @@ struct ListSortData
 struct  COLUMNSTATUS
 {
 	int ColWidth;
-	BYTE Redraw; //Ò»¸ö×ÜÌå±êÖ¾¿ØÖÆÊÇ·ñÖØ»æ´ËÁÐ
+	BYTE Redraw; //Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Ø»ï¿½ï¿½ï¿½ï¿½
 	BYTE Align;
 	BYTE iOrder;
-	int ColWStore;//ÓÃÓÚ±£´æ»Ö¸´ÏÔÊ¾ÁÐÊ±ºòÁÐµÄ¿í¶È
+	int ColWStore;//ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ÐµÄ¿ï¿½ï¿½ï¿½
 };
 
 
 struct  COLUMNSTATUS_EX
 {
 	int  ColWidth;
-	BYTE Redraw;//Ò»¸ö×ÜÌå±êÖ¾¿ØÖÆÊÇ·ñÖØ»æ´ËÁÐ
+	BYTE Redraw;//Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Ø»ï¿½ï¿½ï¿½ï¿½
 	BOOL Cool;
-	BOOL IsHiddenColumn; //Î´ÆôÓÃµÄÁÐ
+	BOOL IsHiddenColumn; //Î´ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½
 	BYTE iOrder;
 	//CString StrItem;
-	WCHAR StrItem[5]; // headerctrl ÏÔÊ¾µÄ °Ù·Ö±È 
+	WCHAR StrItem[5]; // headerctrl ï¿½ï¿½Ê¾ï¿½ï¿½ ï¿½Ù·Ö±ï¿½ 
 	BYTE Align;
-	BOOL DrawInSubItem ; //Èç¹ûÊÇ×ÓÏî ÊÇ·ñÏÔÊ¾´ËÁÐÖÐÎÄ×Ö£¡
+	BOOL DrawInSubItem ; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ç·ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö£ï¿½
 	float Percents;
-	int ColWStore;//ÓÃÓÚ±£´æ»Ö¸´ÏÔÊ¾ÁÐÊ±ºòÁÐµÄ¿í¶È
+	int ColWStore;//ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ÐµÄ¿ï¿½ï¿½ï¿½
 
 };
 
@@ -356,14 +356,14 @@ typedef OBJECT_INFORMATION_CLASS *POBJECT_INFORMATION_CLASS;
  
 
 //******************************************************************************************************************
-//            µ¼Èë º¯Êý 
+//            ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ 
 
 
 typedef DWORD  (WINAPI *API_NtQuerySystemInformation)(DWORD, PVOID, DWORD, PDWORD);
-static	API_NtQuerySystemInformation  MyNtQuerySystemInformation;
+extern API_NtQuerySystemInformation  MyNtQuerySystemInformation;
 
 typedef LONG  (WINAPI *PROCNTQSIP)(HANDLE,UINT,PVOID,ULONG,PULONG);
-static  PROCNTQSIP MyNtQueryInformationProcess;
+extern PROCNTQSIP MyNtQueryInformationProcess;
 
 typedef LONG (WINAPI *MyAdjustPrivilege)(ULONG Privilege,BOOLEAN Enable,BOOLEAN CurrentThread,PBOOLEAN Enabled);
 
@@ -432,7 +432,7 @@ typedef CLIENT_ID *PCLIENT_ID;
 #endif
 
 
-//************************************************** ±¸ÓÃ**************************************************
+//************************************************** ï¿½ï¿½ï¿½ï¿½**************************************************
 //
 //
 //typedef struct _VM_COUNTERS
@@ -513,21 +513,21 @@ typedef CLIENT_ID *PCLIENT_ID;
 //
 //typedef struct _SYSTEM_PROCESSES
 //{
-//	ULONG NextEntryDelta; //¹¹³É½á¹¹ÐòÁÐµÄÆ«ÒÆÁ¿;
-//	ULONG ThreadCount;  //Ïß³ÌÊýÄ¿;
+//	ULONG NextEntryDelta; //ï¿½ï¿½ï¿½É½á¹¹ï¿½ï¿½ï¿½Ðµï¿½Æ«ï¿½ï¿½ï¿½ï¿½;
+//	ULONG ThreadCount;  //ï¿½ß³ï¿½ï¿½ï¿½Ä¿;
 //	ULONG Reserved1[6]; 
-//	LARGE_INTEGER CreateTime; //´´½¨Ê±¼ä;
-//	LARGE_INTEGER UserTime; //ÓÃ»§Ä£Ê½(Ring 3)µÄCPUÊ±¼ä;
-//	LARGE_INTEGER KernelTime; //ÄÚºËÄ£Ê½(Ring 0)µÄCPUÊ±¼ä;
-//	UNICODE_STRING ProcessName; //½ø³ÌÃû³Æ;
-//	KPRIORITY BasePriority; //½ø³ÌÓÅÏÈÈ¨;
-//	ULONG ProcessId; //½ø³Ì±êÊ¶·û;
-//	ULONG InheritedFromProcessId;  //¸¸½ø³ÌµÄ±êÊ¶·û;
-//	ULONG HandleCount; //¾ä±úÊýÄ¿;
+//	LARGE_INTEGER CreateTime; //ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½;
+//	LARGE_INTEGER UserTime; //ï¿½Ã»ï¿½Ä£Ê½(Ring 3)ï¿½ï¿½CPUÊ±ï¿½ï¿½;
+//	LARGE_INTEGER KernelTime; //ï¿½Úºï¿½Ä£Ê½(Ring 0)ï¿½ï¿½CPUÊ±ï¿½ï¿½;
+//	UNICODE_STRING ProcessName; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+//	KPRIORITY BasePriority; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨;
+//	ULONG ProcessId; //ï¿½ï¿½ï¿½Ì±ï¿½Ê¶ï¿½ï¿½;
+//	ULONG InheritedFromProcessId;  //ï¿½ï¿½ï¿½ï¿½ï¿½ÌµÄ±ï¿½Ê¶ï¿½ï¿½;
+//	ULONG HandleCount; //ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿;
 //	ULONG Reserved2[2];
-//	VM_COUNTERS VmCounters;  //ÐéÄâ´æ´¢Æ÷µÄ½á¹¹£¬¼ûÏÂ;
-//	IO_COUNTERS IoCounters;  //IO¼ÆÊý½á¹¹£¬¼ûÏÂ;
-//	SYSTEM_THREADS Threads[1];      //½ø³ÌÏà¹ØÏß³ÌµÄ½á¹¹Êý×é£¬¼ûÏÂ;
+//	VM_COUNTERS VmCounters;  //ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½Ä½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+//	IO_COUNTERS IoCounters;  //IOï¿½ï¿½ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+//	SYSTEM_THREADS Threads[1];      //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³ÌµÄ½á¹¹ï¿½ï¿½ï¿½é£¬ï¿½ï¿½ï¿½ï¿½;
 //}SYSTEM_PROCESSES,*PSYSTEM_PROCESSES;
 
 
@@ -556,7 +556,7 @@ typedef CLIENT_ID *PCLIENT_ID;
 //
 
 
-//                                             ÒÔÉÏ±¸ÓÃ
+//                                             ï¿½ï¿½ï¿½Ï±ï¿½ï¿½ï¿½
 //**************************************************************************************************************************************************
 
 /* _PEB_LDR_DATA / PPEB_LDR_DATA already provided by Winternl.h. */
@@ -643,7 +643,7 @@ typedef struct MY_SYSTEM_INTERRUPT_INFORMATION
 
 
 
-//****************************************** Í¨ÓÃº¯Êý ********************************************************************************************************
+//****************************************** Í¨ï¿½Ãºï¿½ï¿½ï¿½ ********************************************************************************************************
 
 static  void OpenPropertiesDlg(CString Path)
 {
@@ -765,7 +765,7 @@ static IEnumWbemClassObject*  GetWmiObject(CString StrClass,WCHAR *StrUser = NUL
 
 //--------------------------------------------------------------------------------------
 
-//    ´ÅÅÌÏà¹Ø
+//    ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 static DWORD GetPhysicalDriveFromPartitionLetter(CString  letter,int *PartitionID )
 {
@@ -839,7 +839,7 @@ static CString GetDrivelettersFormDiskID(int ID)
 
 	for(int i = 0;i < 26*3;i++)
 	{
-		szLetter[i] = L'X';//Ô¤ÏÈÌî³ä¿Õ¸ñ ²»ÊÇ¿Õ×Ö·û 
+		szLetter[i] = L'X';//Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½Õ¸ï¿½ ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½Ö·ï¿½ 
 
 	}
 
@@ -886,11 +886,11 @@ static CString GetDrivelettersFormDiskID(int ID)
 //	AfxMessageBox( StrDriveLetter);
 	StrDriveLetter =szLetter;
 	//MSB_S(StrDriveLetter)
-	if(LetterCount>0) //ÕÒµ½ÅÌ·û
+	if(LetterCount>0) //ï¿½Òµï¿½ï¿½Ì·ï¿½
 	{
 		StrDriveLetter.Remove(L'X');
 	}
-	else  //Ã»ÕÒµ½ÈÎºÎÅÌ·û
+	else  //Ã»ï¿½Òµï¿½ï¿½Îºï¿½ï¿½Ì·ï¿½
 	{
 		GetDiskVolFailCount++;
 		return L" ";
@@ -957,7 +957,7 @@ static Image * LoadPNG(LPCTSTR nID, HINSTANCE  hInst)
 	IStream*   pStream; 
 	CreateStreamOnHGlobal(m_hMem,FALSE,&pStream); 
 
-	//load   from   streamÕâÊÇ¹Ø¼üÒ»¾ä£¬Í¨¹ýFromStream·µ»ØÒÔ¸÷Image*£¬È»ºóÔÚGraphicµÄDrawImageµØ·½µ÷ÓÃ¾ÍÐÐÁË£¡
+	//load   from   streamï¿½ï¿½ï¿½Ç¹Ø¼ï¿½Ò»ï¿½ä£¬Í¨ï¿½ï¿½FromStreamï¿½ï¿½ï¿½ï¿½ï¿½Ô¸ï¿½Image*ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½Graphicï¿½ï¿½DrawImageï¿½Ø·ï¿½ï¿½ï¿½ï¿½Ã¾ï¿½ï¿½ï¿½ï¿½Ë£ï¿½
    
 	Image *RetImage;
 	RetImage =Gdiplus::Image::FromStream(pStream); 
@@ -1031,7 +1031,7 @@ static Image * LoadPNG(LPCTSTR nID, HINSTANCE  hInst)
 //	{
 //		
 //		VirtualFreeEx(hProc, (PVOID)i, 0x10, 0x4000);
-//		if(ZwResumeProcess(hProc)!=0) //Èç¹ûµ÷ÓÃ´Ëº¯ÊýÊ§°Ü£¬ÔòÖ¤Ã÷½ø³ÌÒÑËÀ
+//		if(ZwResumeProcess(hProc)!=0) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã´Ëºï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //		{
 //			  mbox(hProc)
 //			break;

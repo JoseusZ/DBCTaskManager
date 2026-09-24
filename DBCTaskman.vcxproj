@@ -26,28 +26,29 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>Static</UseOfMfc>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>Static</UseOfMfc>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>Static</UseOfMfc>
     <CharacterSet>Unicode</CharacterSet>
     <CLRSupport>false</CLRSupport>
     <WholeProgramOptimization>true</WholeProgramOptimization>
+    <TargetName>$(ProjectName)X64</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>Static</UseOfMfc>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -180,7 +181,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <PreBuildEvent>
-      <Command>D:\Applications\Programming\DBCADD-in\modver.exe  /$(ProjectDir)VersionNo.h</Command>
+      <Command>rem VersionNo.h updated manually (was: D:\Applications\Programming\DBCADD-in\modver.exe /$(ProjectDir)VersionNo.h)</Command>
     </PreBuildEvent>
     <Midl>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -204,16 +205,23 @@
       <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Link>
-      <OutputFile>$(SolutionDir)\AllRelease\X64\$(ProjectName)X64.exe</OutputFile>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
       <UACUIAccess>false</UACUIAccess>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapFileName>$(IntDir)$(TargetName).map</MapFileName>
       <ProgramDatabaseFile>$(SolutionDir)\x64\$(TargetName).pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
+    <PostBuildEvent>
+      <Command>if not exist "$(SolutionDir)AllRelease\X64" mkdir "$(SolutionDir)AllRelease\X64"
+copy /Y "$(OutDir)$(TargetName)$(TargetExt)" "$(SolutionDir)AllRelease\X64\$(TargetName)$(TargetExt)"</Command>
+      <Message>Copying $(TargetName)$(TargetExt) to AllRelease\X64\</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AboutDlg.cpp" />
@@ -235,8 +243,22 @@
     <ClCompile Include="MyTabCtrl.cpp" />
     <ClCompile Include="NormalHeaderCtrl.cpp" />
     <ClCompile Include="PerformanceBox.cpp" />
+    <ClCompile Include="PerformanceBox_Cpu.cpp" />
+    <ClCompile Include="PerformanceBox_Disk.cpp" />
+    <ClCompile Include="PerformanceBox_Memory.cpp" />
+    <ClCompile Include="PerformanceBox_Net.cpp" />
     <ClCompile Include="PerformanceMon.cpp" />
     <ClCompile Include="PerformanceView.cpp" />
+    <ClCompile Include="PerfCpuSpeed.cpp" />
+    <ClCompile Include="PerfDbgLog.cpp" />
+    <ClCompile Include="PerfDiskShared.cpp" />
+    <ClCompile Include="PerfNetHelpers.cpp" />
+    <ClCompile Include="PerfNtSys.cpp" />
+    <ClCompile Include="PerfPdhDisk.cpp" />
+    <ClCompile Include="PerfPdhProcIo.cpp" />
+    <ClCompile Include="PerfPidIoCache.cpp" />
+    <ClCompile Include="PerfWlan.cpp" />
+    <ClCompile Include="PerfWmiDisk.cpp" />
     <ClCompile Include="PItemList.cpp" />
     <ClCompile Include="ProcessesView.cpp" />
     <ClCompile Include="ProcessInfo.cpp" />

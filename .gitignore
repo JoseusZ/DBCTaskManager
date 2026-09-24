@@ -1,0 +1,28 @@
+# Archivos de compilación y binarios
+Debug/
+Release/
+x64/
+AllRelease/
+ipch/
+*.pch
+*.obj
+*.exe
+*.dll
+*.lib
+*.ncb
+*.opt
+*.plg
+
+# Configuraciones de usuario y carpetas temporales de Visual Studio
+.vs/
+*.suo
+*.user
+*.user.*
+*_i.c
+*_p.c
+*.aps
+
+# Archivos de depuración, compilación y logs generados en ejecución
+*.log
+*.err
+*.out

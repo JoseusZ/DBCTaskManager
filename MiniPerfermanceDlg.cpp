@@ -87,23 +87,23 @@ BOOL CMiniPerfermanceDlg::OnInitDialog()
 
 	pTaskBar->GetWindowRect(rcTaskBar);
 
-	if(rcTaskBar.top == rcWorkspace.bottom)//ÈÎÎñÀ¸ÔÚµ×²¿
+	if(rcTaskBar.top == rcWorkspace.bottom)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµ×²ï¿½
 	{
 		rcMiniBox.left=rcWorkspace.right-W-9;  rcMiniBox.top=rcWorkspace.bottom-H-9;
 		
 	}
 	//else  if(rcTaskBar.left==0 && ( rcTaskBar.Height() == (rcWorkspace.bottom-rcWorkspace.top) ))
-	else  if(rcTaskBar.right == rcWorkspace.left)//ÈÎÎñÀ¸ÔÚ×ó²à
+	else  if(rcTaskBar.right == rcWorkspace.left)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{
 		rcMiniBox.left=rcTaskBar.right+9;  rcMiniBox.top=rcWorkspace.bottom-H-9;
 		
 	}
-	else  if(rcTaskBar.left == rcWorkspace.right)//ÈÎÎñÀ¸ÔÚÓÒ²à
+	else  if(rcTaskBar.left == rcWorkspace.right)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò²ï¿½
 	{
 		rcMiniBox.left=rcWorkspace.right-W-9;  rcMiniBox.top=rcWorkspace.bottom-H-9;
 	
 	}
-	else  if(rcTaskBar.bottom == rcWorkspace.top)//ÈÎÎñÀ¸ÔÚ¶¥²¿
+	else  if(rcTaskBar.bottom == rcWorkspace.top)//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½
 	{
 		rcMiniBox.left=rcWorkspace.right-W-9;  rcMiniBox.top=rcWorkspace.top+9;
 		
@@ -193,27 +193,40 @@ void CMiniPerfermanceDlg::SetBarStatus(void)
 	//------------------------
 
 	pWnd =  GetDlgItem(IDC_STATIC_CPU);
-	StrInfo.Format(L"%.2f%%",theApp.PerformanceInfo.CpuUsage);
+	// User format: idle shows "0%", non-idle uses one decimal ("0.1%").
+	if(theApp.PerformanceInfo.CpuUsage == 0.0)
+		StrInfo = L"0%";
+	else
+		StrInfo.Format(L"%.1f%%",theApp.PerformanceInfo.CpuUsage);
 	if(pWnd!=NULL) pWnd->SetWindowTextW(StrInfo);
 
 		//------------------------
 
 	pWnd =  GetDlgItem(IDC_STATIC_MEM);
-	StrInfo.Format(L"%.2f%%",theApp.PerformanceInfo.MemoryUsage);
+	if(theApp.PerformanceInfo.MemoryUsage == 0.0)
+		StrInfo = L"0%";
+	else
+		StrInfo.Format(L"%.1f%%",theApp.PerformanceInfo.MemoryUsage);
 	if(pWnd!=NULL) pWnd->SetWindowTextW(StrInfo);
 
 
 		//------------------------
 
 	pWnd =  GetDlgItem(IDC_STATIC_DISK);
-	StrInfo.Format(L"%.2f%%",theApp.PerformanceInfo.TotalDiskUsage);
+	if(theApp.PerformanceInfo.TotalDiskUsage == 0.0)
+		StrInfo = L"0%";
+	else
+		StrInfo.Format(L"%.1f%%",theApp.PerformanceInfo.TotalDiskUsage);
 	if(pWnd!=NULL) pWnd->SetWindowTextW(StrInfo);
 
 
 		//------------------------
 
 	pWnd =  GetDlgItem(IDC_STATIC_NET);
-	StrInfo.Format(L"%.2f%%",theApp.PerformanceInfo.TotalNetUsage);
+	if(theApp.PerformanceInfo.TotalNetUsage == 0.0)
+		StrInfo = L"0%";
+	else
+		StrInfo.Format(L"%.1f%%",theApp.PerformanceInfo.TotalNetUsage);
 	if(pWnd!=NULL) pWnd->SetWindowTextW(StrInfo);
 
 
@@ -291,7 +304,7 @@ void CMiniPerfermanceDlg::OnMouseMove(UINT nFlags, CPoint point)
 
 
 
-	if (!MouseTrackNow)     //  ÔÊÐí¿ªÊ¼×·×Ù  
+	if (!MouseTrackNow)     //  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼×·ï¿½ï¿½  
 	{
 		
 
@@ -300,9 +313,9 @@ void CMiniPerfermanceDlg::OnMouseMove(UINT nFlags, CPoint point)
 			TRACKMOUSEEVENT csTME;
 			csTME.cbSize = sizeof (csTME);
 			csTME.dwFlags = TME_LEAVE|TME_HOVER;
-			csTME.hwndTrack = m_hWnd ;// Ö¸¶¨Òª ×·×Ù µÄ´°¿Ú 
-			csTME.dwHoverTime = 10;  // Êó±êÔÚ°´Å¥ÉÏÍ£Áô³¬¹ý 10ms £¬²ÅÈÏÎª×´Ì¬Îª HOVER
-			::_TrackMouseEvent (&csTME); // ¿ªÆô Windows µÄ WM_MOUSELEAVE £¬ WM_MOUSEHOVER ÊÂ¼þÖ§³Ö 
+			csTME.hwndTrack = m_hWnd ;// Ö¸ï¿½ï¿½Òª ×·ï¿½ï¿½ ï¿½Ä´ï¿½ï¿½ï¿½ 
+			csTME.dwHoverTime = 10;  // ï¿½ï¿½ï¿½ï¿½Ú°ï¿½Å¥ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 10ms ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª×´Ì¬Îª HOVER
+			::_TrackMouseEvent (&csTME); // ï¿½ï¿½ï¿½ï¿½ Windows ï¿½ï¿½ WM_MOUSELEAVE ï¿½ï¿½ WM_MOUSEHOVER ï¿½Â¼ï¿½Ö§ï¿½ï¿½ 
 			MouseTrackNow=TRUE ;   
 		}		
 	}

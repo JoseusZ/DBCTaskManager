@@ -30,4 +30,7 @@ public:
 	double GetTotalDiskIO(void);
 	double GetTotalNetworkIO(void);
 	DISK_PERFORMANCE GetDiskPerformance(int DiskID);
+	DISK_PERFORMANCE GetDiskPerformance(int DiskID, const CString& VolumeLetter);
+private:
+	BOOL TryDiskIoctl(LPCWSTR DevicePath, BOOL bAsync, DISK_PERFORMANCE& OutBuffer, DWORD& OutErr);
 };

@@ -833,7 +833,7 @@ BEGIN
     IDS_PITEM_MEM           "Memory"
     IDS_PITEM_DISK          "Disk"
     IDS_PITEM_NET           "Ethernet"
-    IDS_PITEM_WIRELESS      "Wireless"
+    IDS_PITEM_WIRELESS      "Wi-Fi"
     IDS_PITEM_GPU           "GPU"
     STR_TABITEMS            "Processes;Performance;Users;Details;Services;Startup;"
     STR_COLUMN_SERVER       "Name;PID;Description;Status;Sratr type;Group;"

@@ -117,9 +117,9 @@ static BOOL  EnableSpecificPrivilege(LPCTSTR lpPrivilegeName)
 
 static LONG CrashTip(EXCEPTION_POINTERS *pException)   
 {      
-    // ÔÚÕâÀïÌí¼Ó´¦Àí³ÌÐò±ÀÀ£Çé¿öµÄ´úÂë     //   
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ï¿½     //   
   
-    // ÕâÀïÒÔµ¯³öÒ»¸ö¶Ô»°¿òÎªÀý×Ó   
+    // ï¿½ï¿½ï¿½ï¿½ï¿½Ôµï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½   
     //  
 	CString  StrError =L"whoops!";
 
@@ -193,15 +193,18 @@ map<int, int> NetAdapterList;
 
 BOOL CDBCTaskmanApp::InitInstance()
 {
+
 	// InitCommonControlsEx() is required on Windows XP if an application
 	// manifest specifies use of ComCtl32.dll version 6 or later to enable
 	// visual styles.  Otherwise, any window creation will fail.
 
 
+
+
+	
+
+
 		
-
-
-
 
 	INITCOMMONCONTROLSEX InitCtrls;
 	InitCtrls.dwSize = sizeof(InitCtrls);
@@ -262,8 +265,8 @@ BOOL CDBCTaskmanApp::InitInstance()
 //======================================================
 
 
-//              ÒÔÏÂÊµÏÖÖ»ÔËÐÐÒ»¸öÊµÀý
-//              ÅäºÏ Ö÷¶Ô»°¿ò  OnCreate  OnDestory 
+//              ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Êµï¿½ï¿½
+//              ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ï¿½  OnCreate  OnDestory 
 
 	 if( AppSettings.OnlyOneInstance )
 	 {
@@ -302,10 +305,10 @@ BOOL CDBCTaskmanApp::InitInstance()
 	
 
 	CDBCTaskmanDlg dlg;
-	 
+
 	dlg.MoveWindow(theApp.AppSettings.rcWnd_Simple);
 
-	m_pMainWnd = &dlg;	
+	m_pMainWnd = &dlg;
 	INT_PTR nResponse = dlg.DoModal();
 	if (nResponse == IDOK)
 	{
@@ -361,7 +364,7 @@ void CDBCTaskmanApp::LoadAppSettings(BOOL ReLoad)
 		AppSettings.ShowKernelTime = FALSE;	 
 
 		AppSettings.ActiveTab=0;
-		AppSettings.TaskManMode=0; //Ä¬ÈÏ¼ò½àÄ£Ê½
+		AppSettings.TaskManMode=0; //Ä¬ï¿½Ï¼ï¿½ï¿½Ä£Ê½
 
 		AppSettings.PerformanceListShowGraph = 1;
 
@@ -404,7 +407,7 @@ void CDBCTaskmanApp::LoadAppSettings(BOOL ReLoad)
 			{
 				APPSETTINGS SettingsReload;
 				CfgFile.Read(&SettingsReload,sizeof(APPSETTINGS));
-				if(SettingsReload.Ver!= CFG_DATA_VER || (lstrcmp(Mark2,Mark)!=0) ) //·ÀÖ¹Êý¾Ý´íÂÒ£¡£¡£¡
+				if(SettingsReload.Ver!= CFG_DATA_VER || (lstrcmp(Mark2,Mark)!=0) ) //ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½Ý´ï¿½ï¿½Ò£ï¿½ï¿½ï¿½ï¿½ï¿½
 				{
 					return;
 				}
@@ -423,7 +426,7 @@ void CDBCTaskmanApp::LoadAppSettings(BOOL ReLoad)
 			CfgFile.Close();
 
 			DataVer = AppSettings.Ver;
-			if(DataVer!= CFG_DATA_VER || (lstrcmp(Mark2,Mark)!=0) ) //·ÀÖ¹Êý¾Ý´íÂÒ£¡£¡£¡
+			if(DataVer!= CFG_DATA_VER || (lstrcmp(Mark2,Mark)!=0) ) //ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½Ý´ï¿½ï¿½Ò£ï¿½ï¿½ï¿½ï¿½ï¿½
 			{
 				
 					goto LOADDEFAULT;
@@ -433,7 +436,7 @@ void CDBCTaskmanApp::LoadAppSettings(BOOL ReLoad)
 		 
 
 	}
-	else //ÔØÈëÊ§°ÜÉèÎªÄ¬ÈÏÖµ
+	else //ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½ï¿½ï¿½ÎªÄ¬ï¿½ï¿½Öµ
 	{
 LOADDEFAULT:
 		AppSettings.rcWnd.SetRect(0,0,690,590);
@@ -501,7 +504,7 @@ LOADDEFAULT:
 			AppSettings.ColIDS_ProcList[i].IsHiddenColumn =TRUE ;
 			AppSettings.ColIDS_ProcList[i].Redraw = 0;
 			AppSettings.ColIDS_ProcList[i].Align = (BYTE)DT_LEFT;
-			if(i>=7)//»ÆÉ«
+			if(i>=7)//ï¿½ï¿½É«
 			{
 				AppSettings.ColIDS_ProcList[i].Cool=TRUE;
 				AppSettings.ColIDS_ProcList[i].Align = (BYTE)DT_RIGHT;
@@ -517,7 +520,7 @@ LOADDEFAULT:
 			AppSettings.ColIDS_UserList[i].IsHiddenColumn =TRUE ;
 			AppSettings.ColIDS_UserList[i].Align = (BYTE)DT_LEFT;
 
-			if(i>=5)//»ÆÉ«
+			if(i>=5)//ï¿½ï¿½É«
 			{
 				AppSettings.ColIDS_UserList[i].Cool=TRUE;
 				AppSettings.ColIDS_UserList[i].Align = (BYTE)DT_RIGHT;
@@ -543,7 +546,7 @@ LOADDEFAULT:
 			 
 		}
 
-		//Ä¬ÈÏµÄÏÔÊ¾Ïî
+		//Ä¬ï¿½Ïµï¿½ï¿½ï¿½Ê¾ï¿½ï¿½
 
 		// P1-process
 		COL_SAT_PROC[PROCLIST_NAME].ColWidth= COL_SAT_PROC[PROCLIST_STATUS].ColWidth=COL_SAT_PROC[PROCLIST_CPU].ColWidth = COL_SAT_PROC[PROCLIST_MEMORY].ColWidth= COL_SAT_PROC[PROCLIST_DISK].ColWidth = COL_SAT_PROC[PROCLIST_NETWORK].ColWidth=80;
@@ -570,13 +573,13 @@ LOADDEFAULT:
 	//------------------------
 
 
-	//ÓÀÔ¶ÏÔÊ¾µÄÏî
+	//ï¿½ï¿½Ô¶ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
 
 	COL_SAT_PROC[PROCLIST_NAME].Redraw = COL_SAT_USER[USERLIST_USER].Redraw = COL_SAT_DETAIL[DETAILLIST_NAME].Redraw = 1;
 
 
 
-	//°²×°µÄÎïÀíÄÚ´æ×ÜÊý
+	//ï¿½ï¿½×°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	ULONGLONG  TotalMemoryInKilobytes;
 
@@ -841,7 +844,7 @@ BOOL CDBCTaskmanApp::_IsAdministratorNow(void)
 	UINT16 uWinVer = LOWORD(GetVersion());
 	uWinVer = MAKEWORD(HIBYTE(uWinVer),LOBYTE(uWinVer));
 
-	if (uWinVer < 0x0600) //²»ÊÇVISTA¡¢Windows7
+	if (uWinVer < 0x0600) //ï¿½ï¿½ï¿½ï¿½VISTAï¿½ï¿½Windows7
 		return(FALSE);
 
 	if (OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&hToken))
@@ -868,10 +871,10 @@ void CDBCTaskmanApp::InitAll(void)
 	SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)CrashTip);
 	 	
 
-	//----------------------²âÊÔÊÇ·ñ Îªx64°æ-------------------
+	//----------------------ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ Îªx64ï¿½ï¿½-------------------
 	
 	LPVOID   Test;
-	int nTest= sizeof(Test);   //x64 ÏÂnTest == 8 x86 ==4;
+	int nTest= sizeof(Test);   //x64 ï¿½ï¿½nTest == 8 x86 ==4;
 	if(nTest == 8)   
 	{
 		FlagIsX64 = TRUE;		
@@ -882,7 +885,7 @@ void CDBCTaskmanApp::InitAll(void)
 	}
 	 
 
-	// ----------- ²âÊÔÊÇ·ñÎªÖÐÎÄ°æ µ¼³ö html »ò ÎÄ±¾ÎÄ¼þ ¼°Ò»Ð©ÏÔÊ¾ÐèÒª¸ù¾ÝÓïÑÔ°æ±¾²»Í¬´¦Àí ----------- 
+	// ----------- ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½Îªï¿½ï¿½ï¿½Ä°ï¿½ ï¿½ï¿½ï¿½ï¿½ html ï¿½ï¿½ ï¿½Ä±ï¿½ï¿½Ä¼ï¿½ ï¿½ï¿½Ò»Ð©ï¿½ï¿½Ê¾ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô°æ±¾ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ ----------- 
 	CString StrCharCode;
 	StrCharCode.LoadString(STR_CHARCODE);
 	IsChineseEdition =(StrCharCode.CompareNoCase(L"gb18030")==0);
@@ -920,7 +923,7 @@ void CDBCTaskmanApp::InitAll(void)
 	 
 
 
-	  //---------------»ñÈ¡  Âß¼­´¦ÀíÆ÷ÊýÁ¿ ---------------
+	  //---------------ï¿½ï¿½È¡  ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ---------------
 		
 	 SYSTEM_INFO sysInfo;
 	 GetSystemInfo(&sysInfo);
@@ -942,10 +945,10 @@ void CDBCTaskmanApp::InitAll(void)
 	 LoadAppSettings();
 
 
-	//---------------------- ´ò¿ªÁÐ±íÖ÷Ìâ ------------------------
-	//---------------Õâ¸ö³ÌÐòÖ÷ÒªÓÃµ½Õâ¸ö ËùÒÔÔÚ´ËÒ»´ÎÐÔ´ò¿ª-----------------
+	//---------------------- ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ ------------------------
+	//---------------ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½Ãµï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½Ò»ï¿½ï¿½ï¿½Ô´ï¿½-----------------
 	FlagThemeActive  = IsThemeActive();
-	hTheme=OpenThemeData(NULL, L"Explorer::ListView"); // ¡ô Èç¹ûÏë×Ô»æÕâ¸öÐ§¹û ¾Í²»ÄÜÔÙÉèÖÃSetWindowTheme(mProcessList.GetSafeHwnd(),L"explorer", NULL);ÁË £¡£¡£¡
+	hTheme=OpenThemeData(NULL, L"Explorer::ListView"); // ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½SetWindowTheme(mProcessList.GetSafeHwnd(),L"explorer", NULL);ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 	//------------------------
@@ -964,7 +967,7 @@ void CDBCTaskmanApp::InitAll(void)
 		mImagelist.Attach(himlSmall);
 	}
 
-	//-----------ÌØÊâÍ¼±êÔØÈë----------------------
+	//-----------ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½----------------------
 	HICON hIcon = theApp.LoadIcon( MAKEINTRESOURCE(IDI_SVCHOST) );
 	mImagelist.Add(hIcon);
 	DestroyIcon(hIcon);
@@ -997,7 +1000,7 @@ void CDBCTaskmanApp::InitAll(void)
 
 
 	CurrentPID = GetCurrentProcessId();
-	HANDLE hProcess = OpenProcess( PROCESS_SET_INFORMATION     ,FALSE, CurrentPID);  //×¢Òâ PPROCESS_SET_INFORMATION ÒªÉèÖÃÓÅÏÈ¼¶ ÒªÕâ¸öÈ¨ÏÞ
+	HANDLE hProcess = OpenProcess( PROCESS_SET_INFORMATION     ,FALSE, CurrentPID);  //×¢ï¿½ï¿½ PPROCESS_SET_INFORMATION Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½ Òªï¿½ï¿½ï¿½È¨ï¿½ï¿½
 	BOOL Ret=SetPriorityClass( hProcess, HIGH_PRIORITY_CLASS );
 	CloseHandle(hProcess);	
 
@@ -1018,7 +1021,7 @@ void CDBCTaskmanApp::InitAll(void)
 						 0,                         // nOrientation
 						 FW_NORMAL,                 // nWeight     FW_NORMAL,     FW_BOLD
 						 FALSE,                     // bItalic
-						 FALSE,                     // bUnderlineÏÂ»®Ïß±ê¼Ç£¬ÐèÒªÏÂ»®Ïß°ÑÕâÀïÉèÖÃ³ÉTRUE
+						 FALSE,                     // bUnderlineï¿½Â»ï¿½ï¿½ß±ï¿½Ç£ï¿½ï¿½ï¿½Òªï¿½Â»ï¿½ï¿½ß°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã³ï¿½TRUE
 						 0,                         // cStrikeOut
 						 DEFAULT_CHARSET,              // nCharSet
 						 OUT_DEFAULT_PRECIS,        // nOutPrecision
@@ -1142,25 +1145,25 @@ BOOL CDBCTaskmanApp::IsInstanceExist(void)
 
 	 HANDLE hSem=CreateSemaphore(NULL,1,1,L"DBC_TASKMAN_001"); 
 
-	 if(hSem) //ÐÅ±ê¶ÔÏó´´½¨³É¹¦¡£ 
+	 if(hSem) //ï¿½Å±ï¿½ï¿½ï¿½ó´´½ï¿½ï¿½É¹ï¿½ï¿½ï¿½ 
 	 { 		  
-		 if(ERROR_ALREADY_EXISTS==GetLastError()) //ÐÅ±ê¶ÔÏóÒÑ¾­´æÔÚ£¬Ôò³ÌÐòÒÑÓÐÒ»¸öÊµÀýÔÚÔËÐÐ¡£
+		 if(ERROR_ALREADY_EXISTS==GetLastError()) //ï¿½Å±ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½
 		 { 
-			 CloseHandle(hSem); //¹Ø±ÕÐÅºÅÁ¿¾ä±ú¡£ 
+			 CloseHandle(hSem); //ï¿½Ø±ï¿½ï¿½Åºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
 
-			 //»ñÈ¡×ÀÃæ´°¿ÚµÄÒ»¸ö×Ó´°¿Ú¡£ 
+			 //ï¿½ï¿½È¡ï¿½ï¿½ï¿½æ´°ï¿½Úµï¿½Ò»ï¿½ï¿½ï¿½Ó´ï¿½ï¿½Ú¡ï¿½ 
 			 HWND hWndPrev=::GetWindow(::GetDesktopWindow(),GW_CHILD); 
 			 while(::IsWindow(hWndPrev)) 
 			 { 				 
-				 if(::GetProp(hWndPrev,L"DBC_TASKMAN_001")) //ÅÐ¶Ï´°¿ÚÊÇ·ñÓÐÎÒÃÇÔ¤ÏÈÉèÖÃµÄ±ê¼Ç£¬ÈçÓÐ£¬ÔòÊÇÎÒÃÇÑ°ÕÒµÄ´°¿Ú£¬²¢½«Ëü¼¤»î¡£ 
+				 if(::GetProp(hWndPrev,L"DBC_TASKMAN_001")) //ï¿½Ð¶Ï´ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ÃµÄ±ï¿½Ç£ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½ÒµÄ´ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î¡£ 
 				 {					
-					 if (::IsIconic(hWndPrev)) {::ShowWindow(hWndPrev,SW_RESTORE);} 	 //Èç¹ûÖ÷´°¿ÚÒÑ×îÐ¡»¯£¬Ôò»Ö¸´Æä´óÐ¡¡£ 				 
-					 ::SetForegroundWindow(hWndPrev); //½«Ó¦ÓÃ³ÌÐòµÄÖ÷´°¿Ú¼¤»î¡£ 
-					 return TRUE; //·µ»ØTRUE´ú±í ÊµÀýÒÑ¾­ÔËÐÐ   ÍË³öÊµÀý¡£ 
+					 if (::IsIconic(hWndPrev)) {::ShowWindow(hWndPrev,SW_RESTORE);} 	 //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ 				 
+					 ::SetForegroundWindow(hWndPrev); //ï¿½ï¿½Ó¦ï¿½Ã³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¼ï¿½ï¿½î¡£ 
+					 return TRUE; //ï¿½ï¿½ï¿½ï¿½TRUEï¿½ï¿½ï¿½ï¿½ Êµï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½   ï¿½Ë³ï¿½Êµï¿½ï¿½ï¿½ï¿½ 
 				 } 			
-				 hWndPrev = ::GetWindow(hWndPrev,GW_HWNDNEXT); 	 //¼ÌÐøÑ°ÕÒÏÂÒ»¸ö´°¿Ú¡£ 
+				 hWndPrev = ::GetWindow(hWndPrev,GW_HWNDNEXT); 	 //ï¿½ï¿½ï¿½ï¿½Ñ°ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ú¡ï¿½ 
 			 } 
-			// AfxMessageBox("ÒÑÓÐÒ»¸öÊµÀýÔÚÔËÐÐ£¬µ«ÕÒ²»µ½ËüµÄÖ÷´°¿Ú£¡"); 
+			// AfxMessageBox("ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½"); 
 		 } 
 	 } 
 	 else 
@@ -1183,7 +1186,7 @@ int CDBCTaskmanApp::Global_ShowOperateTip(CString StrProcessName, UINT MainTipSt
 	StrTemp.LoadStringW(MainTipStrID);
 	StrContent.LoadStringW(ContentStrID);
 	
-	//×¢Òâ StrTipTitle ´øÓÐ%s¸ñÊ½ µ«ÊÇÕâÑùÖ±½ÓÓÃÒ»¸ö±äÁ¿¿ÉÄÜ»á³öÏÖ ÄÚ´æ³åÍ»µ¼ÖÂ±ÀÀ£ÎÊÌâ _debugger_hook_dummy = 0;ËùÒÔ²»ÒªÖ±½ÓÓÃÒ»¸ö±äÁ¿ ÓÈÆä ºóÃæÄÇ¸ö ±äÁ¿
+	//×¢ï¿½ï¿½ StrTipTitle ï¿½ï¿½ï¿½ï¿½%sï¿½ï¿½Ê½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü»ï¿½ï¿½ï¿½ï¿½ ï¿½Ú´ï¿½ï¿½Í»ï¿½ï¿½ï¿½Â±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ _debugger_hook_dummy = 0;ï¿½ï¿½ï¿½Ô²ï¿½ÒªÖ±ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ç¸ï¿½ ï¿½ï¿½ï¿½ï¿½
 	StrMainTip.Format(StrTemp,StrProcessName);
 
 
@@ -1223,7 +1226,7 @@ void CDBCTaskmanApp::Global_EndProcessesInList(CListCtrl* pList,BOOL ShowTipWhen
 
 
 	}
-	else //µ¥¸ö
+	else //ï¿½ï¿½ï¿½ï¿½
 	{
 		if(ShowTipWhenOnlyOne)
 		{

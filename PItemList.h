@@ -36,11 +36,20 @@ struct PerferListData
 	ULONG64  DataB;
 	ULONG64  DataC;
 	ULONG64  DataD;
- 
-	//HANDLE  hDevice; 
-	 
+
+	//HANDLE  hDevice;
+
 	int  ID;
 	double  MaxVar;
+
+	// Disk-only PDH state (set up in AddDiskToList, used by the per-tick
+	// loop). Any Query/Counter being NULL means "PDH not available" and we
+	// fall back to the legacy DISK_PERFORMANCE path or report 0.
+	HQUERY  QueryD;
+	HCOUNTER CounterD;       // % Disk Time
+	HCOUNTER CounterDR;      // Disk Read Bytes/sec
+	HCOUNTER CounterDW;      // Disk Write Bytes/sec
+	BOOL    PdhBaseline;     // first tick established
 	 
 
 }   ;

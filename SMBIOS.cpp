@@ -293,7 +293,12 @@ CString CSMBIOS::GetMemoryInfo(int * pUse,int *pSlot,UINT *pSpeed,WCHAR *FormFac
 	*pUse = nUse; *pSlot = nSlot; *pSpeed = Speed;
 
 
-	 StringCchCopy(FormFactor,MAX_PATH,StrFormFactor) ;
+	// Bug fix Win7: caller may pass a stack buffer smaller than MAX_PATH
+	// (e.g. WCHAR StrFormFactor[100] in _UpdateMemoryInfoBox). Truncate the
+	// destination size to what StrFormFactor actually contains so we never
+	// overrun the caller's buffer.
+	DWORD dwFormCap = (DWORD)wcslen(StrFormFactor);
+	StringCchCopyW(FormFactor, dwFormCap + 1, StrFormFactor);
 
 
 	return StrMemType;
