@@ -470,18 +470,20 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 
 	int nCount = mTaskList.GetItemCount();
-	APPLISTDATA * pData = (APPLISTDATA *)mTaskList.GetItemData(nCount-1);
-	if(pData->SubType == -1) //���һ������Ƿ��������˵�����쳣״̬
+	if(nCount > 0)
 	{
-		
+		APPLISTDATA * pData = (APPLISTDATA *)mTaskList.GetItemData(nCount-1);
+		if(pData != NULL && pData->SubType == -1)
+		{
 
 
-		mTaskList.CurrentSortColumn = PROCLIST_NAME ;
-		Sort(0,FALSE);
+			mTaskList.CurrentSortColumn = PROCLIST_NAME ;
+			Sort(0,FALSE);
+		}
 	}
 
 
-	BOOL  UpdateWndList = CheckWndChange();
+		BOOL  UpdateWndList = CheckWndChange();
 
 	CRect rcItem,rc,rcTemp;
 
@@ -1261,6 +1263,7 @@ int CPageProcesses::_OpenSubList(int ID,BOOL LockDraw)
 	APPLISTDATA *pData = NULL;
 	APPLISTDATA *pDataNew = NULL;
 	pData=(APPLISTDATA * )mTaskList.GetItemData(ID);
+	if(pData == NULL || pData->pPData == NULL) return 0;
 	ItemPID = ((PROCLISTDATA * )pData->pPData)->PID ;
 
 	int Pos=ID+1;
@@ -1341,6 +1344,7 @@ int CPageProcesses::_CloseSubList(int ID,BOOL LockDraw)
 	{
 
 		pDelData = (APPLISTDATA * )mTaskList.GetItemData(Pos);
+		if(pDelData == NULL) break;
 		if(pDelData->SubType == SUB_ITEM)
 		{
 			mTaskList.DeleteItem(Pos);
@@ -1353,7 +1357,10 @@ int CPageProcesses::_CloseSubList(int ID,BOOL LockDraw)
 
 	}
 
-	pData->SubType = PARENT_ITEM_CLOSE ;
+	if(pData != NULL) 
+		pData->SubType = PARENT_ITEM_CLOSE ;
+
+
 	if(LockDraw)mTaskList.SetRedraw(1);
 	mTaskList.Invalidate();
 
@@ -1615,9 +1622,10 @@ void CPageProcesses::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysMe
 
 	//----------------------
 	int nSel = mTaskList.GetNextItem( -1, LVNI_SELECTED );
-	APPLISTDATA *pListData = (APPLISTDATA *)mTaskList.GetItemData(nSel);
+	APPLISTDATA *pListData = NULL;
+	if(nSel >= 0) pListData = (APPLISTDATA *)mTaskList.GetItemData(nSel);
 	CString Str;
-	if(pListData->SubType == PARENT_ITEM_CLOSE)
+	if(pListData!=NULL && pListData->SubType == PARENT_ITEM_CLOSE)
 	{			
 		Str.LoadStringW(IDS_STRING_POPMENU_EXP);
 
@@ -1630,7 +1638,7 @@ void CPageProcesses::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysMe
 
 	pPopupMenu->ModifyMenuW(ID_PROCESSESLIST_EXPAND,MF_BYCOMMAND,ID_PROCESSESLIST_EXPAND,Str);
 
-	if(pListData->SubType == PARENT_ITEM_NOSUB)
+	if(pListData != NULL && pListData->SubType == PARENT_ITEM_NOSUB)
 	{
 		pPopupMenu->DeleteMenu(ID_PROCESSESLIST_EXPAND,MF_BYCOMMAND);
 	}
@@ -1730,6 +1738,8 @@ void CPageProcesses::OnNMRClickProcesslist(NMHDR *pNMHDR, LRESULT *pResult)
 	int  nSel = mTaskList.GetNextItem( -1, LVNI_SELECTED );
 
 	APPLISTDATA *pData =(APPLISTDATA *)mTaskList.GetItemData(nSel);
+
+	if(pData == NULL) return ;
 
 	if(pData->pPData == NULL )return ; //������ⲻ�����˵�������
 
@@ -2254,6 +2264,8 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 	for(int i= 0;i<nCount;i++)
 	{
 		pListData = (APPLISTDATA *) mTaskList.GetItemData(i);
+		if(pListData == NULL) continue;
+
 		//mDetailsList.SetItemData(i,(DWORD_PTR)i);  //�б����������Ϊ���
 
 		if(pListData->SubType == PARENT_ITEM_OPEN)
@@ -2333,11 +2345,13 @@ void CPageProcesses::OnPop_ProcesseslistExpand()
 void CPageProcesses::OnPop_ProcesseslistEndtask()
 {
 	int nSel = mTaskList.GetNextItem( -1, LVNI_SELECTED );
-	APPLISTDATA *pListData = (APPLISTDATA *)mTaskList.GetItemData(nSel);
+	APPLISTDATA *pListData = NULL;
+	if(nSel >= 0) pListData = (APPLISTDATA *)mTaskList.GetItemData(nSel);
 	CString Str;
-	if(pListData->SubType != SUB_ITEM)
+	if(pListData != NULL && pListData->SubType != SUB_ITEM)
 	{			
 	
+		if(pListData->pPData == NULL) return;
 		if(theApp.Global_ShowOperateTip(((PROCLISTDATA*)(pListData->pPData))->Name,STR_ENDPROC_MAINTIP,STR_ENDPROC_CONTENT,STR_ENDPROC_BTN) ==IDOK)
 		{
 			TerminateProcess(((PROCLISTDATA*)(pListData->pPData))->hProcess, 4);
@@ -2715,10 +2729,39 @@ void CPageProcesses::_GetMemDataAndSetItemText(int iItem, APPLISTDATA * PData)
 		{
 			double MemMb = MemUsage/1024/1024;
 			// User format: idle shows "0 MB", non-idle uses one decimal ("0.1 MB").
+			// >=1000 MB also gets a thousands separator like Win10/8 Task Manager.
 			if(MemMb == 0.0)
+			{
 				StrItem = L"0 MB";
+			}
+			else if(MemMb >= 1000.0)
+			{
+				CString StrNum;
+				StrNum.Format(L"%.1f", MemMb);
+				int dotPos = StrNum.Find(L'.');
+				if(dotPos > 3)
+				{
+					CString intPart = StrNum.Left(dotPos);
+					CString decPart = StrNum.Mid(dotPos);
+					CString formatted;
+					int len = intPart.GetLength();
+					for(int i = 0; i < len; i++)
+					{
+						if(i > 0 && (len - i) % 3 == 0)
+							formatted += L',';
+						formatted += intPart[i];
+					}
+					StrItem = formatted + decPart;
+				}
+				else
+				{
+					StrItem = StrNum;
+				}
+			}
 			else
+			{
 				StrItem.Format(L"%.1f",  MemMb);
+			}
 			mTaskList.MySetItemText(iItem,PROCLIST_MEMORY,StrItem+L" MB");
 
 		}
