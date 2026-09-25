@@ -1382,6 +1382,83 @@ static void _FindArrowUnderCursor(CCoolListCtrl* pList, CPoint point, int& nItem
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Repintado ATOMICO de un solo chevron.
+//
+// En lugar de invalidar la fila (que dispara OnCustomDraw y por tanto
+// muestra los estados intermedios: fondo de columna amarillo, barra hot
+// azul, etc. -> parpadeo del chevron), capturamos el rect del chevron
+// actual de pantalla, dibujamos SOLO el chevron nuevo encima en un DC en
+// memoria y volcamos el resultado a pantalla en un unico BitBlt. Asi el
+// usuario solo ve el frame final.
+//
+// Alcance: exclusivamente el cuadrado del chevron. El fondo de columna, la
+// barra hot, el icono y el texto de la fila quedan intactos (fueron pintados
+// por la ultima repaint completa de OnCustomDraw y siguen siendo validos,
+// porque este helper solo se llama cuando el cursor entra/sale del chevron
+// dentro de la misma fila).
+// ---------------------------------------------------------------------------
+static void _RepaintChevronAtomic(CCoolListCtrl* pList, int nItem, BOOL bHot)
+{
+	if (pList == NULL || !::IsWindow(pList->GetSafeHwnd())) return;
+
+	APPLISTDATA* pData = (APPLISTDATA*)pList->GetItemData(nItem);
+	if (pData == NULL) return;
+	if (pData->SubType != PARENT_ITEM_OPEN && pData->SubType != PARENT_ITEM_CLOSE)
+		return;
+	if (!theApp.FlagThemeActive || pList->hTheme == NULL)
+		return;
+
+	CRect rcArrow;
+	if (!pList->GetSubItemRect(nItem, 0, LVIR_BOUNDS, rcArrow))
+		return;
+	rcArrow.right = rcArrow.left + rcArrow.Height();
+	if (rcArrow.Width() <= 0 || rcArrow.Height() <= 0)
+		return;
+
+	CDC* pDC = pList->GetDC();
+	if (pDC == NULL || pDC->GetSafeHdc() == NULL) return;
+
+	CDC memDC;
+	if (!memDC.CreateCompatibleDC(pDC)) { pList->ReleaseDC(pDC); return; }
+
+	CBitmap bmp;
+	if (!bmp.CreateCompatibleBitmap(pDC, rcArrow.Width(), rcArrow.Height()))
+	{
+		pList->ReleaseDC(pDC);
+		return;
+	}
+
+	CBitmap* pOldBmp = memDC.SelectObject(&bmp);
+
+	// 1) Capturar tal cual lo que ya esta en pantalla dentro del rect del
+	//    chevron (incluye fondo de columna, barra hot, icono y texto que ya
+	//    dibujo OnCustomDraw en la ultima repaint completa).
+	memDC.BitBlt(0, 0, rcArrow.Width(), rcArrow.Height(),
+		pDC, rcArrow.left, rcArrow.top, SRCCOPY);
+
+	// 2) Pintar SOLO el chevron (en el estado pedido, hot o normal) sobre
+	//    lo capturado. DrawThemeBackground para TVP_GLYPH/TVP_HOTGLYPH dibuja
+	//    el glifo con fondo transparente, asi que conserva lo de debajo
+	//    (icono incluido, que esta en el lado derecho del cuadrado).
+	CRect rcMem(0, 0, rcArrow.Width(), rcArrow.Height());
+	const int nPart = bHot ? TVP_HOTGLYPH : TVP_GLYPH;
+	int nState;
+	if (pData->SubType == PARENT_ITEM_OPEN)
+		nState = bHot ? HGLPS_OPENED : GLPS_OPENED;
+	else
+		nState = bHot ? HGLPS_CLOSED : GLPS_CLOSED;
+	DrawThemeBackground(pList->hTheme, memDC.m_hDC, nPart, nState, rcMem, NULL);
+
+	// 3) Volcar a pantalla de una sola vez (unico BitBlt -> el usuario solo
+	//    ve el resultado final, sin parpadeo de estados intermedios).
+	pDC->BitBlt(rcArrow.left, rcArrow.top, rcArrow.Width(), rcArrow.Height(),
+		&memDC, 0, 0, SRCCOPY);
+
+	memDC.SelectObject(pOldBmp);
+	pList->ReleaseDC(pDC);
+}
+
 void CCoolListCtrl::OnMouseMove(UINT nFlags, CPoint point)
 {
 	// Si aun no estamos rastreando, solicitar WM_MOUSELEAVE al sistema.
@@ -1403,20 +1480,21 @@ void CCoolListCtrl::OnMouseMove(UINT nFlags, CPoint point)
 
 	if (nNewHotItem != m_nHotArrowItem || nNewHotSub != m_nHotArrowSubItem)
 	{
-		// Invalidar SOLO el area del chevron anterior y del nuevo para evitar
-		// repintar todo el control y reducir el parpadeo. Usamos la fila del
-		// item como aproximacion conservadora del rect a repintar.
-		if (m_nHotArrowItem >= 0)
+		const int nOldHotItem = m_nHotArrowItem;
+
+		// Repintado ATOMICO de los chevrones afectados (ver _RepaintChevronAtomic):
+		// capturamos cada rect de pantalla, dibujamos SOLO el chevron nuevo encima
+		// en memoria y volcamos a pantalla con un unico BitBlt. Esto elimina los
+		// estados intermedios visibles (fondo amarillo, barra hot azul, etc.)
+		// que aparecen al invalidar. Solo se tocan los chevrones: el resto del
+		// control (columnas, hot bar de fila, icono, texto) queda intacto, no
+		// se llama a InvalidateRect, OnCustomDraw no se entera.
+		if (nOldHotItem != nNewHotItem)
 		{
-			CRect rcRow;
-			if (GetItemRect(m_nHotArrowItem, rcRow, LVIR_BOUNDS))
-				InvalidateRect(rcRow, FALSE);
-		}
-		if (nNewHotItem >= 0)
-		{
-			CRect rcRow;
-			if (GetItemRect(nNewHotItem, rcRow, LVIR_BOUNDS))
-				InvalidateRect(rcRow, FALSE);
+			if (nOldHotItem >= 0)
+				_RepaintChevronAtomic(this, nOldHotItem, FALSE);
+			if (nNewHotItem >= 0)
+				_RepaintChevronAtomic(this, nNewHotItem, TRUE);
 		}
 
 		m_nHotArrowItem = nNewHotItem;
@@ -1431,20 +1509,15 @@ void CCoolListCtrl::OnMouseLeave()
 	m_bMouseTracking = FALSE;
 
 	// Si saliamos del control con un chevron hot, repintarlo para volver a
-	// su estado normal (GLPS_OPENED/GLPS_CLOSED en lugar de GLPS_HOTED).
+	// su estado normal (GLPS_OPENED/GLPS_CLOSED en lugar de GLPS_HOTED) con
+	// el mismo metodo atomico que OnMouseMove (ver _RepaintChevronAtomic):
+	// un unico BitBlt del cuadrado del chevron, sin invalidar la fila y
+	// sin disparar OnCustomDraw -> sin parpadeo.
 	if (m_nHotArrowItem >= 0)
 	{
-		CRect rcRow;
-		if (GetItemRect(m_nHotArrowItem, rcRow, LVIR_BOUNDS))
-		{
-			m_nHotArrowItem = -1;
-			m_nHotArrowSubItem = -1;
-			InvalidateRect(rcRow, FALSE);
-		}
-		else
-		{
-			m_nHotArrowItem = -1;
-			m_nHotArrowSubItem = -1;
-		}
+		const int nOldHotItem = m_nHotArrowItem;
+		m_nHotArrowItem = -1;
+		m_nHotArrowSubItem = -1;
+		_RepaintChevronAtomic(this, nOldHotItem, FALSE);
 	}
 }
