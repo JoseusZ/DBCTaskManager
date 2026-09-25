@@ -10,7 +10,7 @@
 // unico en este proceso sirve; usamos 0xC4E3.
 #define ID_HOT_TRACK_COALESCE 0xC4E3
 
-// Callback del timer: cuando se cumplen los 40ms sin nuevo hot-track, dispara
+// Callback del timer: cuando se cumplen los 16ms sin nuevo hot-track, dispara
 // el Invalidate(0) que estaba pendiente. CALLBACK (no WM_TIMER) para no
 // tocar el message map ni el header.
 static VOID CALLBACK _HotTrackCoalesceProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
@@ -708,14 +708,14 @@ void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 		nHot = NewHotID;
 		// CPU FIX: en vez de Invalidate(0) inmediato (que dispara un repaint
 		// COMPLETO del control en cada cruce de fila), coalescemos los
-		// eventos de hot-track con un timer de 40ms. Si el cursor sigue
-		// cruzando filas, el timer se resetea y solo se hace UN repaint al
-		// final del movimiento. Cuando el cursor se detiene, el repaint
-		// ocurre ~40ms despues (un frame a 25fps, imperceptible).
+		// eventos de hot-track con un timer de 16ms (= 1 frame a 60Hz,
+		// imperceptible). Si el cursor sigue cruzando filas, el timer se
+		// resetea y solo se hace UN repaint al final del movimiento. Cuando
+		// el cursor se detiene, el repaint ocurre ~16ms despues (un frame).
 		// No cambia el area invalidada ni OnCustomDraw: misma pipeline,
 		// misma pintura, solo se difiere la llamada.
 		KillTimer(ID_HOT_TRACK_COALESCE);
-		SetTimer(ID_HOT_TRACK_COALESCE, 40, _HotTrackCoalesceProc);
+		SetTimer(ID_HOT_TRACK_COALESCE, 16, _HotTrackCoalesceProc);
 	}
 
 

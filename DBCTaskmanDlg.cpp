@@ -738,9 +738,19 @@ void CDBCTaskmanDlg::InitAll(void)
 
 void CDBCTaskmanDlg::OnTimer(UINT_PTR nIDEvent)
 {
-	
 
-	SetTrayIcon(NIM_MODIFY);
+	int Sec = (int)theApp.UpTimeSec;
+
+	// Cambio D: throttle SetTrayIcon(NIM_MODIFY) to every 3 seconds. Each call
+	// allocates a 16x16 memory DC + bitmap, draws 14 CPU bars, converts to
+	// HICON, and issues a Shell_NotifyIcon syscall. Updating the tray icon at
+	// >1Hz is imperceptible to the user, but is one of the heaviest single
+	// idle-time consumers in this code path. Pattern mirrors TestHungProcess
+	// (below) so both idle-time work items share the same modulus style.
+	if(Sec % 3 == 0)
+	{
+		SetTrayIcon(NIM_MODIFY);
+	}
 
 	UpdateUpTime();
 
@@ -1823,7 +1833,12 @@ void CDBCTaskmanDlg::TestHungProcess(void)
 
 
 	int Sec = (int)theApp.UpTimeSec;
-	if(Sec%2!=0)  return ;
+	// Cambio E: throttle from every 2s to every 4s. IsHungAppWindow issues a
+	// WM_NULL to every top-level desktop window. Detecting a "not responding"
+	// dialog at 4s resolution is still well inside human reaction time and
+	// halves the per-tick cost of enumerating + probing all CWnd children of
+	// the desktop.
+	if(Sec%4!=0)  return ;
 
 
 	CWnd *pDeskTop=CWnd::GetDesktopWindow();
