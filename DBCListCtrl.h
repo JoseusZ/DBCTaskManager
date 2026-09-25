@@ -46,6 +46,12 @@ protected:
 public:
 	int HotItemID;
 	afx_msg void OnLvnHotTrack(NMHDR *pNMHDR, LRESULT *pResult);
+	// FIX CPU hover: coalesce de InvalidateRect en OnLvnHotTrack mediante un
+	// timer de 16ms (60fps). IDT_HOVER_COALESCE es unico de esta clase
+	// (no choca con el timer ID=0 usado por el perfil de update speed).
+	enum { IDT_HOVER_COALESCE = 0x4443 };
+	int m_nLastPaintedHot;    // ultima fila invalidada por el timer (-1 = ninguna)
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	// 排序方式 标志
 	BOOL FlagSortUp;
 	int CurrentSortColumn;

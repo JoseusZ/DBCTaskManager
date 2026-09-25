@@ -15,6 +15,7 @@ CDBCListCtrl::CDBCListCtrl()
 : RedrawAllColumn(FALSE)
 , FullColumnCount(0)
 , HotItemID(-1)
+, m_nLastPaintedHot(-1)
 , FlagSortUp(FALSE)
 , CurrentSortColumn(0)
 , pColStatusArray(NULL)
@@ -53,6 +54,7 @@ BEGIN_MESSAGE_MAP(CDBCListCtrl, CListCtrl)
 	ON_WM_HSCROLL()
 	ON_NOTIFY_REFLECT(LVN_HOTTRACK, &CDBCListCtrl::OnLvnHotTrack)
 	ON_NOTIFY_REFLECT(LVN_ITEMCHANGED, &CDBCListCtrl::OnLvnItemchanged)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -370,6 +372,30 @@ BOOL CDBCListCtrl::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 	return CListCtrl::OnNotify(wParam, lParam, pResult);
 }
 
+void CDBCListCtrl::OnTimer(UINT_PTR nIDEvent)
+{
+	if (nIDEvent == IDT_HOVER_COALESCE)
+	{
+		KillTimer(IDT_HOVER_COALESCE);
+
+		// Invalidar solo el rect de la fila previamente pintada y el rect de
+		// la fila hot actual. El resto del control queda intacto, asi que
+		// OnCustomDraw solo se ejecuta para esas 2 filas.
+		CRect rcOld, rcNew;
+		if (m_nLastPaintedHot != HotItemID)
+		{
+			if (m_nLastPaintedHot >= 0 && GetItemRect(m_nLastPaintedHot, rcOld, LVIR_BOUNDS))
+				InvalidateRect(rcOld, FALSE);
+			if (HotItemID >= 0 && GetItemRect(HotItemID, rcNew, LVIR_BOUNDS))
+				InvalidateRect(rcNew, FALSE);
+			m_nLastPaintedHot = HotItemID;
+		}
+		return;
+	}
+
+	CListCtrl::OnTimer(nIDEvent);
+}
+
 void CDBCListCtrl::OnLvnHotTrack(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
@@ -392,10 +418,14 @@ void CDBCListCtrl::OnLvnHotTrack(NMHDR *pNMHDR, LRESULT *pResult)
 
 
 	if(HotItemID != NewHotID)
-	{		
+	{
+		// FIX CPU hover: diferir el InvalidateRect al timer IDT_HOVER_COALESCE
+		// (16ms / 60fps). Cada SetTimer con el mismo ID REEMPLAZA al anterior,
+		// asi que multiples LVN_HOTTRACK dentro de 16ms se colapsan en uno solo.
+		// HotItemID se actualiza inmediatamente para que el siguiente LVN_HOTTRACK
+		// compare correctamente.
 		HotItemID = NewHotID;
-		Invalidate(0);
-
+		SetTimer(IDT_HOVER_COALESCE, 16, NULL);
 	}
 
 
@@ -415,7 +445,23 @@ void CDBCListCtrl::PreSubclassWindow()
 void CDBCListCtrl::OnLvnItemchanged(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
-	
-	Invalidate(0);
+
+	// FIX CPU: en lugar de Invalidate(0) (que repinta TODAS las filas cada vez
+	// que cambia el estado de cualquier item), invalidar solo el rect de la
+	// fila afectada. Esto se dispara junto con LVN_HOTTRACK durante el
+	// movimiento rapido del cursor, asi que reducir su costo es critico.
+	// Solo actuar cuando cambia estado visualmente relevante (seleccion, foco,
+	// cut) y entre old/new difieren; para los demas cambios (overlays, etc.)
+	// no hay nada que repintar manualmente.
+	if (pNMLV->iItem >= 0 &&
+		(pNMLV->uChanged & (LVIS_SELECTED | LVIS_FOCUSED | LVIS_CUT)) &&
+		(pNMLV->uNewState & (LVIS_SELECTED | LVIS_FOCUSED | LVIS_CUT)) !=
+		(pNMLV->uOldState & (LVIS_SELECTED | LVIS_FOCUSED | LVIS_CUT)))
+	{
+		CRect rc;
+		if (GetItemRect(pNMLV->iItem, rc, LVIR_BOUNDS))
+			InvalidateRect(rc, FALSE);
+	}
+
 	*pResult = 0;
 }
