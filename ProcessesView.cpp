@@ -1556,6 +1556,13 @@ BOOL CPageProcesses::CheckWndChange(void)
 	CString  StrWndCaption;
 
 	CString StrNewWndList;
+	// Opt 4: Reserve once to avoid realloc'ing StrNewWndList every append.
+	// Called from OnUMTimer (process list refresh). Each loop iteration
+	// appends one entry (~30-60 hex chars + caption). Typical desktop has
+	// 30-80 top-level windows so the final string is 4-10KB. Reserving
+	// 64KB keeps every += in-place, eliminating the per-tick heap churn
+	// that previously showed up in profile traces.
+	StrNewWndList.Preallocate(65536);
 
 	CString StrTemp ;
 
@@ -1581,7 +1588,11 @@ BOOL CPageProcesses::CheckWndChange(void)
 			{
 				StrTemp = StrTemp+L"{BKG}";
 			}
-			StrNewWndList= StrNewWndList+StrTemp;
+			// Opt 4: operator+= appends in place when capacity allows, so the
+			// StrNewWndList+StrTemp pattern that always reallocated is now
+			// a no-grow append for any session whose window list fits in
+			// the 64KB reserved buffer.
+			StrNewWndList += StrTemp;
 
 
 		}

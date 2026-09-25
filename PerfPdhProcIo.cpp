@@ -25,6 +25,17 @@ static int      s_BusyIdx        = 0;
 static double   s_BusySum        = 0;
 static LONGLONG s_PrevBytes      = 0;
 
+// Opt 5: persistent per-process PDH buffers. PdhGetFormattedCounterArray
+// returns PDH_MORE_DATA when the buffer is too small and writes the
+// required size back through pdwBufferSize. Previously the thread
+// malloc'd and free'd these ~200KB buffers every tick (~1Hz), causing
+// visible heap churn. Now we reuse the same allocation, only growing it
+// when the instance count actually increases. Released in PerfPdhProcIo_Stop.
+static PDH_FMT_COUNTERVALUE_ITEM* s_pidBuf = NULL;
+static DWORD                      s_pidCap = 0;
+static PDH_FMT_COUNTERVALUE_ITEM* s_ioBuf  = NULL;
+static DWORD                      s_ioCap  = 0;
+
 static unsigned __stdcall Thread_MonitorPdhPerProcIo(void*)
 {
 	HQUERY hQuery = NULL;
@@ -56,30 +67,52 @@ static unsigned __stdcall Thread_MonitorPdhPerProcIo(void*)
 		Sleep(1000);
 		PdhCollectQueryData(hQuery);
 
-		PDH_FMT_COUNTERVALUE_ITEM* pidItems = NULL;
-		PDH_FMT_COUNTERVALUE_ITEM* ioItems  = NULL;
-		DWORD pidBufSize = 0;
-		DWORD ioBufSize  = 0;
+		// Opt 5: reuse persistent buffers across ticks.
+		DWORD pidBufSize   = s_pidCap;
+		DWORD ioBufSize    = s_ioCap;
 		DWORD pidItemCount = 0;
 		DWORD ioItemCount  = 0;
 
+		PDH_FMT_COUNTERVALUE_ITEM* pidItems = s_pidBuf;
 		PDH_STATUS g1 = PdhGetFormattedCounterArray(hPidCounter, PDH_FMT_LARGE,
 			&pidBufSize, &pidItemCount, pidItems);
 		if(g1 == PDH_MORE_DATA)
 		{
-			pidItems = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(pidBufSize);
-			if(pidItems) memset(pidItems, 0, pidBufSize);
-			g1 = PdhGetFormattedCounterArray(hPidCounter, PDH_FMT_LARGE,
-				&pidBufSize, &pidItemCount, pidItems);
+			if(pidBufSize > s_pidCap)
+			{
+				free(s_pidBuf);
+				s_pidBuf = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(pidBufSize);
+				if(s_pidBuf) memset(s_pidBuf, 0, pidBufSize);
+				s_pidCap = pidBufSize;
+			}
+			pidItems = s_pidBuf;
+			if(pidItems)
+			{
+				pidBufSize = s_pidCap;
+				g1 = PdhGetFormattedCounterArray(hPidCounter, PDH_FMT_LARGE,
+					&pidBufSize, &pidItemCount, pidItems);
+			}
 		}
+
+		PDH_FMT_COUNTERVALUE_ITEM* ioItems = s_ioBuf;
 		PDH_STATUS g2 = PdhGetFormattedCounterArray(hIoCounter, PDH_FMT_LARGE,
 			&ioBufSize, &ioItemCount, ioItems);
 		if(g2 == PDH_MORE_DATA)
 		{
-			ioItems = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(ioBufSize);
-			if(ioItems) memset(ioItems, 0, ioBufSize);
-			g2 = PdhGetFormattedCounterArray(hIoCounter, PDH_FMT_LARGE,
-				&ioBufSize, &ioItemCount, ioItems);
+			if(ioBufSize > s_ioCap)
+			{
+				free(s_ioBuf);
+				s_ioBuf = (PDH_FMT_COUNTERVALUE_ITEM*)malloc(ioBufSize);
+				if(s_ioBuf) memset(s_ioBuf, 0, ioBufSize);
+				s_ioCap = ioBufSize;
+			}
+			ioItems = s_ioBuf;
+			if(ioItems)
+			{
+				ioBufSize = s_ioCap;
+				g2 = PdhGetFormattedCounterArray(hIoCounter, PDH_FMT_LARGE,
+					&ioBufSize, &ioItemCount, ioItems);
+			}
 		}
 
 		if(g1 == ERROR_SUCCESS && g2 == ERROR_SUCCESS && pidItems && ioItems)
@@ -173,10 +206,11 @@ static unsigned __stdcall Thread_MonitorPdhPerProcIo(void*)
 			}
 		}
 
-		if(pidItems) free(pidItems);
-		if(ioItems)  free(ioItems);
+		// Opt 5: no per-tick free - s_pidBuf/s_ioBuf are reused next tick
 	}
 
+	free(s_pidBuf); s_pidBuf = NULL; s_pidCap = 0;
+	free(s_ioBuf);  s_ioBuf  = NULL; s_ioCap  = 0;
 	PdhCloseQuery(hQuery);
 	return 0;
 }

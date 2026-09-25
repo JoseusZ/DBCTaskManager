@@ -1,4 +1,4 @@
-﻿﻿// CoolListCtrl.cpp : implementation file
+?// CoolListCtrl.cpp : implementation file
 //
 
 #include "stdafx.h"
@@ -42,7 +42,7 @@ CCoolListCtrl::CCoolListCtrl()
 
 
 
-	hTheme = OpenThemeData(this->GetSafeHwnd(), L"Explorer::TreeView"); // ◆ 如果想自绘这个效果 就不能再设置SetWindowTheme(mProcessList.GetSafeHwnd(),L"explorer",  
+	hTheme = OpenThemeData(this->GetSafeHwnd(), L"Explorer::TreeView"); // ? ????????? ??????SetWindowTheme(mProcessList.GetSafeHwnd(),L"explorer",  
 
 
 
@@ -92,7 +92,7 @@ END_MESSAGE_MAP()
 
 void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 {
-	//顺序  CDDS_PREPAINT->CDDS_PREERASE->CDDS_POSTERASE->CDDS_POSTPAINT
+	//??  CDDS_PREPAINT->CDDS_PREERASE->CDDS_POSTERASE->CDDS_POSTPAINT
 
 
 
@@ -117,7 +117,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 	//Sleep(500);
 
 	CDC* pDC = CDC::FromHandle(pLVCD->nmcd.hdc);
-	if (CDDS_PREPAINT == pLVCD->nmcd.dwDrawStage)   //整体背景处理
+	if (CDDS_PREPAINT == pLVCD->nmcd.dwDrawStage)   //??????
 	{
 
 
@@ -136,7 +136,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 
 
-		// ★ FIX CRITICO: el CPen se selecciona en el DC (linea SelectObject abajo)
+		// ? FIX CRITICO: el CPen se selecciona en el DC (linea SelectObject abajo)
 		// y antes se llamaba LinePen.DeleteObject() SIN restaurar OldPen.
 		// Eso libera el handle GDI mientras el DC aun lo tiene en su slot de
 		// pen actual: todas las operaciones de dibujo posteriores en este mismo
@@ -165,12 +165,12 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 			if (!IsProcList)
 			{
-				if (rcLastItem.bottom < rc.bottom)  LineBottom = rcLastItem.bottom; //控制竖线线是否画到底
+				if (rcLastItem.bottom < rc.bottom)  LineBottom = rcLastItem.bottom; //??????????
 
 			}
 			if (pColStatusArray[i].Cool && pColStatusArray[i].ColWidth != 0)
 			{
-				if (IsProcList && (rcLastItem.bottom < rc.bottom)) //补充 最底部黄色填充
+				if (IsProcList && (rcLastItem.bottom < rc.bottom)) //?? ???????
 				{
 					CRect rcBottomFix(rcSubItem.left, rcLastItem.bottom, rcSubItem.right, rc.bottom);
 					pDC->FillSolidRect(rcBottomFix, RGB(255, 244, 196));
@@ -190,7 +190,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		}
 
-		// ★ FIX: restaurar el pen original en el DC para que ya no apunte al
+		// ? FIX: restaurar el pen original en el DC para que ya no apunte al
 		// handle que vamos a liberar. Sin esto, el DC queda con un handle
 		// muerto en su slot de pen y todo el dibujo posterior es corrupto.
 		if (OldPen != NULL)
@@ -228,14 +228,14 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 		//UINT uFormat;
 
 
-		// ★ FIX Y-overflow: aislar HDC para que GDI+ Graphics no contamine
+		// ? FIX Y-overflow: aislar HDC para que GDI+ Graphics no contamine
 		// el clip region entre items durante el mismo paint cycle.
 		int nSavedDC = pDC->SaveDC();
 		Graphics Graph(pDC->m_hDC);
 
 		APPLISTDATA* pListData = (APPLISTDATA*)GetItemData(nItem);
 
-		// FIX: si el item fue eliminado entre la decisión de pintar y la pintura
+		// FIX: si el item fue eliminado entre la decisi�n de pintar y la pintura
 		// real (carrera con OnUMTimer / worker thread), GetItemData puede devolver
 		// NULL. Salimos sin tocar pListData->* y sin alterar el flujo del paint.
 		if (pListData == NULL)
@@ -278,20 +278,20 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		CRect rcSubItem;
 
-		//------------------------item 背景基础颜色--------------------
+		//------------------------item ??????--------------------
 
 
 		//pDC-> FillSolidRect ( rcItem, theApp.WndBkgColor ); 
 
 
 
-		//特殊原因 需自己计算出 rcItem ！！！！！！！
+		//???? ?????? rcItem !!!!!!!
 
 		int ItemW = 0;
 
-		for (int i = 0;i < FullColumnCount; i++)  //黄色部分
+		for (int i = 0;i < FullColumnCount; i++)  //????
 		{
-			ItemW += pColStatusArray[i].ColWidth; //累计列宽！
+			ItemW += pColStatusArray[i].ColWidth; //????!
 
 			if ((pColStatusArray[i].ColWidth == 0 || pColStatusArray[i].Redraw == 0) && (!FlagDrawAllColumns)) continue;
 
@@ -301,7 +301,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 			rcSubItem.right--;
 
-			if (pListData->pPData == NULL) //分组标题
+			if (pListData->pPData == NULL) //????
 			{
 
 				pDC->FillSolidRect(rcSubItem, RGB(255, 249, 228));
@@ -461,7 +461,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 		
 			if (pListData->iImage == -1)
 			{
-				::ImageList_Draw(theApp.mImagelistNormal.m_hImageList, 0, pDC->m_hDC, rcCol0.left + 5 + LINE_H2 - 23, rcItem.top + dPos, ILD_TRANSPARENT); //16是图标实际尺寸
+				::ImageList_Draw(theApp.mImagelistNormal.m_hImageList, 0, pDC->m_hDC, rcCol0.left + 5 + LINE_H2 - 23, rcItem.top + dPos, ILD_TRANSPARENT); //16???????
 
 
 			}
@@ -469,7 +469,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 			{
 
 
-				::ImageList_Draw(hImageList, pListData->iImage, pDC->m_hDC, rcCol0.left + 5 + LINE_H2 - 23, rcItem.top + dPos, ILD_TRANSPARENT); //16是图标实际尺寸
+				::ImageList_Draw(hImageList, pListData->iImage, pDC->m_hDC, rcCol0.left + 5 + LINE_H2 - 23, rcItem.top + dPos, ILD_TRANSPARENT); //16???????
 
 
 			}
@@ -495,7 +495,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		for (int i = 0;i < FullColumnCount; i++)
 		{
-			if (((pColStatusArray[i].ColWidth == 0) || (pColStatusArray[i].Redraw == 0)) && (!FlagDrawAllColumns)) continue;//未显示的直接跳过
+			if (((pColStatusArray[i].ColWidth == 0) || (pColStatusArray[i].Redraw == 0)) && (!FlagDrawAllColumns)) continue;//????????
 
 			if ((pListData->SubType == SUB_ITEM) && (pColStatusArray[i].DrawInSubItem == FALSE))continue;
 
@@ -622,7 +622,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		Graph.ReleaseHDC(pDC->m_hDC);
 
-		// ★ FIX Y-overflow: restaurar estado original del HDC
+		// ? FIX Y-overflow: restaurar estado original del HDC
 		pDC->RestoreDC(nSavedDC);
 
 
@@ -681,10 +681,10 @@ void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 	CRect rcItem, rcList, rcOldHot;
 	this->GetClientRect(rcList);
 
-	// FIX: si el ítem 0 no existe (lista vacía o items recién borrados),
+	// FIX: si el �tem 0 no existe (lista vac�a o items reci�n borrados),
 	// GetItemRect devuelve FALSE y rcItem queda con valores indeterminados;
-	// calcular NewHotID con esos valores produciría un id basura que dispara
-	// repaints sobre índices que ya no existen. Salimos sin tocar nHot ni Invalidate.
+	// calcular NewHotID con esos valores producir�a un id basura que dispara
+	// repaints sobre �ndices que ya no existen. Salimos sin tocar nHot ni Invalidate.
 	if (!this->GetItemRect(0, rcItem, LVIR_BOUNDS))
 	{
 		*pResult = 0;
@@ -862,7 +862,7 @@ int CCoolListCtrl::DeleteItemAndSub(int iItem)
 		int Pos = iItem + 1;
 
 
-		while (1)  //注意删除后 会造成位置变化所以只需要删除同以位置项即可
+		while (1)  //????? ?????????????????????
 		{
 
 			pDelData = (APPLISTDATA*)GetItemData(Pos);
@@ -1001,7 +1001,7 @@ BOOL CCoolListCtrl::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 	case   HDN_BEGINTRACKW:
 	case   HDN_BEGINTRACKA:
 	case   HDN_DIVIDERDBLCLICKA:
-	case   HDN_DIVIDERDBLCLICKW:       //   pHDNotify->iItem —设定为自己不想改变的列值，比如pHDNotify->iItem=0，就是第一列     //固定列宽
+	case   HDN_DIVIDERDBLCLICKW:       //   pHDNotify->iItem �????????????,??pHDNotify->iItem=0,?????     //????
 		if (pColStatusArray[pHDNotify->iItem].IsHiddenColumn)
 		{
 			*pResult = TRUE;                                 //   disable   tracking      
@@ -1022,15 +1022,15 @@ BOOL CCoolListCtrl::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 void CCoolListCtrl::OnHdnItemchanging(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMHEADER phdr = reinterpret_cast<LPNMHEADER>(pNMHDR);
-	//注意 表头移动出列表后 拖动表头 原来位置处的项目不会实时 自动刷新  此函数 可以弥补这个！！！！
-	//不要删除 有用！！！ 不用添加代码！！！！
+	//?? ???????? ???? ???????????? ????  ??? ??????!!!!
+	//???? ??!!! ??????!!!!
 
 	if (!(GetParent()->IsWindowVisible()))return;
 
 	//	if(phdr->pitem->cxy<5&& phdr->pitem->)phdr->pitem->cxy=5;
 	if (pColStatusArray != NULL)
 	{
-		if (!PopMenuAction) //NotPopMenu用于区分菜单增减列的动作
+		if (!PopMenuAction) //NotPopMenu????????????
 		{
 			//MSBOX(666)
 			pColStatusArray[phdr->iItem].ColWidth = phdr->pitem->cxy;
@@ -1175,7 +1175,7 @@ void CCoolListCtrl::OnHdnEnddrag(NMHDR* pNMHDR, LRESULT* pResult)
 
 
 
-	if (phdr->pitem->iOrder <= iOrder_FirstShow) //禁止其他列插在 第一列前
+	if (phdr->pitem->iOrder <= iOrder_FirstShow) //??????? ????
 	{
 
 		phdr->pitem->iOrder += 2;
@@ -1221,7 +1221,7 @@ COLORREF CCoolListCtrl::GetCoolColor(double Hot)
 
 
 
-	//由于只显示两位小数 所以如果 Hot>0 会造成错误 --数值显示0颜色不对应
+	//????????? ???? Hot>0 ????? --????0?????
 
 	if (Hot > 0.0001 && Hot <= 0.2)
 	{
@@ -1279,7 +1279,7 @@ BOOL CCoolListCtrl::ShowOrHideColumn(int iCol)
 	GetColumn(iCol, &Col);
 	GetColumn(0, &Col0);
 
-	if (pColStatusArray[iCol].IsHiddenColumn) //如果已经隐藏则变为显示状态
+	if (pColStatusArray[iCol].IsHiddenColumn) //?????????????
 	{
 
 		pColStatusArray[iCol].ColWidth = pColStatusArray[iCol].ColWStore;
@@ -1288,7 +1288,7 @@ BOOL CCoolListCtrl::ShowOrHideColumn(int iCol)
 		//MSB(pColStatusArray[iCol].ColWidth)
 		if (pColStatusArray[iCol].iOrder < Col0.iOrder)
 		{
-			Col.iOrder = Col0.iOrder;//注意不要加1 否则反而不正确！
+			Col.iOrder = Col0.iOrder;//?????1 ???????!
 		}
 		else
 		{
@@ -1303,13 +1303,13 @@ BOOL CCoolListCtrl::ShowOrHideColumn(int iCol)
 
 
 	}
-	else//否则 隐藏对应列
+	else//?? ?????
 	{
-		pColStatusArray[iCol].iOrder = Col.iOrder;//保持隐藏前位置
+		pColStatusArray[iCol].iOrder = Col.iOrder;//???????
 		pColStatusArray[iCol].ColWStore = GetColumnWidth(iCol);
 		pColStatusArray[iCol].ColWidth = 0;
 		pColStatusArray[iCol].Redraw = 0;
-		pColStatusArray[iCol].IsHiddenColumn = TRUE; //决定隐现的主要标志
+		pColStatusArray[iCol].IsHiddenColumn = TRUE; //?????????
 		Col.iOrder = 0;
 		SetColumn(iCol, &Col);
 		SetColumnWidth(iCol, 0);
@@ -1323,6 +1323,37 @@ BOOL CCoolListCtrl::ShowOrHideColumn(int iCol)
 
 void CCoolListCtrl::MySetItemText(int iItem, int iCol, CString StrToSet)
 {
+	// Opt 2: skip SetItem if text is identical to what we last set for
+	// this (item, col) pair. MySetItemText is called from OnUMTimer for
+	// every visible process for every column on every tick. Most calls
+	// for Disk/Net carry the same "0 MB/s" / "0 KB/s" string because the
+	// format path clamps idle values to that exact string. Each avoided
+	// SetItem saves a SendMessage(LVM_SETITEMTEXT) + subitem invalidation
+	// + OnCustomDraw repaint.
+	//
+	// Cache key is (iItem, iCol). SortItems rearranges which item sits
+	// at which index but does NOT clear the displayed text, so a cache
+	// hit after a sort means the new occupant already shows the same
+	// text the cache remembers - which is exactly what would be set
+	// anyway, so the skip is correct (no visible difference).
+	//
+	// Periodic clear to keep the map bounded during long sessions.
+	static CMap<DWORD, DWORD, CString, CString&> s_LastText;
+	static DWORD s_LastClearTick = 0;
+	DWORD now = GetTickCount();
+	if(s_LastClearTick == 0 || (now - s_LastClearTick) > 60000)
+	{
+		s_LastText.RemoveAll();
+		s_LastClearTick = now;
+	}
+
+	const DWORD key = (((DWORD)iItem) << 8) | ((DWORD)iCol & 0xFF);
+	CString prev;
+	if(s_LastText.Lookup(key, prev) && prev == StrToSet)
+		return;
+
+	s_LastText[key] = StrToSet;
+
 	LVITEM Item;
 	Item.iItem = iItem;
 	Item.iSubItem = iCol;

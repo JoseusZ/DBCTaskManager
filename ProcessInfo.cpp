@@ -1113,32 +1113,74 @@ DWORD CProcess::GetPriority(HANDLE hProcess, CString * lpStr)
 
 double CProcess::_GetPDHData(HQUERY   hQuery,HCOUNTER hCounter)
 {
-	
+	// Opt 1: PdhCollectQueryData cache keyed by (hQuery,hCounter) pair.
+	//
+	// OnUMTimer can call _GetPDHData once per process per tick for
+	// GetMemUsageInfo (hQueryWs) and once for GetWsPrivate_PDH (hQueryMem).
+	// The per-process PDH queries are specific-instance
+	// (\Process(<pid>)\Working Set) so each PdhCollectQueryData call is
+	// already fast (~10us), but we coalesce redundant refreshes within a
+	// 500ms window anyway. Cache is keyed by the actual handle pair so
+	// different processes never see each other's stale values (a single
+	// static cache would leak Process A's value into Process B's read).
+	//
+	// 4-slot LRU is enough because at most 2 distinct (hQuery,hCounter)
+	// pairs are ever live per process in this codebase.
+	struct CacheSlot
+	{
+		HQUERY   q;
+		HCOUNTER c;
+		DWORD    tick;
+		double   val;
+		BOOL     valid;
+	};
+	static CacheSlot s_Cache[4] = {0};
+	const DWORD NOW = GetTickCount();
+	for(int i = 0; i < 4; i++)
+	{
+		if(s_Cache[i].valid && s_Cache[i].q == hQuery && s_Cache[i].c == hCounter)
+		{
+			if(NOW - s_Cache[i].tick < 500)
+				return s_Cache[i].val;
+			break;
+		}
+	}
 
-
-	PDH_STATUS pdhStatus;  
-	pdhStatus  = PdhCollectQueryData(hQuery);
-
-	if(pdhStatus != ERROR_SUCCESS) 
-	{  
+	PDH_STATUS pdhStatus = PdhCollectQueryData(hQuery);
+	if(pdhStatus != ERROR_SUCCESS)
+	{
 		return 0;
 	}
 
 	// ��õ�ǰʵ���ġ�ID Process����������ֵ
 	DWORD ctrType;
 	PDH_FMT_COUNTERVALUE fmtValue;
-	pdhStatus=PdhGetFormattedCounterValue(hCounter, PDH_FMT_DOUBLE,   &ctrType,&fmtValue);
+	pdhStatus = PdhGetFormattedCounterValue(hCounter, PDH_FMT_DOUBLE, &ctrType, &fmtValue);
 
-	if(pdhStatus != ERROR_SUCCESS) 
-	{ 
+	if(pdhStatus != ERROR_SUCCESS)
+	{
 		return 0;
 	}
 
-	double Ret  =  fmtValue.doubleValue  ;  
+	double Ret = fmtValue.doubleValue;
+	if(Ret < 0) Ret = 0;
 
-	if(Ret<0){ Ret=0; }
+	// Store: prefer a free slot, otherwise evict the oldest entry.
+	int slot = -1;
+	DWORD oldest = NOW;
+	for(int i = 0; i < 4; i++)
+	{
+		if(!s_Cache[i].valid) { slot = i; break; }
+		if(s_Cache[i].tick < oldest) { oldest = s_Cache[i].tick; slot = i; }
+	}
+	if(slot < 0) slot = 0;
+	s_Cache[slot].q     = hQuery;
+	s_Cache[slot].c     = hCounter;
+	s_Cache[slot].tick  = NOW;
+	s_Cache[slot].val   = Ret;
+	s_Cache[slot].valid = TRUE;
 
-	return   Ret;
+	return Ret;
 }
 
 DWORD CProcess::GetParentPID(PROCLISTDATA * pData )
