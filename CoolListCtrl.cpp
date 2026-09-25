@@ -199,7 +199,9 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 		//UINT uFormat;
 
 
-
+		// ★ FIX Y-overflow: aislar HDC para que GDI+ Graphics no contamine
+		// el clip region entre items durante el mismo paint cycle.
+		int nSavedDC = pDC->SaveDC();
 		Graphics Graph(pDC->m_hDC);
 
 		APPLISTDATA* pListData = (APPLISTDATA*)GetItemData(nItem);
@@ -578,6 +580,9 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 
 		Graph.ReleaseHDC(pDC->m_hDC);
+
+		// ★ FIX Y-overflow: restaurar estado original del HDC
+		pDC->RestoreDC(nSavedDC);
 
 
 	}

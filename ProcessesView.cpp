@@ -186,8 +186,7 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 			{	
 
 				 
-				StringCchCopy((LPTSTR)(LPCTSTR)StrDescription2,((PROCLISTDATA *) pData2->pPData)->Description.GetLength(),((PROCLISTDATA *) pData2->pPData)->Description);
-				//StrDescription2 = ((PROCLISTDATA *) pData2->pPData)->Description;
+				StrDescription2 = ((PROCLISTDATA *) pData2->pPData)->Description;
 				if(StrDescription2==L"") StrDescription2=  ((PROCLISTDATA *) pData2->pPData)->Name;
 
 			}
