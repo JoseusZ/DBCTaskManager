@@ -658,9 +658,23 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 		// processes under non-admin). That produced the huge "phantom" KB/s
 		// values shown on the disk/network columns of idle processes.
 		ULONGLONG NewOtherIO = 0;
-		ULONGLONG NewIO = mProcInfo.GetDiskIO(((PROCLISTDATA*)pListData->pPData)->hProcess,
-											 ((PROCLISTDATA*)pListData->pPData)->PID,
-											 &NewOtherIO);
+		ULONGLONG NewIO = 0;
+		// Cambio F: GetDiskIO es una syscall NT que con ~200 procesos suma
+		// ~200 syscalls/seg innecesarias si ni Disk ni Network son visibles
+		// (sus resultados solo se usan dentro de los bloques protegidos por
+		// COL_SAT_PROC[PROCLIST_DISK].Redraw y [...NETWORK].Redraw). Cuando
+		// ambas columnas estan ocultas dejamos NewIO=0 y NewOtherIO=0, asi
+		// DiskUsageBytePerSec/OtherBytePerSec son 0 y no se pinta nada raro.
+		// Edge case: si luego el usuario activa una columna, el primer tick
+		// tendra un delta obsoleto, pero los clamps ya existentes en este
+		// archivo (lineas ~674 y ~728) lo dejaran en "0 MB/s" / "0 KB/s"
+		// durante un tick antes de estabilizarse.
+		if(COL_SAT_PROC[PROCLIST_DISK].Redraw || COL_SAT_PROC[PROCLIST_NETWORK].Redraw)
+		{
+			NewIO = mProcInfo.GetDiskIO(((PROCLISTDATA*)pListData->pPData)->hProcess,
+									   ((PROCLISTDATA*)pListData->pPData)->PID,
+									   &NewOtherIO);
+		}
 		DiskUsageBytePerSec =  ((double) (NewIO - ((PROCLISTDATA*)pListData->pPData)->DiskIO ))/theApp.AppSettings.TimerStep;
 		OtherBytePerSec  =   ((double) (NewOtherIO - ((PROCLISTDATA*)pListData->pPData)->OtherIO ))/theApp.AppSettings.TimerStep;
 		((PROCLISTDATA*)pListData->pPData)->OtherIO = NewOtherIO;
