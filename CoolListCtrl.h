@@ -57,12 +57,6 @@ public:
 	
 	afx_msg void OnLvnHotTrack(NMHDR *pNMHDR, LRESULT *pResult);
 	DWORD nHot;
-	// FIX CPU hover: coalesce de InvalidateRect en OnLvnHotTrack mediante un
-	// timer de 16ms (60fps). IDT_HOVER_COALESCE es unico de esta clase
-	// (no choca con el timer ID=0 usado por el perfil de update speed).
-	enum { IDT_HOVER_COALESCE = 0x4D43 };
-	int m_nLastPaintedHot;    // ultima fila invalidada por el timer (-1 = ninguna)
-	afx_msg void OnTimer(UINT_PTR nIDEvent);
  	CCoolheaderCtrl CoolheaderCtrl;
 protected:
 	virtual void PreSubclassWindow();

@@ -12,7 +12,6 @@ IMPLEMENT_DYNAMIC(CCoolListCtrl, CListCtrl)
 
 CCoolListCtrl::CCoolListCtrl()
 	: nHot(-1)
-	, m_nLastPaintedHot(-1)
 	, DrawAllColForSubItem(FALSE)
 	, IsProcList(TRUE)
 	, FullColumnCount(0)
@@ -47,7 +46,6 @@ BEGIN_MESSAGE_MAP(CCoolListCtrl, CListCtrl)
 	ON_NOTIFY_REFLECT(NM_CUSTOMDRAW, OnCustomDraw)
 	ON_WM_MEASUREITEM_REFLECT()
 	ON_NOTIFY_REFLECT(LVN_HOTTRACK, &CCoolListCtrl::OnLvnHotTrack)
-	ON_WM_TIMER()
 	ON_NOTIFY_REFLECT(NM_DBLCLK, &CCoolListCtrl::OnNMDblclk)
 	ON_NOTIFY_REFLECT(NM_CLICK, &CCoolListCtrl::OnNMClick)
 	ON_WM_LBUTTONDOWN()
@@ -643,30 +641,6 @@ void CCoolListCtrl::SetImageList(HIMAGELIST hIMGList)
 
 }
 
-void CCoolListCtrl::OnTimer(UINT_PTR nIDEvent)
-{
-	if (nIDEvent == IDT_HOVER_COALESCE)
-	{
-		KillTimer(IDT_HOVER_COALESCE);
-
-		// Invalidar solo el rect de la fila previamente pintada y el rect de
-		// la fila hot actual. El resto del control queda intacto, asi que
-		// OnCustomDraw solo se ejecuta para esas 2 filas.
-		CRect rcOld, rcNew;
-		if (m_nLastPaintedHot != nHot)
-		{
-			if (m_nLastPaintedHot >= 0 && GetItemRect(m_nLastPaintedHot, rcOld, LVIR_BOUNDS))
-				InvalidateRect(rcOld, FALSE);
-			if (nHot >= 0 && GetItemRect(nHot, rcNew, LVIR_BOUNDS))
-				InvalidateRect(rcNew, FALSE);
-			m_nLastPaintedHot = nHot;
-		}
-		return;
-	}
-
-	CListCtrl::OnTimer(nIDEvent);
-}
-
 void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 {
 
@@ -702,13 +676,10 @@ void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 
 	if (nHot != NewHotID)
 	{
-		// FIX CPU hover: diferir el InvalidateRect al timer IDT_HOVER_COALESCE
-		// (16ms / 60fps). Cada SetTimer con el mismo ID REEMPLAZA al anterior,
-		// asi que multiples LVN_HOTTRACK dentro de 16ms se colapsan en uno solo.
-		// nHot se actualiza inmediatamente para que el siguiente LVN_HOTTRACK
-		// compare correctamente.
+
 		nHot = NewHotID;
-		SetTimer(IDT_HOVER_COALESCE, 16, NULL);
+		Invalidate(0);
+
 	}
 
 
@@ -1131,22 +1102,7 @@ void CCoolListCtrl::OnLvnItemchanged(NMHDR* pNMHDR, LRESULT* pResult)
 	// TODO: Add your control notification handler code here
 	//	this->GetParent()->PostMessageW(UM_ITEMCHANGED_COOLLIST);
 
-	// FIX CPU: en lugar de Invalidate(0) (que repinta TODAS las filas cada vez
-	// que cambia el estado de cualquier item), invalidar solo el rect de la
-	// fila afectada. Esto se dispara junto con LVN_HOTTRACK durante el
-	// movimiento rapido del cursor, asi que reducir su costo es critico.
-	// Solo actuar cuando cambia estado visualmente relevante (seleccion, foco,
-	// cut) y entre old/new difieren; para los demas cambios (overlays, etc.)
-	// no hay nada que repintar manualmente.
-	if (pNMLV->iItem >= 0 &&
-		(pNMLV->uChanged & (LVIS_SELECTED | LVIS_FOCUSED | LVIS_CUT)) &&
-		(pNMLV->uNewState & (LVIS_SELECTED | LVIS_FOCUSED | LVIS_CUT)) !=
-		(pNMLV->uOldState & (LVIS_SELECTED | LVIS_FOCUSED | LVIS_CUT)))
-	{
-		CRect rc;
-		if (GetItemRect(pNMLV->iItem, rc, LVIR_BOUNDS))
-			InvalidateRect(rc, FALSE);
-	}
+	this->Invalidate(0);
 
 	*pResult = 0;
 }
@@ -1428,16 +1384,7 @@ void CCoolListCtrl::OnMouseMove(UINT nFlags, CPoint point)
 	// Determinar si el cursor esta sobre algun chevron de expansion.
 	int nNewHotItem = -1;
 	int nNewHotSub = -1;
-
-	// OPT CPU hover: el chevron solo ocupa los primeros LINE_H2 px de la
-	// primera columna (ver _FindArrowUnderCursor). Para el ~95% de los
-	// movimientos del cursor, point.x esta lejos del borde izquierdo y el
-	// loop sobre TODOS los items + 2 SendMessage por fila es wasted work.
-	// Gateamos por X antes de iterar. nNewHotItem se queda en -1 cuando
-	// saltamos, lo que hara que el bloque siguiente limpie correctamente
-	// cualquier highlight previo (m_nHotArrowItem >= 0 -> invalidar).
-	if (point.x < LINE_H2 * 2)
-		_FindArrowUnderCursor(this, point, nNewHotItem, nNewHotSub);
+	_FindArrowUnderCursor(this, point, nNewHotItem, nNewHotSub);
 
 	if (nNewHotItem != m_nHotArrowItem || nNewHotSub != m_nHotArrowSubItem)
 	{
@@ -1484,17 +1431,5 @@ void CCoolListCtrl::OnMouseLeave()
 			m_nHotArrowItem = -1;
 			m_nHotArrowSubItem = -1;
 		}
-	}
-
-	// FIX CPU hover: al salir del control, descartar el timer pendiente y
-	// limpiar el highlight de la fila hot para que no quede "pegada".
-	KillTimer(IDT_HOVER_COALESCE);
-	if (nHot >= 0 && m_nLastPaintedHot != nHot)
-	{
-		CRect rcOld;
-		if (m_nLastPaintedHot >= 0 && GetItemRect(m_nLastPaintedHot, rcOld, LVIR_BOUNDS))
-			InvalidateRect(rcOld, FALSE);
-		nHot = -1;
-		m_nLastPaintedHot = -1;
 	}
 }

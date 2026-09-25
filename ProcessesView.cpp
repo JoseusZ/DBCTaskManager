@@ -463,15 +463,7 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 
 
-	if(!FlagEnableRefresh) return 0;
-
-	// FIX CPU idle: batch todos los repaints disparados por SetItemText en un
-	// solo repaint al final del ciclo. Sin esto, cada MySetItemText (CPU,
-	// Memory, Disk, Network) marca la celda como sucia y dispara un paint
-	// individual que con LVS_EX_DOUBLEBUFFER pinta todo el control a un
-	// offscreen. Con SetRedraw(FALSE) durante el bucle, todos los cambios
-	// se acumulan y un solo Invalidate al final repinta una vez.
-	mTaskList.SetRedraw(FALSE);
+	if(!FlagEnableRefresh) return 0; 
 
 	//mTaskList.XXX=0;
 
@@ -824,10 +816,6 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 //	mTaskList.XXX=1;
 	//	mTaskList.Invalidate();
 
-	// FIX CPU idle (continuacion): reactivar redraw y forzar un solo repaint
-	// acumulado de todas las celdas modificadas durante el ciclo.
-	mTaskList.SetRedraw(TRUE);
-	mTaskList.Invalidate();
 
 	return 0;
 	
@@ -2380,6 +2368,9 @@ void CPageProcesses::OnPop_ProcesseslistGotoDetails()
 	APPLISTDATA *pData = NULL;
 	int nSel = mTaskList.GetNextItem( -1, LVNI_SELECTED );
 	pData = (APPLISTDATA *)mTaskList.GetItemData(nSel);
+
+
+	//����������ѡ ����Ҫ�����֮ǰѡ�е� 
 
 	pPageDetails->ClearSelecet();
 
