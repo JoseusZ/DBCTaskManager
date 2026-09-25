@@ -122,8 +122,22 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 
 
+		// ★ FIX CRITICO: el CPen se selecciona en el DC (linea SelectObject abajo)
+		// y antes se llamaba LinePen.DeleteObject() SIN restaurar OldPen.
+		// Eso libera el handle GDI mientras el DC aun lo tiene en su slot de
+		// pen actual: todas las operaciones de dibujo posteriores en este mismo
+		// DC (ITEMPREPAINT para cada fila, FillSolidRect, MoveTo/LineTo, etc.)
+		// usan un handle muerto. Cuando el handle es reasignado por otra pieza
+		// de GDI (incluso de otro hilo/proceso), el dibujo sale con propiedades
+		// arbitrarias -> bandas amarillas, texto corrupto, parpadeo al pasar
+		// el cursor (cada Invalidate dispara otro PREPAINT que re-crea y
+		// re-mata el pen, acumulando corrupcion).
+		//
+		// FIX: restaurar OldPen al DC ANTES de que LinePen salga de scope
+		// y libere el handle. Asi el DC siempre tiene un pen valido.
+		// Tambien eliminamos LinePenRed que nunca se usa (solo estaba
+		// referenciado en codigo comentado).
 		CPen LinePen(0, 1, RGB(234, 213, 160));
-		CPen LinePenRed(0, 1, RGB(200, 0, 0));
 
 		CPen* OldPen = pDC->SelectObject(&LinePen);
 
@@ -150,26 +164,27 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 				int dx = 1;
 
-				if (pColStatusArray[i].Percents > 90)
-				{
-					//OldPen = pDC->SelectObject(&LinePenRed);
-				}
-				//pDC-> FillSolidRect ( rcSubItem.left,0,rcSubItem.Width(),rc.Height(), RGB(255,244,196) ); 
+				//pDC-> FillSolidRect ( rcSubItem.left,0,rcSubItem.Width(),rc.Height(), RGB(255,244,196) );
 
 				pDC->MoveTo(rcSubItem.left - 1, rc.top);
 				pDC->LineTo(rcSubItem.left - 1, LineBottom);
 
 				pDC->MoveTo(rcSubItem.right - 1, rc.top);
 				pDC->LineTo(rcSubItem.right - 1, LineBottom);
-				//OldPen = pDC->SelectObject(&LinePen);
-
 
 			}
 
 		}
 
-		LinePen.DeleteObject();
-		LinePenRed.DeleteObject();
+		// ★ FIX: restaurar el pen original en el DC para que ya no apunte al
+		// handle que vamos a liberar. Sin esto, el DC queda con un handle
+		// muerto en su slot de pen y todo el dibujo posterior es corrupto.
+		if (OldPen != NULL)
+		{
+			pDC->SelectObject(OldPen);
+		}
+		// El destructor de LinePen al salir del scope libera el handle de
+		// forma segura (el DC ya no lo retiene).
 
 		*pResult = CDRF_NOTIFYITEMDRAW;
 
