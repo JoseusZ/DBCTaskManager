@@ -206,6 +206,17 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		APPLISTDATA* pListData = (APPLISTDATA*)GetItemData(nItem);
 
+		// FIX: si el item fue eliminado entre la decisión de pintar y la pintura
+		// real (carrera con OnUMTimer / worker thread), GetItemData puede devolver
+		// NULL. Salimos sin tocar pListData->* y sin alterar el flujo del paint.
+		if (pListData == NULL)
+		{
+			*pResult = CDRF_SKIPDEFAULT;
+			Graph.ReleaseHDC(pDC->m_hDC);
+			pDC->RestoreDC(nSavedDC);
+			return;
+		}
+
 		int nCol = pHeaderCtrl->GetItemCount();
 
 
@@ -567,7 +578,8 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 			if (nItem - 1 >= 0)
 			{
 				APPLISTDATA* pTempData = (APPLISTDATA*)GetItemData(nItem - 1);
-				if (pTempData->SubType == SUB_ITEM)
+				// FIX: validar pTempData antes de leer SubType. Mismo motivo que arriba.
+				if (pTempData != NULL && pTempData->SubType == SUB_ITEM)
 				{
 					Graph.DrawLine(&Pen(Color(23, 0, 0, 0), 1), 0, rcItem.top, rcItem.right, rcItem.top);
 				}
@@ -640,7 +652,15 @@ void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 	CRect rcItem, rcList, rcOldHot;
 	this->GetClientRect(rcList);
 
-	this->GetItemRect(0, rcItem, LVIR_BOUNDS);
+	// FIX: si el ítem 0 no existe (lista vacía o items recién borrados),
+	// GetItemRect devuelve FALSE y rcItem queda con valores indeterminados;
+	// calcular NewHotID con esos valores produciría un id basura que dispara
+	// repaints sobre índices que ya no existen. Salimos sin tocar nHot ni Invalidate.
+	if (!this->GetItemRect(0, rcItem, LVIR_BOUNDS))
+	{
+		*pResult = 0;
+		return;
+	}
 
 
 	CPoint CurPos;
