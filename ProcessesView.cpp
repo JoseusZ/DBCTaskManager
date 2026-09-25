@@ -485,7 +485,8 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 		BOOL  UpdateWndList = CheckWndChange();
 
-	CRect rcItem,rc,rcTemp;
+	CRect rcItem,rc,rcTemp, rcClient;
+	mTaskList.GetClientRect(&rcClient);
 
 	rc = mTaskList._GetRedrawColumn();
 
@@ -510,6 +511,16 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 		if(mTaskList.GetItemCount() == i) break ;
 
 		mTaskList.GetItemRect(i,rcItem,LVIR_BOUNDS);
+		// CPU FIX: saltar items no visibles en pantalla. Ya tenemos rcItem
+		// calculado; si la fila esta totalmente fuera del client rect no
+		// tiene sentido leer contadores NT (CPU/Mem/Disk/Net) ni repintar.
+		// Items parciales (recortados arriba/abajo) SI se procesan.
+		if (rcItem.bottom <= rcClient.top || rcItem.top >= rcClient.bottom)
+		{
+			i++;
+			continue;
+		}
+
 		BOOL RedrawItem =  IntersectRect (rcTemp,rcItem,rc);
 
 

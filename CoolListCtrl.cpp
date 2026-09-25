@@ -6,6 +6,20 @@
 #include "CoolListCtrl.h"
 
 
+// ID de timer magico para coalescer repaints de hot-track. Cualquier valor
+// unico en este proceso sirve; usamos 0xC4E3.
+#define ID_HOT_TRACK_COALESCE 0xC4E3
+
+// Callback del timer: cuando se cumplen los 40ms sin nuevo hot-track, dispara
+// el Invalidate(0) que estaba pendiente. CALLBACK (no WM_TIMER) para no
+// tocar el message map ni el header.
+static VOID CALLBACK _HotTrackCoalesceProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
+{
+	KillTimer(hwnd, idEvent);
+	InvalidateRect(hwnd, NULL, FALSE);  // Equivalente a Invalidate(0)
+}
+
+
 // CCoolListCtrl
 
 IMPLEMENT_DYNAMIC(CCoolListCtrl, CListCtrl)
@@ -691,10 +705,17 @@ void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 
 	if (nHot != NewHotID)
 	{
-
 		nHot = NewHotID;
-		Invalidate(0);
-
+		// CPU FIX: en vez de Invalidate(0) inmediato (que dispara un repaint
+		// COMPLETO del control en cada cruce de fila), coalescemos los
+		// eventos de hot-track con un timer de 40ms. Si el cursor sigue
+		// cruzando filas, el timer se resetea y solo se hace UN repaint al
+		// final del movimiento. Cuando el cursor se detiene, el repaint
+		// ocurre ~40ms despues (un frame a 25fps, imperceptible).
+		// No cambia el area invalidada ni OnCustomDraw: misma pipeline,
+		// misma pintura, solo se difiere la llamada.
+		KillTimer(ID_HOT_TRACK_COALESCE);
+		SetTimer(ID_HOT_TRACK_COALESCE, 40, _HotTrackCoalesceProc);
 	}
 
 
@@ -1358,27 +1379,37 @@ static void _FindArrowUnderCursor(CCoolListCtrl* pList, CPoint point, int& nItem
 	if (pList == NULL) return;
 
 	const int nCount = pList->GetItemCount();
-	for (int i = 0; i < nCount; i++)
+	// CPU FIX: localizar primero la fila bajo el cursor con HitTest (O(log n)
+	// en controles con miles de items, vs el recorrido lineal anterior que
+	// llamaba GetItemData + GetSubItemRect por cada item en CADA WM_MOUSEMOVE).
+	// Luego solo verificamos si el punto cae en el cuadrado del chevron de
+	// ESA fila. Comportamiento identico al anterior, solo evita iterar el
+	// arbol completo en cada movimiento de cursor.
+	LVHITTESTINFO hti;
+	hti.pt = point;
+	hti.flags = 0;
+	const int nHitRow = pList->HitTest(&hti);
+	if (nHitRow < 0 || nHitRow >= nCount)
+		return;
+
+	APPLISTDATA* pData = (APPLISTDATA*)pList->GetItemData(nHitRow);
+	if (pData == NULL) return;
+	if (pData->SubType != PARENT_ITEM_OPEN && pData->SubType != PARENT_ITEM_CLOSE)
+		return;
+
+	CRect rcArrow;
+	if (!pList->GetSubItemRect(nHitRow, 0, LVIR_BOUNDS, rcArrow))
+		return;
+
+	// El chevron ocupa solo el cuadrado inicial de la primera columna,
+	// del mismo ancho que la altura de la fila (como en OnCustomDraw).
+	rcArrow.right = rcArrow.left + rcArrow.Height();
+
+	if (rcArrow.PtInRect(point))
 	{
-		APPLISTDATA* pData = (APPLISTDATA*)pList->GetItemData(i);
-		if (pData == NULL) continue;
-		if (pData->SubType != PARENT_ITEM_OPEN && pData->SubType != PARENT_ITEM_CLOSE)
-			continue;
-
-		CRect rcArrow;
-		if (!pList->GetSubItemRect(i, 0, LVIR_BOUNDS, rcArrow))
-			continue;
-
-		// El chevron ocupa solo el cuadrado inicial de la primera columna,
-		// del mismo ancho que la altura de la fila (como en OnCustomDraw).
-		rcArrow.right = rcArrow.left + rcArrow.Height();
-
-		if (rcArrow.PtInRect(point))
-		{
-			nItem = i;
-			nSubItem = 0;
-			return;
-		}
+		nItem = nHitRow;
+		nSubItem = 0;
+		return;
 	}
 }
 
