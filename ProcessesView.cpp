@@ -2802,8 +2802,16 @@ void CPageProcesses::_GetMemDataAndSetItemText(int iItem, APPLISTDATA * PData)
 
 		}
 
-		if(Percents>1&&Percents<10)Percents=20;//����ܶ඼����ʾ��ɫ
-		PData->CoolUsageArray[PROCLIST_MEMORY]= Percents/100; //���ڱ�ɫ��ʾ������
+		// Memory heat map is now driven by absolute megabytes (private
+		// working-set, in MB) instead of a fraction of total used memory.
+		// The renderer (CoolListCtrl.cpp) detects values > 1.0 and dispatches
+		// to GetMemoryHeatColor() which interpolates smoothly between the
+		// 620 MB and 1072 MB anchors specified by the user. Below 1 MB the
+		// smooth gradient is indistinguishable from the default neutral
+		// color (RGB(255,244,196)), so we store 0 to suppress the heat
+		// overlay and avoid any colour banding at the threshold.
+		double MemMb = MemUsage/1024.0/1024.0;
+		PData->CoolUsageArray[PROCLIST_MEMORY] = (MemMb >= 1.0) ? MemMb : 0.0; // MemMb for GetMemoryHeatColor
 	}
 
 }

@@ -313,7 +313,18 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 				if (pListData->CoolUsageArray[i] > 0)
 				{
 
-					pDC->FillSolidRect(rcSubItem, GetCoolColor(pListData->CoolUsageArray[i]));
+					// Select between the legacy fraction-based heat map
+					// (CPU / Disk / Network, values in 0..1) and the new
+					// absolute-MB memory heat map (values > 1). This keeps
+					// the generic CoolListCtrl column-agnostic: each view
+					// decides which semantics to put in CoolUsageArray[i].
+					double CoolVal = pListData->CoolUsageArray[i];
+					COLORREF CoolCol;
+					if (CoolVal > 1.0)
+						CoolCol = GetMemoryHeatColor(CoolVal);
+					else
+						CoolCol = GetCoolColor(CoolVal);
+					pDC->FillSolidRect(rcSubItem, CoolCol);
 				}
 				else //if(pListData->SubType == SUB_ITEM )
 				{
@@ -1247,6 +1258,94 @@ COLORREF CCoolListCtrl::GetCoolColor(double Hot)
 
 
 	return RetColor;
+}
+
+// ---------------------------------------------------------------------------
+// CCoolListCtrl::GetMemoryHeatColor
+//
+// Smooth (per-channel linear) RGB interpolation between four anchor points
+// driven by the private working-set size of a process in megabytes:
+//
+//      <=   0 MB   ->  RGB(255, 244, 196)   "no consumption" / neutral
+//        620 MB    ->  RGB(249, 230, 136)   anchor 1 (user-specified)
+//       1072 MB    ->  RGB(253, 212,  94)   anchor 2 (user-specified)
+//     >  1500 MB   ->  RGB(255, 167,  29)   deep saturated orange (max)
+//
+// Between anchors the channels are lerped linearly so the visual transition
+// is continuous instead of the previous discrete 5-bucket jumps. The two
+// "user-specified" anchors are kept verbatim (no rounding) so the colors
+// the user picked at 620 MB and 1072 MB are reproduced exactly. Returned
+// RGB bytes are clamped to [0,255] to guard against any future re-tuning
+// of the anchors producing out-of-gamut values.
+// ---------------------------------------------------------------------------
+static inline BYTE _MemHeatClampByte(double v)
+{
+	if (v <   0.0) return 0;
+	if (v > 255.0) return 255;
+	return (BYTE)v;
+}
+
+static inline BYTE _MemHeatLerpByte(BYTE a, BYTE b, double t)
+{
+	if (t <= 0.0) return a;
+	if (t >= 1.0) return b;
+	return _MemHeatClampByte((double)a + ((double)b - (double)a) * t);
+}
+
+COLORREF CCoolListCtrl::GetMemoryHeatColor(double MemMb)
+{
+	// Four anchors: (MB, R, G, B). Keep RGB tuples in sync with the
+	// documented behaviour in the header above.
+	const double ANCHOR0_MB =    0.0;
+	const BYTE   ANCHOR0_R  = 255, ANCHOR0_G = 244, ANCHOR0_B = 196;
+
+	const double ANCHOR1_MB =  620.0;
+	const BYTE   ANCHOR1_R  = 249, ANCHOR1_G = 230, ANCHOR1_B = 136;
+
+	const double ANCHOR2_MB = 1072.0;
+	const BYTE   ANCHOR2_R  = 253, ANCHOR2_G = 212, ANCHOR2_B =  94;
+
+	const double ANCHOR3_MB = 1500.0;
+	const BYTE   ANCHOR3_R  = 255, ANCHOR3_G = 167, ANCHOR3_B =  29;
+
+	// Guard non-finite / negative inputs the same way the other perf code
+	// does (NaN/Inf check via _finite; treat <0 as zero consumption).
+	if (_finite(MemMb) == 0) MemMb = 0.0;
+	if (MemMb < 0.0)         MemMb = 0.0;
+
+	if (MemMb <= ANCHOR1_MB)
+	{
+		// Segment A: 0 .. 620 MB
+		double t = (ANCHOR1_MB - ANCHOR0_MB > 0.0)
+			? (MemMb - ANCHOR0_MB) / (ANCHOR1_MB - ANCHOR0_MB)
+			: 0.0;
+		BYTE r = _MemHeatLerpByte(ANCHOR0_R, ANCHOR1_R, t);
+		BYTE g = _MemHeatLerpByte(ANCHOR0_G, ANCHOR1_G, t);
+		BYTE b = _MemHeatLerpByte(ANCHOR0_B, ANCHOR1_B, t);
+		return RGB(r, g, b);
+	}
+	else if (MemMb <= ANCHOR2_MB)
+	{
+		// Segment B: 620 .. 1072 MB
+		double t = (ANCHOR2_MB - ANCHOR1_MB > 0.0)
+			? (MemMb - ANCHOR1_MB) / (ANCHOR2_MB - ANCHOR1_MB)
+			: 0.0;
+		BYTE r = _MemHeatLerpByte(ANCHOR1_R, ANCHOR2_R, t);
+		BYTE g = _MemHeatLerpByte(ANCHOR1_G, ANCHOR2_G, t);
+		BYTE b = _MemHeatLerpByte(ANCHOR1_B, ANCHOR2_B, t);
+		return RGB(r, g, b);
+	}
+	else
+	{
+		// Segment C: 1072 .. 1500+ MB (saturate at the deep-orange end).
+		double t = (ANCHOR3_MB - ANCHOR2_MB > 0.0)
+			? (MemMb - ANCHOR2_MB) / (ANCHOR3_MB - ANCHOR2_MB)
+			: 0.0;
+		BYTE r = _MemHeatLerpByte(ANCHOR2_R, ANCHOR3_R, t);
+		BYTE g = _MemHeatLerpByte(ANCHOR2_G, ANCHOR3_G, t);
+		BYTE b = _MemHeatLerpByte(ANCHOR2_B, ANCHOR3_B, t);
+		return RGB(r, g, b);
+	}
 }
 
 void CCoolListCtrl::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)

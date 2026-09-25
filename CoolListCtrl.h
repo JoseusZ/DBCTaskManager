@@ -123,6 +123,15 @@ public:
 
 
 	COLORREF GetCoolColor(double Hot);
+
+	// Memory-only heat map: smooth RGB interpolation between absolute MB
+	// anchors (620 MB -> (249,230,136), 1072 MB -> (253,212,94)). The CPU,
+	// Disk and Network heat maps keep using the discrete GetCoolColor()
+	// bucket palette above. The two functions are selected at the call site
+	// by inspecting whether the value is a fraction (0..1) or a MB value
+	// (> 1) so the column type does not need to be known here.
+	COLORREF GetMemoryHeatColor(double MemMb);
+
 	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnShowWindow(BOOL bShow, UINT nStatus);
 protected:
