@@ -62,7 +62,7 @@ public:
 
 	HWND _GetProcessMainWnd(DWORD PID, HWND Dll_hWnd);
 
-//	PROCLISTDATA  *pDetailListDataArray;  //Êý¾ÝÀ´Ô´ ½ø³ÌÏêÏ¸ÁÐ±í
+//	PROCLISTDATA  *pDetailListDataArray;  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô´ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½Ð±ï¿½
 
 	//afx_msg void OnCustomdrawMyList(NMHDR *pNMHDR, LRESULT *pResult);
 	
@@ -93,7 +93,7 @@ public:
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	APPLISTDATA* AddNewItem(PROCLISTDATA * pDetailData, int ID = 0,BOOL SetBaseInfoOnly = FALSE);
 	int _OpenSubList(int ID,BOOL LockDraw = TRUE);
-	int _CloseSubList(int ID,BOOL LockDraw = TRUE); //ÓÐÊ±²»ÓýÏµ¸Ä±ä¿ÉÖØ»æ×´Ì¬£¡£¡£¡
+	int _CloseSubList(int ID,BOOL LockDraw = TRUE); //ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ïµï¿½Ä±ï¿½ï¿½ï¿½Ø»ï¿½×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	//int ListProcesses(void);
 	
 	
@@ -129,6 +129,23 @@ public:
 	
 	afx_msg void OnBnClickedBtnEndTask();
 	void _OnListItemChaged(void);
+
+	// FIX B2: calcula el nivel de indentacion (0 = raiz, 1 = hijo de raiz,
+	// etc.) recorriendo la cadena de ParentPID hasta un root estable
+	// (PID=0 o PID=4) o hasta el PID del item mismo. Limita a 32 saltos
+	// y usa std::set<DWORD> visited para no caer en bucles infinitos
+	// si el kernel devuelve transitoriamente un ParentPID que cierra
+	// un ciclo. Devuelve -1 si no encuentra el proceso.
+	int  GetIndentLevel(DWORD pid);
+
+	// FIX B3: recalcula IndentLevel para TODOS los items de mTaskList.
+	// Llamarlo cuando GroupByTree se active o cuando cambie el arbol.
+	void RecalcIndentForAll();
+
+	// FIX B4: recalcula IndentLevel solo para los items cuyo IndentLevel
+	// puede haber cambiado (el item y todos sus descendientes directos).
+	// Llamarlo cuando se anade o elimina un proceso.
+	void RecalcIndentForPID(DWORD pid);
 	void _RemoveGroupTitle(void);
 	afx_msg void OnLvnKeydownProcesslist(NMHDR *pNMHDR, LRESULT *pResult);
 

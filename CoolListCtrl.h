@@ -7,10 +7,10 @@
 
 
 
-typedef  struct  CoolListData 
+typedef  struct  CoolListData
 {
 
-	BYTE   ItemType;	
+	BYTE   ItemType;
 	int   SubType;
 	DWORD iImage;
 	void  * pPData;
@@ -21,14 +21,19 @@ typedef  struct  CoolListData
 
 
 
-	double CoolUsageArray[11] ; 
+	double CoolUsageArray[11] ;
 
 	int SortID;
 	CString StrTitle;
 
-	
-	
- 
+	// FIX B1: nivel de indentacion estilo Win10 (0 = raiz, 1 = hijo de
+	// raiz, 2 = nieto, etc.). Se asigna en Phase B3/B4 segun la cadena
+	// de ParentPID del proceso. Solo se usa visualmente (no afecta
+	// posicionamiento ni relaciones padre-hijo en el list control);
+	// la lista sigue siendo PLANA (no eliminamos items). Esto es lo
+	// que hace el taskmgr nativo de Win10: lista plana + indentacion.
+	int  IndentLevel;
+
 }COOLLISTDATA,APPLISTDATA,USERLISTDATA;
 
 

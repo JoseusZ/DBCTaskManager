@@ -2517,6 +2517,86 @@ void CPageProcesses::_OnListItemChaged(void)
 	
 }
 
+int CPageProcesses::GetIndentLevel(DWORD pid)
+{
+	// FIX B2: walk recursivo por ParentPID para calcular el nivel de
+	// indentacion estilo Win10 (0 = raiz, 1 = hijo de raiz, etc.).
+	// Limita la profundidad a 32 y usa std::set<DWORD> visited para
+	// protegerse contra ciclos transitorios en el arbol (mismo patron
+	// anti-ciclo que el FIX T4 aplicado a _EndProcessTree).
+	//
+	// Devuelve:
+	//   - 0  si el PID es root (ParentPID es 0, 4 o invalido)
+	//   - N  si el PID tiene N generaciones por encima antes de un root
+	//   - -1 si no se encuentra el PROCLISTDATA del PID (recien creado)
+	//
+	// Map_PidToData esta protegido por g_MapDataLock (FIX T2), asi que
+	// hacemos una copia local del PROCLISTDATA necesario bajo lock para
+	// no retenerlo durante la iteracion.
+	if (pid == 0 || pid == 4) return 0; // System / Idle = raiz
+
+	const int kMaxDepth = 32;
+	std::set<DWORD> visited;
+	DWORD currentPid = pid;
+	int  level = 0;
+
+	while (level < kMaxDepth) {
+		// Anti-ciclo
+		if (visited.count(currentPid)) return level;
+		visited.insert(currentPid);
+
+		// Buscar el PROCLISTDATA de currentPid bajo lock
+		PROCLISTDATA* pData = NULL;
+		EnterCriticalSection(&g_MapDataLock);
+		{
+			map<DWORD,PVOID>::iterator it = Map_PidToData.find(currentPid);
+			if (it != Map_PidToData.end())
+				pData = (PROCLISTDATA*)it->second;
+		}
+		LeaveCriticalSection(&g_MapDataLock);
+
+		if (pData == NULL) return level; // No encontrado: tratamos como root
+
+		DWORD parentPid = pData->ParentPID;
+
+		// Root del arbol (System / Idle / invalido)
+		if (parentPid == 0 || parentPid == 4 || parentPid == (DWORD)-1)
+			return level;
+
+		// Subir un nivel
+		currentPid = parentPid;
+		level++;
+	}
+
+	return level; // Cap a kMaxDepth
+}
+
+void CPageProcesses::RecalcIndentForAll()
+{
+	// FIX B3: recalcula IndentLevel para TODOS los items de mTaskList.
+	// Por ahora es un stub: solo calcula el valor. La aplicacion
+	// visual (prefijo de espacios/tabs en PROCLIST_NAME) se hace en
+	// Phase C (CPhase C2/D2 render).
+	int nCount = mTaskList.GetItemCount();
+	for (int i = 0; i < nCount; i++) {
+		APPLISTDATA* pData = (APPLISTDATA*)mTaskList.GetItemData(i);
+		if (pData == NULL || pData->pPData == NULL) continue;
+		if (pData->SubType == SUB_ITEM) continue; // sub-items siempre de 0
+
+		PROCLISTDATA* pProc = (PROCLISTDATA*)pData->pPData;
+		pData->IndentLevel = GetIndentLevel(pProc->PID);
+	}
+}
+
+void CPageProcesses::RecalcIndentForPID(DWORD pid)
+{
+	// FIX B4: stub inicial. Recalcula IndentLevel solo para los items
+	// cuyo IndentLevel puede haber cambiado. Por ahora recalcula TODOS
+	// (es O(N) y solo se ejecuta cuando se anade/elimina un proceso,
+	// que es raro). Se optimizara en Phase E si el rendimiento lo exige.
+	RecalcIndentForAll();
+}
+
 void CPageProcesses::_RemoveGroupTitle(void)
 {
 
