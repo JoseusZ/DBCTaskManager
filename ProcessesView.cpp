@@ -36,11 +36,18 @@ static UINT Thread_GenProcesses(LPVOID pParam)
 UINT Thread_FillAllItemsData(LPVOID pParam)
 {
 
+	// FIX T3: este worker thread ya NO llama Dlg->FillAllItemData()
+	// directamente porque esa funcion itera mTaskList (UI control MFC)
+	// desde un thread secundario, lo cual es ilegal en MFC.
+	// En su lugar, encolamos UM_REFRESH y el UI thread ejecuta la
+	// recarga real en PreTranslateMessage -> FillAllItemData().
+	// PostMessage SI es cross-thread-safe (MFC lo enruta internamente
+	// a la cola de mensajes del thread que creo la ventana).
+
 	CPageProcesses  *Dlg=(CPageProcesses *)pParam;
 	if(Dlg == NULL) return -1; //
 
-	Dlg->FillAllItemData();	 	 
-	Dlg->FlagEnableRefresh = TRUE;
+	Dlg->PostMessageW(UM_REFRESH, 0, 0);
 	AfxEndThread(0,TRUE);
 	return 0;
 
@@ -1008,10 +1015,16 @@ BOOL CPageProcesses::PreTranslateMessage(MSG* pMsg)
 
 	}
 
-	//---------------------------------------------------
-
-
-
+	// FIX T3: handler de UM_REFRESH. Thread_FillAllItemsData envia este
+	// mensaje y aqui, en el UI thread, llamamos FillAllItemData (que
+	// itera mTaskList y otras APIs MFC). Antes esto se hacia directamente
+	// desde el worker thread, lo cual es ilegal en MFC.
+	if(pMsg->message == UM_REFRESH)
+	{
+		FillAllItemData();
+		FlagEnableRefresh = TRUE;
+		return TRUE;
+	}
 	if(pMsg->message ==  UM_DBCLICK_LSIT)
 	{
 		int nItem = mTaskList.GetNextItem(-1,LVNI_SELECTED);
@@ -2549,8 +2562,14 @@ void CPageProcesses::OnLvnKeydownProcesslist(NMHDR *pNMHDR, LRESULT *pResult)
 void CPageProcesses::RefreshList(void)
 {
 
+	// FIX T3: en lugar de lanzar un thread que llama FillAllItemData
+	// directamente (UI MFC desde worker, ilegal), encolamos UM_REFRESH
+	// y el UI thread ejecuta la recarga desde el handler en
+	// PreTranslateMessage. El thread es ahora opcional: si lo lanzamos
+	// seguimos teniendo el patron PostMessage -> handler, asi que el
+	// comportamiento es seguro sea quien sea quien llame.
 	AfxBeginThread(Thread_FillAllItemsData,this);
- 
+
 }
 
 void CPageProcesses::OnPop_OpenFileLocation()
