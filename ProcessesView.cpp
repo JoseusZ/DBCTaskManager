@@ -515,6 +515,37 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 		// calculado; si la fila esta totalmente fuera del client rect no
 		// tiene sentido leer contadores NT (CPU/Mem/Disk/Net) ni repintar.
 		// Items parciales (recortados arriba/abajo) SI se procesan.
+		//
+		// FIX CONTADOR: el conteo por categoria (NewAppCount, etc.) se
+		// hace ANTES del continue para que abarque TODOS los procesos,
+		// no solo los visibles. Antes el contador quedaba en "lo que
+		// cabia en pantalla" en lugar del total real, dando "Apps (3)"
+		// cuando en realidad habia "Apps (10)".
+		APPLISTDATA *pListData = (APPLISTDATA *)mTaskList.GetItemData(i);
+
+		if( (pListData == NULL) || (pListData->pPData == NULL ))  //ע���ų��������
+		{
+			i++; continue ;
+		}
+
+		//---- Conteo de categoria: se hace SIEMPRE, antes de cualquier
+		//---- continue de visibilidad. Solo cuenta items "reales" (con
+		//---- pPData valido, o sea procesos reales, no headers de grupo).
+		if( pListData->ItemType == APP  )
+		{
+			NewAppCount ++ ;
+		}
+		else if( pListData->ItemType == BKGPROC  )
+		{
+			NewBkgPrcCount++;
+		}
+		else if( pListData->ItemType == WINPROC  )
+		{
+			NewWinPrcCount++;
+		}
+
+		// Filtrado por viewport para el resto del trabajo (lectura de
+		// contadores NT, repintado de celdas, etc.).
 		if (rcItem.bottom <= rcClient.top || rcItem.top >= rcClient.bottom)
 		{
 			i++;
@@ -522,18 +553,6 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 		}
 
 		BOOL RedrawItem =  IntersectRect (rcTemp,rcItem,rc);
-
-
-		APPLISTDATA *pListData = (APPLISTDATA *)mTaskList.GetItemData(i);
-
-	 
-
-		if( (pListData == NULL) || (pListData->pPData == NULL ))  //ע���ų��������
-		{ 		
-
-			i++; continue ;  
-		} 
-
 
 		if(  pListData->SubType == SUB_ITEM)    //ע���ų�����  ���� ֻ����´��ڱ��� //��״̬
 		{
@@ -553,39 +572,27 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 				}
 
 
-				::GetWindowText(pListData->hMainWnd,pListData->StrWnd.GetBuffer(MAX_PATH),MAX_PATH);  
-				pListData->StrWnd.ReleaseBuffer();	
+				::GetWindowText(pListData->hMainWnd,pListData->StrWnd.GetBuffer(MAX_PATH),MAX_PATH);
+				pListData->StrWnd.ReleaseBuffer();
 
 				//CString StrTemp;
-		
+
 				//StrTemp=mTaskList.GetItemText(i,PROCLIST_NAME);
 				//if(strcmp(StrTemp,pListData->StrWnd
 				mTaskList.MySetItemText(i,PROCLIST_NAME,pListData->StrWnd);
 			}
 
 			i++;
-			continue ; 
+			continue ;
 
 		}
 
 
 
-		//----------------�����ų����������-------------
-
-
-
-		if( pListData->ItemType == APP  )
-		{
-			NewAppCount ++ ;
-		}
-		else if( pListData->ItemType == BKGPROC  )
-		{
-			NewBkgPrcCount++;
-		}
-		else if( pListData->ItemType == WINPROC  )
-		{
-			NewWinPrcCount++;
-		}
+		//---------------- ǰ��ļ������ ƽ̨� ��С �ǰ  ��----------------
+		// (El conteo de categoria ya se hizo arriba, antes del filtro
+		// de viewport, para que incluya TODOS los procesos, no solo los
+		// visibles.)
 
 
 
