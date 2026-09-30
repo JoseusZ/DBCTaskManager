@@ -53,7 +53,12 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 
 	while(1)
 	{
-		if(Map_PidToData.size()>2)	break;
+		// FIX T2: size() no es thread-safe en std::map. Aunque es solo
+		// lectura del contador, lo protegemos por consistencia.
+		EnterCriticalSection(&g_MapDataLock);
+		BOOL HasEnough = (Map_PidToData.size() > 2);
+		LeaveCriticalSection(&g_MapDataLock);
+		if(HasEnough)	break;
 		Sleep(500);
 	}
 
@@ -62,9 +67,12 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 	 
 	while(1)
 	{
-		 map<DWORD,PVOID> TempMap_PidToData;
-		
+		// FIX T2: copia local bajo lock. No retenemos el lock durante
+		// Process32First/Next (puede tardar ms) ni durante Sleep(1000).
+		map<DWORD,PVOID> TempMap_PidToData;
+		EnterCriticalSection(&g_MapDataLock);
 		TempMap_PidToData.insert(Map_PidToData.begin(),Map_PidToData.end());
+		LeaveCriticalSection(&g_MapDataLock);
 
 		//��ϵͳ�����еĽ����ĸ�����
 		 hProcessSnap = ::CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS,0);
@@ -82,11 +90,13 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 		while (bMore)
 		{			
 			map<DWORD,PVOID>::iterator Iter= TempMap_PidToData.find(pe32.th32ProcessID); 
-			if(Iter == TempMap_PidToData.end())// ������ 
-			{			
-				Dlg->mDetailsList.SetRedraw(0);
-				Dlg->AddNewProcessToList(pe32.th32ProcessID);
-				Dlg->mDetailsList.SetRedraw(1);
+			if(Iter == TempMap_PidToData.end())// nuevo
+			{
+				// FIX T1: antes llamabamos directamente a SetRedraw +
+				// AddNewProcessToList, pero eso es UI MFC desde un worker
+				// thread (ilegal). Ahora encolamos el PID para que el UI
+				// thread lo procese en OnProcStartDetected.
+				Dlg->PostMessageW(UM_PROCSTART_DETECTED, 0, (LPARAM)pe32.th32ProcessID);
 			}
 			else
 			{
@@ -103,7 +113,10 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 		for (map<DWORD,PVOID>::iterator ProcToDel=TempMap_PidToData.begin(); ProcToDel!=TempMap_PidToData.end();  ProcToDel++ )
 		{
 
-			 Dlg->_RemoveProcessFromList(ProcToDel->first);
+			 // FIX T1: antes llamabamos directamente a _RemoveProcessFromList
+			 // desde este worker thread (ilegal en MFC). Encolamos el PID
+			 // para que el UI thread lo procese en OnProcExitDetected.
+			 Dlg->PostMessageW(UM_PROCEXIT_DETECTED, 0, (LPARAM)ProcToDel->first);
 
 		}
 
@@ -387,6 +400,12 @@ BEGIN_MESSAGE_MAP(CPageDetails, CFormView)
 	ON_WM_SIZE()
 
 	ON_MESSAGE(UM_TIMER,OnUMTimer)
+	// FIX T1: handlers que reciben los PIDs detectados por el worker thread
+	// (Thread_MonitorCreateAndExit) y ejecutan la logica UI en el thread
+	// principal de MFC. Esto elimina las llamadas cross-thread a
+	// mDetailsList.SetRedraw/AddNewProcessToList/_RemoveProcessFromList.
+	ON_MESSAGE(UM_PROCSTART_DETECTED, OnProcStartDetected)
+	ON_MESSAGE(UM_PROCEXIT_DETECTED,  OnProcExitDetected)
 	ON_NOTIFY(HDN_ITEMCLICK, 0, &CPageDetails::OnHdnItemclickProcesslist)
 	ON_WM_CTLCOLOR()
 
@@ -582,7 +601,10 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 
 	mDetailsList.InsertItem(0,StrProcessName,pPLdata->IconIndex);
 	mDetailsList.SetItemData(0,(DWORD_PTR)pPLdata);
-	Map_PidToData[pPLdata->PID] = pPLdata; //���ӵ�ӳ��
+	// FIX T2: proteger insercion en Map_PidToData (cross-thread safe).
+	EnterCriticalSection(&g_MapDataLock);
+	Map_PidToData[pPLdata->PID] = pPLdata;
+	LeaveCriticalSection(&g_MapDataLock); //���ӵ�ӳ��
 
 		//----Parent PID-----
 	mProcInfo.GetParentPID(pPLdata);
@@ -668,6 +690,36 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 
 }
 
+
+LRESULT CPageDetails::OnProcStartDetected(WPARAM wParam, LPARAM lParam)
+{
+	// FIX T1: este handler se ejecuta en el UI thread de MFC.
+	// El worker thread (Thread_MonitorCreateAndExit) detecto un nuevo PID
+	// y lo encolo via PostMessage(UM_PROCSTART_DETECTED, 0, PID).
+	// Aqui hacemos las llamadas que antes se hacian directamente desde el
+	// worker thread, lo cual era ilegal en MFC.
+
+	DWORD PID = (DWORD)lParam;
+	if (PID == 0) return 0;
+
+	mDetailsList.SetRedraw(0);
+	AddNewProcessToList(PID);
+	mDetailsList.SetRedraw(1);
+	return 0;
+}
+
+LRESULT CPageDetails::OnProcExitDetected(WPARAM wParam, LPARAM lParam)
+{
+	// FIX T1: contrapartida de OnProcStartDetected para eliminaciones.
+	// El worker detecto un PID que ya no existe y lo encolo via
+	// PostMessage(UM_PROCEXIT_DETECTED, 0, PID).
+
+	DWORD PID = (DWORD)lParam;
+	if (PID == 0) return 0;
+
+	_RemoveProcessFromList(PID);
+	return 0;
+}
 
 LRESULT CPageDetails::OnUMTimer(WPARAM wParam, LPARAM lParam)
 {
@@ -1225,11 +1277,14 @@ void CPageDetails::_RemoveProcessFromList( DWORD PID)
 				}
 
 
-				map<DWORD,PVOID>::iterator Iter= Map_PidToData.find	(pListData->PID); //xxxxxxxxx
-				if(Iter != Map_PidToData.end())// ���� 
-				{		
+				// FIX T2: proteger find + erase en Map_PidToData.
+				EnterCriticalSection(&g_MapDataLock);
+				map<DWORD,PVOID>::iterator Iter= Map_PidToData.find	(pListData->PID);
+				if(Iter != Map_PidToData.end())
+				{
 					Map_PidToData.erase(Iter);
 				}
+				LeaveCriticalSection(&g_MapDataLock);
 				//������� ���� pListData�п����� PostMessageW ֮�� ��ΪNULL
 				theApp.m_pMainWnd->PostMessageW(UM_PROCEXIT,0,(LPARAM)pListData); //�������ڷ���ɾ����Ϣ	������ͳһ�������� Itemdata ����ǰɾ��		
  
@@ -1571,7 +1626,10 @@ void CPageDetails::PreLoadProcesses(void)
 		pPLdata->IconIndex = 0;
 
 
-		Map_PidToData[pPLdata->PID] = pPLdata; //���ӵ�ӳ��
+		// FIX T2: proteger insercion en Map_PidToData (cross-thread safe).
+		EnterCriticalSection(&g_MapDataLock);
+		Map_PidToData[pPLdata->PID] = pPLdata;
+		LeaveCriticalSection(&g_MapDataLock);
 		mDetailsList.InsertItem(0,StrProcessName,pPLdata->IconIndex); //ʵ�ʲ���
 		mDetailsList.SetItemData(0,(DWORD_PTR)pPLdata);
 	
@@ -2300,13 +2358,16 @@ void CPageDetails::GetThreadsConutAllItem(void)
 	while (bMore)
 	{		
 
+		// FIX T2: proteger find en Map_PidToData.
+		EnterCriticalSection(&g_MapDataLock);
 		Iter= Map_PidToData.find(ProcessEntry.th32ProcessID);			 
-		if(Iter != Map_PidToData.end())// ���� 
-		{	
+		if(Iter != Map_PidToData.end())
+		{
 			pData = (PROCLISTDATA *)(Iter->second);
 			pData->ThreadsCount =  ProcessEntry.cntThreads;
 
 		}
+		LeaveCriticalSection(&g_MapDataLock);
 
 		bMore = ::Process32Next(hProcessSnap,&ProcessEntry);
 
@@ -2343,29 +2404,37 @@ void CPageDetails::_EndProcessTree(void)
 		int n=0;	
 
 
-		for ( map<DWORD,PVOID>::iterator i = Map_PidToData.begin(); i!=Map_PidToData.end();  i++ ) 
-		{  
-			PSubData = (PROCLISTDATA *) i->second;
+		// FIX T2: copiar el map bajo lock y trabajar con la copia local,
+		// porque dentro del bucle hacemos GetParentPID() que es lento
+		// (syscall NtQueryInformationProcess) y no podemos retener el lock
+		// durante varios ms.
+		map<DWORD, PROCLISTDATA*> Snapshot;
+		{
+			EnterCriticalSection(&g_MapDataLock);
+			for (map<DWORD,PVOID>::iterator i = Map_PidToData.begin(); i != Map_PidToData.end(); i++) {
+				Snapshot[i->first] = (PROCLISTDATA*)i->second;
+			}
+			LeaveCriticalSection(&g_MapDataLock);
+		}
+
+		for ( map<DWORD, PROCLISTDATA*>::iterator i = Snapshot.begin(); i != Snapshot.end(); i++ )
+		{
+			PSubData = i->second;
 
 			DWORD PPID = PSubData->ParentPID;
 
 			while(1)
 			{
-				if(PPID==pData->PID||PPID==-1) break;				
-				PPID = mProcInfo.GetParentPID(PPID);				 
+				if(PPID==pData->PID||PPID==-1) break;
+				PPID = mProcInfo.GetParentPID(PPID);
 			}
-			 
+
 			if(PPID==pData->PID)
 			{
 				PidToTerminate[n++] = PSubData->PID;
-				 
+
 
 			}
-			/*if(WaitForSingleObject(hProcess,20000)==WAIT_OBJECT_0)
-			{
-			MSB(0)
-			}*/
-
 		}
 
 		for(int i=0;i<n;i++)

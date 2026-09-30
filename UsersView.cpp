@@ -644,14 +644,22 @@ int CPageUsers::_OpenSubList(int ID ,BOOL Lock)
 //
 
 
-	for (map<DWORD,PVOID>::iterator i=Map_PidToData.begin(); i!=Map_PidToData.end();  i++ ) 
-	{  
-		pData = (PROCLISTDATA *) i->second;
+	// FIX T2: copiar bajo lock y trabajar localmente. AddProcessItem es
+	// UI MFC y no queremos retener el lock durante su ejecucion.
+	map<DWORD, PROCLISTDATA*> Snapshot;
+	EnterCriticalSection(&g_MapDataLock);
+	for (map<DWORD,PVOID>::iterator i = Map_PidToData.begin(); i != Map_PidToData.end(); i++) {
+		Snapshot[i->first] = (PROCLISTDATA*)i->second;
+	}
+	LeaveCriticalSection(&g_MapDataLock);
+
+	for (map<DWORD, PROCLISTDATA*>::iterator i = Snapshot.begin(); i != Snapshot.end(); i++)
+	{
+		pData = i->second;
 		if(pData->User.CompareNoCase(StrUser)==0)
 		{
 			AddProcessItem( pData,ID+1) ;
-		}	
-		
+		}
 	}
 
 

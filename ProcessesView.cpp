@@ -531,7 +531,21 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 		//---- Conteo de categoria: se hace SIEMPRE, antes de cualquier
 		//---- continue de visibilidad. Solo cuenta items "reales" (con
 		//---- pPData valido, o sea procesos reales, no headers de grupo).
-		if( pListData->ItemType == APP  )
+		//
+		// FIX SUB-ITEM CONTADOR: contar SOLO procesos padre, no sub-items
+		// de ventanas. Si Clover.exe tiene 2 ventanas visibles y el
+		// usuario expande para verlas, el taskmgr nativo NO incrementa
+		// el contador "Apps" porque sigue siendo 1 proceso unico.
+		// El bug era que mi fix anterior del contador (mover antes del
+		// filtro de viewport) tambien incluia los sub-items, mostrando
+		// "Apps (5)" en lugar de "Apps (4)" al expandir. Solucion:
+		// ignorar SubType == SUB_ITEM en el conteo.
+		if( pListData->SubType == SUB_ITEM )
+		{
+			// Sub-item: pertenece a un proceso padre que ya se conto.
+			// No incrementa NewAppCount.
+		}
+		else if( pListData->ItemType == APP  )
 		{
 			NewAppCount ++ ;
 		}

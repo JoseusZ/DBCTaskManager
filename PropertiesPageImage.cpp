@@ -79,9 +79,11 @@ BOOL CPropertiesPageImage::OnInitDialog()
 
 	PROCLISTDATA  * pParentData =  NULL;
 
-	map<DWORD,PVOID>::iterator Iter= Map_PidToData.find	(ParentPID); 
+	// FIX T2: proteger find en Map_PidToData.
+	EnterCriticalSection(&g_MapDataLock);
+	map<DWORD,PVOID>::iterator Iter= Map_PidToData.find	(ParentPID);
 
-	if(Iter != Map_PidToData.end())// ´æÔÚ 
+	if(Iter != Map_PidToData.end())
 	{
 		pParentData =(PROCLISTDATA  *) Iter->second;
 		if(pParentData!=NULL)
@@ -90,6 +92,7 @@ BOOL CPropertiesPageImage::OnInitDialog()
 		}
 
 	}
+	LeaveCriticalSection(&g_MapDataLock);
 
 	WCHAR StrDomain[MAX_PATH];
 

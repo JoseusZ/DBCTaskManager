@@ -97,6 +97,12 @@ public:
 	
 	afx_msg LRESULT  OnUMTimer(WPARAM wParam, LPARAM lParam);
 
+	// FIX T1: handlers de mensajes encolados por el worker thread
+	// Thread_MonitorCreateAndExit. Se ejecutan en el UI thread para
+	// evitar llamadas cross-thread a mDetailsList (ilegal en MFC).
+	afx_msg LRESULT OnProcStartDetected(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnProcExitDetected (WPARAM wParam, LPARAM lParam);
+
 	void UpdateProcessInfo(  int nListID );
 	int AllProcessCpuUsage;
 
@@ -164,7 +170,7 @@ public:
 	afx_msg void OnPop_SetAffinity();
 	
 //---------------------------------------------------------
-	map<CString,int>InstanceNameID; // ¼ÇÂ¼ÁË Ã¿¸ö ½ø³ÌÃûCString ÓÐ¼¸¸öÊµÀý int 
+	map<CString,int>InstanceNameID; // ï¿½ï¿½Â¼ï¿½ï¿½ Ã¿ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½CString ï¿½Ð¼ï¿½ï¿½ï¿½Êµï¿½ï¿½ int 
 	afx_msg void OnPop_Properties();
 	
 	void GetThreadsConutAllItem(void);

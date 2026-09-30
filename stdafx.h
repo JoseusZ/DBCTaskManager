@@ -172,6 +172,16 @@ using namespace std;
 #define  UM_HOOK_WNDCREATED    (WM_USER+150)
 #define  UM_HOOK_WNDDESTROYED    (WM_USER+151)
 
+// FIX T1: mensajes para encolar cambios detectados por el worker thread
+// Thread_MonitorCreateAndExit. Antes este worker llamaba directamente a
+// mDetailsList.SetRedraw/AddNewProcessToList desde un thread secundario,
+// lo cual es ilegal en MFC (las APIs de CListCtrl deben correr en el thread
+// que creo la ventana). Ahora el worker solo encola el PID y el UI thread
+// ejecuta la insercion/eliminacion real en OnProcStartDetected /
+ // OnProcExitDetected.
+#define  UM_PROCSTART_DETECTED  (WM_USER+160)
+#define  UM_PROCEXIT_DETECTED   (WM_USER+161)
+
 
 
 

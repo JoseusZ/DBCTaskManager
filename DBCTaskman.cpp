@@ -188,6 +188,13 @@ map<DWORD,PVOID> Map_PidToData;
 map<CWnd*,int> HungWndMap;
 map<int, int> NetAdapterList;
 
+// FIX T2: Critical section global que protege Map_PidToData.
+// Inicializada estaticamente (los CRITICAL_SECTION de Win32 no requieren
+// InitializeCriticalSection explicito cuando son globales? en realidad SI
+// lo requieren, por eso el codigo defensivo en InitCriticalSectionsData).
+// Ver OnLockInit() / LockInit() mas adelante.
+CRITICAL_SECTION g_MapDataLock;
+
 
 // CDBCTaskmanApp initialization
 
@@ -867,7 +874,13 @@ BOOL CDBCTaskmanApp::_IsAdministratorNow(void)
 
 void CDBCTaskmanApp::InitAll(void)
 {
-	
+
+	// FIX T2: inicializar el CRITICAL_SECTION global que protege
+	// Map_PidToData. Se hace aqui porque InitInstance
+	// todavia no ha construido ninguna ventana (es seguro inicializar
+	// un objeto de sincronizacion antes de PumpMessage).
+	InitializeCriticalSection(&g_MapDataLock);
+
 	SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)CrashTip);
 	 	
 

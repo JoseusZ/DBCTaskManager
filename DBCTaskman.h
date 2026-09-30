@@ -55,7 +55,7 @@ struct  PERFORMANCEINFO
 
 
 
-	//-------------------¹Ì¶¨ÐÅÏ¢
+	//-------------------ï¿½Ì¶ï¿½ï¿½ï¿½Ï¢
 #ifdef _M_X64
 	ULONGLONG  InstalledMemKB;
 	DWORDLONG  TotalPhysMem;
@@ -103,12 +103,12 @@ struct  APPSETTINGS
 
 	//------------------Settings-------------
 
-	BYTE ProcessorDisplayMode;//´¦ÀíÆ÷ÏÔÊ¾Ä£Ê½ ÕûÌå/Âß¼­/¡­¡­
+	BYTE ProcessorDisplayMode;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾Ä£Ê½ ï¿½ï¿½ï¿½ï¿½/ï¿½ß¼ï¿½/ï¿½ï¿½ï¿½ï¿½
 	BOOL TopMost;
 	BOOL MiniOnUse;
 	BOOL HideWhenMini;
 	BOOL ShowKernelTime;
-	BYTE TaskManMode;//¾«¼ò»ò¸ß¼¶Ä£Ê½
+	BYTE TaskManMode;//ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½Ä£Ê½
 	BOOL GroupByType;
 	float  TimerStep;
 	BYTE PerformanceListShowGraph ;
@@ -199,7 +199,7 @@ static int NewStyleMessageBox(HWND ParentWnd,CString StrCaption,CString StrMainT
 	MsgDialog.pszVerificationText = StrCheckButton;
 	
 	MsgDialog.pButtons = pTaskDlgBtnArray;
-	//MsgDialog.cButtons = _countof(pTaskDlgBtnArray);		 _countof²»ÄÜÓÃÖ¸Õë
+	//MsgDialog.cButtons = _countof(pTaskDlgBtnArray);		 _countofï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½
 	MsgDialog.cButtons = BunttonCount ;
 	MsgDialog.pfCallback =(PFTASKDIALOGCALLBACK) TaskDlgCallback;
 	if(GrayBtnID>=0)MsgDialog.lpCallbackData = (LONG_PTR)(pTaskDlgBtnArray[GrayBtnID].pszButtonText);
@@ -222,14 +222,14 @@ static int NewStyleMessageBox(HWND ParentWnd,CString StrCaption,CString StrMainT
 
 
 
-//------------------ÒÔÏÂÊÇÀ©Õ¹ÏûÏ¢¿ò ÒÑÍ£ÓÃ ±£Áô±¸·Ý£¡£¡£¡£¡£¡£¡-------------
+//------------------ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½Ï¢ï¿½ï¿½ ï¿½ï¿½Í£ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-------------
 //
 //static HHOOK hMsgBoxHook;  
 //static LPCBT_CREATEWND cbt_createwnd;
 //
 //static CString StrBtnOK;
 //static CString StrBtnCancel;
-//static CString StrInfoTitle; //Ìí¼ÓµÄ´ó×Ö±êÌâ
+//static CString StrInfoTitle; //ï¿½ï¿½ï¿½ÓµÄ´ï¿½ï¿½Ö±ï¿½ï¿½ï¿½
 //
 //static WNDPROC OldWndProc;  
 
@@ -267,7 +267,7 @@ static int NewStyleMessageBox(HWND ParentWnd,CString StrCaption,CString StrMainT
 //	{  
 //	case HCBT_CREATEWND:  
 //		cbt_createwnd=(LPCBT_CREATEWND)lParam;  
-//		//  cbt_createwnd->lpcs->style|=WS_MINIMIZEBOX;//MSDNÖÐËµµÄºÜÇå³þÁË£¬ÕâÀï²¢²»Æð×÷ÓÃ  
+//		//  cbt_createwnd->lpcs->style|=WS_MINIMIZEBOX;//MSDNï¿½ï¿½Ëµï¿½Äºï¿½ï¿½ï¿½ï¿½ï¿½Ë£ï¿½ï¿½ï¿½ï¿½ï²¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  
 //		// cbt_createwnd->lpcs->cx=500;  
 //		// cbt_createwnd->lpcs->cy=366; 
 //		break;  
@@ -332,7 +332,7 @@ static int NewStyleMessageBox(HWND ParentWnd,CString StrCaption,CString StrMainT
 //				logFont.lfHeight = 20;			 
 //				hFont=::CreateFontIndirect(&logFont);				
 //
-//				::SendMessage(hWndInfTitle,WM_SETFONT,(WPARAM)hFont,0);  //ÉèÖÃ¿Ø¼þ×ÖÌå  
+//				::SendMessage(hWndInfTitle,WM_SETFONT,(WPARAM)hFont,0);  //ï¿½ï¿½ï¿½Ã¿Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½  
 //
 //				//::DeleteObject(hFont);
 //			}
@@ -364,7 +364,7 @@ static int NewStyleMessageBox(HWND ParentWnd,CString StrCaption,CString StrMainT
 //	
 //	if(InfoTitle!=L"")
 //	{
-//		//ÏÂÒÆÎÄ×Ö
+//		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 //		szText= L"\n\n\n\n"+szText;
 //	}
 //
@@ -511,3 +511,14 @@ extern CDBCTaskmanApp theApp;
 extern map<DWORD,PVOID> Map_PidToData;
 extern  map<CWnd*,int> HungWndMap;
 extern  map<int, int> NetAdapterList;
+
+// FIX T2: CRITICAL_SECTION global (API Win32, igual patron que
+// PerfPidIoCache.cpp:s_PidIoLock) que protege todos los accesos a
+// Map_PidToData. Map_PidToData se lee y se escribe desde multiples
+// sitios (Thread_MonitorCreateAndExit, OnUMTimer, _OpenSubList de
+// UsersView, OnPop_Properties, _EndProcessTree, GetThreadsConutAllItem).
+// Sin lock, una iteracion puede leer memoria liberada cuando otro hilo
+// borra una entrada. Usar siempre MAP_LOCK / MAP_UNLOCK alrededor de
+// CUALQUIER acceso al map. El lock es muy poco contended (accesos
+// tipicos son <1ms) y solo afecta a paths de UI no al hot path.
+extern CRITICAL_SECTION g_MapDataLock;
