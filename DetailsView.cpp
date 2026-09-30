@@ -2423,13 +2423,28 @@ void CPageDetails::_EndProcessTree(void)
 
 			DWORD PPID = PSubData->ParentPID;
 
-			while(1)
+			// FIX T4: walk recursivo por ParentPID con proteccion contra
+			// ciclos y limite de profundidad. Antes el codigo era:
+			//     while(1) { if (PPID==pData->PID || PPID==-1) break;
+			//                PPID = GetParentPID(PPID); }
+			// Si por una race condition transitoria el kernel devuelve un
+			// ParentPID que cierra un bucle (A es padre de B, B es padre de
+			// A durante 1 tick), el bucle es infinito y la UI se congela.
+			// Solucion: limit kMaxDepth=32 + set<DWORD> visited anti-cycle +
+			// PIDs invalidos (0, 4, etc.) tratados como fin del walk.
+			bool isChild = false;
+			std::set<DWORD> visited;
+			const int kMaxDepth = 32;
+			while ((int)visited.size() < kMaxDepth)
 			{
-				if(PPID==pData->PID||PPID==-1) break;
+				if (PPID == pData->PID) { isChild = true; break; }
+				if (PPID == 0 || PPID == 4 || PPID == (DWORD)-1) break;
+				if (visited.count(PPID)) break; // anti-cycle
+				visited.insert(PPID);
 				PPID = mProcInfo.GetParentPID(PPID);
 			}
 
-			if(PPID==pData->PID)
+			if(isChild)
 			{
 				PidToTerminate[n++] = PSubData->PID;
 
