@@ -442,7 +442,16 @@ public:
 	CImageList  mImagelist;
 	CImageList  mImagelistNormal;
 	CBrush  BkgBrush;
- 
+
+	// Cache de iconos por path. Evita re-extraer el mismo HICON en cada
+	// Refresh(). Thread-safe via mIconCacheLock.
+	CMapStringToPtr  mIconCache;
+	CRITICAL_SECTION mIconCacheLock;
+
+	// Lookup + lazy-load. Hit = O(1). Miss = mismo SHGetFileInfo del
+	// _GetIconIndex original, mismo iIcon, mismo shell catalog attached.
+	int  GetIconIndexCached(LPCTSTR lpszPath);
+
 
 	ULONG_PTR m_gdiplusToken;  
 
@@ -509,7 +518,7 @@ public:
 
 
 // ----------------------------------------------------------------------------
-// DIAG: lista de procesos — logging defensivo opt-in.
+// DIAG: lista de procesos ï¿½ logging defensivo opt-in.
 // Se activa creando un archivo vacio llamado dbc_listdiag.log junto al exe.
 // El archivo de salida es dbc_listdiag.out. Usar para diagnosticar
 // desbordamientos, items colgados, items duplicados, etc.

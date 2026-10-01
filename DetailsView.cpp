@@ -1156,16 +1156,10 @@ HBRUSH CPageDetails::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 
 int CPageDetails::_GetIconIndex(LPCTSTR lpszPath)
 {
-
-	SHFILEINFO sfi;
-
-	memset(&sfi, 0, sizeof(sfi));
-
-	SHGetFileInfo (lpszPath,     FILE_ATTRIBUTE_NORMAL,     &sfi,      sizeof(sfi),SHGFI_SMALLICON | SHGFI_SYSICONINDEX | SHGFI_USEFILEATTRIBUTES |SHGFI_ICON  );
-
-	return   sfi.iIcon;
-
-
+	// Cache: la primera vez tarda lo que tarda SHGetFileInfo, las
+	// siguientes es O(1). Misma semantica que el codigo original
+	// (mismos flags, mismo iIcon) -> valido en mImagelist shell catalog.
+	return theApp.GetIconIndexCached(lpszPath);
 }
 
 
@@ -1618,18 +1612,19 @@ void CPageDetails::PreLoadProcesses(void)
 
 
 		DWORD SessionID;
-		ProcessIdToSessionId(pPLdata->PID,&SessionID);		
-		if(pPLdata->PID == 0)SessionID =0;
-		pPLdata->SessionID = SessionID;
+	ProcessIdToSessionId(pPLdata->PID,&SessionID);
+	if(pPLdata->PID == 0)SessionID =0;
+	pPLdata->SessionID = SessionID;
 
-
-		pPLdata->IconIndex = 0;
-
-
-		// FIX T2: proteger insercion en Map_PidToData (cross-thread safe).
-		EnterCriticalSection(&g_MapDataLock);
-		Map_PidToData[pPLdata->PID] = pPLdata;
-		LeaveCriticalSection(&g_MapDataLock);
+	// Resolvemos el path UNA vez aqui (QueryFullProcessImageName es
+	// ~microsegundos) y cacheamos el IconIndex. Asi la primera carga
+	// del tab ya muestra iconos correctos en vez de todos en blanco,
+	// y los Refreshes siguientes pegan cache hit (O(1)).
+	CString StrFullPath;
+	if (hProcess > 0) {
+		StrFullPath = mProcInfo.GetPathName(hProcess);
+	}
+	pPLdata->IconIndex = _GetIconIndex(StrFullPath);
 		mDetailsList.InsertItem(0,StrProcessName,pPLdata->IconIndex); //ʵ�ʲ���
 		mDetailsList.SetItemData(0,(DWORD_PTR)pPLdata);
 	

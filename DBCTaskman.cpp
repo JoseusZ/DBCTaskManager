@@ -340,8 +340,9 @@ int CDBCTaskmanApp::ExitInstance()
 
 	SaveAppSettings();
 
+	DeleteCriticalSection(&mIconCacheLock);
 
-	CoUninitialize();  
+	CoUninitialize();
 	GdiplusShutdown(m_gdiplusToken);
 	return CWinApp::ExitInstance();
 }
@@ -987,6 +988,19 @@ void CDBCTaskmanApp::InitAll(void)
 
 	//-----------------------------------------
 
+	// Cache de iconos: lock. NO tocamos mImagelist ni el Attach.
+	// svchost esta en el slot GetImageCount()-1 (lo acabamos de Add).
+	// Pre-cacheamos su ruta comun "svchost.exe" para hit directo.
+	InitializeCriticalSection(&mIconCacheLock);
+	{
+		int svchostSlot = mImagelist.GetImageCount() - 1;
+		if (svchostSlot > 0) {
+			EnterCriticalSection(&mIconCacheLock);
+			mIconCache[CString(L"svchost.exe")] = (void*)(INT_PTR)svchostSlot;
+			LeaveCriticalSection(&mIconCacheLock);
+		}
+	}
+
 
 	HINSTANCE hDll= ::LoadLibrary(L"Kernel32.dll");
 	GetProcessDEPPolicy = NULL; 
@@ -1295,6 +1309,47 @@ void CDBCTaskmanApp::Global_EndProcessesInList(CListCtrl* pList,BOOL ShowTipWhen
 // ============================================================================
 #include <stdio.h>
 #include <stdarg.h>
+
+// Cache de iconos: lookup O(1) por path de ejecutable. Miss = mismo
+// SHGetFileInfo que el codigo original de _GetIconIndex (mismos flags,
+// mismo iIcon -> valido en mImagelist shell catalog attached).
+// Thread-safe via mIconCacheLock.
+//
+// Por que arregla la lentitud de carga:
+//   ANTES: cada Refresh() llamaba SHGetFileInfo por cada proceso,
+//   sincronamente, aunque ya se hubiera visto ese path. Resultado:
+//   145 SHGetFileInfo * N refrescos/seg = UI jank + iconos que tardan.
+//   AHORA: la primera vez tarda (es lo que es, sync). Las siguientes es
+//   O(1) -> cero re-pago del shell catalog en updates.
+int CDBCTaskmanApp::GetIconIndexCached(LPCTSTR lpszPath)
+{
+	if (lpszPath == NULL || lpszPath[0] == _T('\0')) {
+		return 0;
+	}
+
+	CString key(lpszPath);
+	EnterCriticalSection(&mIconCacheLock);
+	void* pVal = NULL;
+	if (mIconCache.Lookup(key, pVal)) {
+		LeaveCriticalSection(&mIconCacheLock);
+		return (int)(INT_PTR)pVal;
+	}
+	LeaveCriticalSection(&mIconCacheLock);
+
+	// Miss: extraer con la MISMA logica que el _GetIconIndex original.
+	// Mismos flags -> mismo iIcon -> valido en mImagelist.
+	SHFILEINFO sfi;
+	memset(&sfi, 0, sizeof(sfi));
+	SHGetFileInfo(lpszPath, FILE_ATTRIBUTE_NORMAL, &sfi, sizeof(sfi),
+		SHGFI_SMALLICON | SHGFI_SYSICONINDEX | SHGFI_USEFILEATTRIBUTES | SHGFI_ICON);
+
+	int nIndex = sfi.iIcon;
+
+	EnterCriticalSection(&mIconCacheLock);
+	mIconCache[key] = (void*)(INT_PTR)nIndex;
+	LeaveCriticalSection(&mIconCacheLock);
+	return nIndex;
+}
 
 BOOL _ListDiagEnabled(void)
 {
