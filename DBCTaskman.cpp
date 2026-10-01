@@ -174,6 +174,8 @@ CDBCTaskmanApp::CDBCTaskmanApp()
 , StrCfgToolsPath(_T(""))
 , FlagSysIs32Bit(FALSE)
 , IsChineseEdition(FALSE)
+, mSvchostIconIndex(-1)
+, mGenericAppIconIndex(0)
 {
 	// TODO: add construction code here,
 	// Place all significant initialization in InitInstance
@@ -983,8 +985,20 @@ void CDBCTaskmanApp::InitAll(void)
 
 	//-----------����ͼ������----------------------
 	HICON hIcon = theApp.LoadIcon( MAKEINTRESOURCE(IDI_SVCHOST) );
-	mImagelist.Add(hIcon);
-	DestroyIcon(hIcon);
+	if(hIcon != NULL)
+	{
+		// FIX: capturar el indice EXACTO devuelto por Add, no GetImageCount()-1.
+		// En Win7, el shell catalog attached puede tener tamanos variables
+		// y depender de GetImageCount()-1 hacia que SvchostIconIndex apuntase
+		// al icono por defecto del shell (que en algunos sistemas resuelve
+		// al icono del taskmgr.exe -> el bug que veias en Win7).
+		int nIdx = mImagelist.Add(hIcon);
+		if(nIdx >= 0)
+		{
+			mSvchostIconIndex = nIdx;
+		}
+		DestroyIcon(hIcon);
+	}
 
 	//-----------------------------------------
 

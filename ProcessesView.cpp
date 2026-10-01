@@ -502,7 +502,7 @@ void CPageProcesses::InitList(void)
 
 	//-------------------------------------------------------------------
 
-	SvchostIconIndex = theApp.mImagelist.GetImageCount()-1;
+	SvchostIconIndex = theApp.mSvchostIconIndex;
 
 
 
@@ -2202,11 +2202,15 @@ void CPageProcesses::FillAllItemData(BOOL LoadAllTrueData)
 		{
 			pData->iImage = pDetailListData->IconIndex;
 		}
-		 
 
 
 
-     	mTaskList.SetItem(i,0, LVIF_IMAGE, NULL,pDetailListData->IconIndex,0,0,0); 
+		// FIX: usar pData->iImage (que contiene SvchostIconIndex para svchost)
+		// en vez de pDetailListData->IconIndex. Antes el svchost quedaba con
+		// el icono del shell catalog aunque pData->iImage ya tuviese el
+		// SVCHOST.ico correcto -> por eso veias el icono equivocado en
+		// svchost en Win7.
+		mTaskList.SetItem(i,0, LVIF_IMAGE, NULL, pData->iImage, 0, 0, 0); 
 		
 
 		//--------------------------------  ��һ�� Title  ---------------------------

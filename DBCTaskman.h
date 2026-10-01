@@ -452,6 +452,15 @@ public:
 	// _GetIconIndex original, mismo iIcon, mismo shell catalog attached.
 	int  GetIconIndexCached(LPCTSTR lpszPath);
 
+	// FIX: indice REAL del icono svchost dentro de la imagen lista. Antes
+	// ProcessesView calculaba SvchostIconIndex = mImagelist.GetImageCount()-1
+	// y asuma que el Add() del SVCHOST.ico habia sido el ultimo. En Win7 el
+	// shell catalog que se Attach puede llegar en distintos tamanos y ese
+	// calculo no es fiable -> caia al icono por defecto del shell (que en
+	// algunos sistemas resuelve al icono del taskmgr.exe). Aqui guardamos
+	// el indice exacto asignado por el Add() en InitInstance.
+	int mSvchostIconIndex;
+	int mGenericAppIconIndex; // 0 fallback por defecto
 
 	ULONG_PTR m_gdiplusToken;  
 
