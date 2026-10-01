@@ -18,6 +18,7 @@ CDBCListCtrl::CDBCListCtrl()
 , FlagSortUp(FALSE)
 , CurrentSortColumn(0)
 , pColStatusArray(NULL)
+, m_bMouseTracking(FALSE)
 {
 
 	mHdCtrl.pCurrentSortCol = &CurrentSortColumn;
@@ -53,6 +54,8 @@ BEGIN_MESSAGE_MAP(CDBCListCtrl, CListCtrl)
 	ON_WM_HSCROLL()
 	ON_NOTIFY_REFLECT(LVN_HOTTRACK, &CDBCListCtrl::OnLvnHotTrack)
 	ON_NOTIFY_REFLECT(LVN_ITEMCHANGED, &CDBCListCtrl::OnLvnItemchanged)
+	ON_WM_MOUSELEAVE()
+	ON_WM_MOUSEMOVE()
 END_MESSAGE_MAP()
 
 
@@ -77,7 +80,7 @@ void CDBCListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 	CDC*  pDC = CDC::FromHandle ( pLVCD->nmcd.hdc );
 
 	CHeaderCtrl  *pHeaderCtrl = GetHeaderCtrl();
-	if ( CDDS_PREPAINT  == pLVCD-> nmcd.dwDrawStage )   //ÕûÌå±³¾°´¦Àí
+	if ( CDDS_PREPAINT  == pLVCD-> nmcd.dwDrawStage )   //ï¿½ï¿½ï¿½å±³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{ 
 
 		int nCol =pHeaderCtrl->GetItemCount();
@@ -86,8 +89,8 @@ void CDBCListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		for(int i=0;i<nCol; i++)
 		{
-			GetSubItemRect(0,i,LVIR_LABEL,rcCol);//²»ÄÜÓÃ  pHeaderCtrl ÒòÎªËû²»»áËæ¹ö¶¯¸Ä±äÎ»ÖÃ
-			DrawThemeBackground(theApp.hTheme,pDC->m_hDC,  LVP_COLUMNDETAIL ,    0 ,CRect(rcCol.right-1,0,rcCol.right,rc.bottom) ,NULL); 	 //!!!Ö÷ÌâÖÐÁÐ±íÁÐ·Ö¸îÏß	
+			GetSubItemRect(0,i,LVIR_LABEL,rcCol);//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  pHeaderCtrl ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½Î»ï¿½ï¿½
+			DrawThemeBackground(theApp.hTheme,pDC->m_hDC,  LVP_COLUMNDETAIL ,    0 ,CRect(rcCol.right-1,0,rcCol.right,rc.bottom) ,NULL); 	 //!!!ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½Ð·Ö¸ï¿½ï¿½ï¿½	
 		}
 
 
@@ -137,7 +140,7 @@ void CDBCListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		if ( (iItem  ==  HotItemID )  &&  (!( lvItem.state & LVIS_SELECTED ) ))
 		{		
-			//²»ÅÐ¶Ï ¾­µä½çÃæÏÂ ¸ÕºÃ»­²»ÉÏ
+			//ï¿½ï¿½ï¿½Ð¶ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ÕºÃ»ï¿½ï¿½ï¿½ï¿½ï¿½
 			DrawThemeBackground(theApp.hTheme,pDC->m_hDC,  LVP_LISTITEM ,    LISS_HOT ,rcItem ,NULL); 			
 		}
 
@@ -148,12 +151,12 @@ void CDBCListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		CRect rcCol0;
 	    GetSubItemRect(iItem,0,LVIR_ICON  ,rcCol0);				
-		::ImageList_Draw( theApp.mImagelist.m_hImageList, lvItem.iImage,    pDC->m_hDC,rcCol0.left,rcCol0.top+4 ,ILD_TRANSPARENT); //16ÊÇÍ¼±êÊµ¼Ê³ß´ç
+		::ImageList_Draw( theApp.mImagelist.m_hImageList, lvItem.iImage,    pDC->m_hDC,rcCol0.left,rcCol0.top+4 ,ILD_TRANSPARENT); //16ï¿½ï¿½Í¼ï¿½ï¿½Êµï¿½Ê³ß´ï¿½
 			
 
 		for(int i=0;i<FullColumnCount; i++)
 		{
-			if(pColStatusArray[i].ColWidth == 0) continue ; //Ã»ÓÐµÄÖ±½ÓÌø¹ý
+			if(pColStatusArray[i].ColWidth == 0) continue ; //Ã»ï¿½Ðµï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 			if ( ! RedrawAllColumn )
 			{				
@@ -295,10 +298,10 @@ CRect CDBCListCtrl::_GetRedrawColumn(void)
 
 	}
 
-	//µ±Ç°ÅÅÐòÁÐÒ»¶¨ÒªÉèÎªÔÊÐíË¢ÐÂ×´Ì¬£¡
+	//ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Òªï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½×´Ì¬ï¿½ï¿½
 	if(pColStatusArray!=NULL)
 	{
-		pColStatusArray[CurrentSortColumn].Redraw = 1;   //!!!!!!!!!!!!!!³ö´¦Î»ÖÃ
+		pColStatusArray[CurrentSortColumn].Redraw = 1;   //!!!!!!!!!!!!!!ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½
 	}
 
 
@@ -355,7 +358,7 @@ BOOL CDBCListCtrl::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 	case   HDN_BEGINTRACKW:      
 	case   HDN_BEGINTRACKA:      
 	case   HDN_DIVIDERDBLCLICKA:      
-	case   HDN_DIVIDERDBLCLICKW:       //   pHDNotify->iItem ¡ªÉè¶¨Îª×Ô¼º²»Ïë¸Ä±äµÄÁÐÖµ£¬±ÈÈçpHDNotify->iItem=0£¬¾ÍÊÇµÚÒ»ÁÐ     //¹Ì¶¨ÁÐ¿í
+	case   HDN_DIVIDERDBLCLICKW:       //   pHDNotify->iItem ï¿½ï¿½ï¿½è¶¨Îªï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½pHDNotify->iItem=0ï¿½ï¿½ï¿½ï¿½ï¿½Çµï¿½Ò»ï¿½ï¿½     //ï¿½Ì¶ï¿½ï¿½Ð¿ï¿½
 		if   (pColStatusArray[pHDNotify->iItem].ColWidth  ==  0   )
 		{      
 			*pResult   =   TRUE;                                 //   disable   tracking      
@@ -376,7 +379,7 @@ void CDBCListCtrl::OnLvnHotTrack(NMHDR *pNMHDR, LRESULT *pResult)
 	// TODO: Add your control notification handler code here
 
 
-	//¼ì²âÊó±êhot
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½hot
 
 	CRect rcItem,rcList,rcOldHot;
 	this->GetClientRect(rcList);
@@ -412,10 +415,44 @@ void CDBCListCtrl::PreSubclassWindow()
 	mHdCtrl.SubclassWindow(::GetDlgItem(m_hWnd,0) );
 }
 
+void CDBCListCtrl::OnMouseMove(UINT nFlags, CPoint point)
+{
+	// FIX: pedir WM_MOUSELEAVE al sistema para saber cuando el cursor sale
+	// del control. Sin esto, HotItemID quedaba "pegado" al ultimo item
+	// que visito el cursor (repintado en azul) hasta que se moviera sobre
+	// otro item. OnMouseLeave lo limpia y dispara repaint.
+	if (!m_bMouseTracking)
+	{
+		TRACKMOUSEEVENT tme = { 0 };
+		tme.cbSize    = sizeof(tme);
+		tme.hwndTrack = m_hWnd;
+		tme.dwFlags   = TME_LEAVE;
+		tme.dwHoverTime = 0;
+		_TrackMouseEvent(&tme);
+		m_bMouseTracking = TRUE;
+	}
+
+	CListCtrl::OnMouseMove(nFlags, point);
+}
+
+void CDBCListCtrl::OnMouseLeave()
+{
+	m_bMouseTracking = FALSE;
+
+	// FIX: limpiar HotItemID cuando el cursor sale del control. Antes
+	// el ultimo item hot quedaba pintado en azul porque ni OnLvnHotTrack
+	// ni ningun otro mensaje limpiaba HotItemID.
+	if (HotItemID >= 0)
+	{
+		HotItemID = -1;
+		Invalidate(0);
+	}
+}
+
 void CDBCListCtrl::OnLvnItemchanged(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
-	
+
 	Invalidate(0);
 	*pResult = 0;
 }

@@ -12,6 +12,7 @@ IMPLEMENT_DYNAMIC(CTaskList, CListCtrl)
 
 CTaskList::CTaskList()
 : HotItemID(-1)
+, m_bMouseTracking(FALSE)
 {
 
 }
@@ -25,6 +26,8 @@ BEGIN_MESSAGE_MAP(CTaskList, CListCtrl)
 	ON_NOTIFY_REFLECT(NM_CUSTOMDRAW, OnCustomDraw)
 	ON_NOTIFY_REFLECT(LVN_HOTTRACK, &CTaskList::OnLvnHotTrack)
 	ON_NOTIFY_REFLECT(LVN_ITEMCHANGED, &CTaskList::OnLvnItemchanged)
+	ON_WM_MOUSELEAVE()
+	ON_WM_MOUSEMOVE()
 END_MESSAGE_MAP()
 
 
@@ -45,7 +48,7 @@ void CTaskList::OnCustomDraw(NMHDR *pNMHDR, LRESULT *pResult)
 
 	CDC*  pDC = CDC::FromHandle ( pLVCD->nmcd.hdc );
 
-	if ( CDDS_PREPAINT  == pLVCD-> nmcd.dwDrawStage )   //ÕûÌå±³¾°´¦Àí
+	if ( CDDS_PREPAINT  == pLVCD-> nmcd.dwDrawStage )   //ï¿½ï¿½ï¿½å±³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{ 
 
 		*pResult = CDRF_NOTIFYITEMDRAW; 
@@ -106,7 +109,7 @@ void CTaskList::OnCustomDraw(NMHDR *pNMHDR, LRESULT *pResult)
 
 
 
-		::ImageList_Draw( theApp.mImagelist.m_hImageList, lvItem.iImage,    pDC->m_hDC,rcItem.left+8,rcItem.top+5 ,ILD_TRANSPARENT); //16ÊÇÍ¼±êÊµ¼Ê³ß´ç
+		::ImageList_Draw( theApp.mImagelist.m_hImageList, lvItem.iImage,    pDC->m_hDC,rcItem.left+8,rcItem.top+5 ,ILD_TRANSPARENT); //16ï¿½ï¿½Í¼ï¿½ï¿½Êµï¿½Ê³ß´ï¿½
 
 
 		StrSubItem = GetItemText(iItem,0) ;
@@ -125,7 +128,7 @@ void CTaskList::OnCustomDraw(NMHDR *pNMHDR, LRESULT *pResult)
 		pDC->DrawText(StrSubItem, rcText ,DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS|DT_LEFT );
 		StrSubItem = GetItemText(iItem,1) ;
 
-		//ÎÞÏìÓ¦
+		//ï¿½ï¿½ï¿½ï¿½Ó¦
 		pDC->SetTextColor(RGB(200,0,0));
 		pDC->DrawText(StrSubItem, rcText ,DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS|DT_RIGHT);
 		pDC->SetTextColor(List_NormalTextColor);
@@ -152,7 +155,7 @@ void CTaskList::OnLvnHotTrack(NMHDR *pNMHDR, LRESULT *pResult)
 
 
 
-	//¼ì²âÊó±êhot
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½hot
 
 	CRect rcItem,rcList,rcOldHot;
 	this->GetClientRect(rcList);
@@ -185,4 +188,38 @@ void CTaskList::OnLvnItemchanged(NMHDR *pNMHDR, LRESULT *pResult)
 	// TODO: Add your control notification handler code here
 	Invalidate(0);
 	*pResult = 0;
+}
+
+void CTaskList::OnMouseMove(UINT nFlags, CPoint point)
+{
+	// FIX: pedir WM_MOUSELEAVE al sistema para saber cuando el cursor sale
+	// del control. Sin esto, HotItemID quedaba "pegado" al ultimo item
+	// que visito el cursor (repintado en azul) hasta que se moviera sobre
+	// otro item. OnMouseLeave lo limpia y dispara repaint.
+	if (!m_bMouseTracking)
+	{
+		TRACKMOUSEEVENT tme = { 0 };
+		tme.cbSize    = sizeof(tme);
+		tme.hwndTrack = m_hWnd;
+		tme.dwFlags   = TME_LEAVE;
+		tme.dwHoverTime = 0;
+		_TrackMouseEvent(&tme);
+		m_bMouseTracking = TRUE;
+	}
+
+	CListCtrl::OnMouseMove(nFlags, point);
+}
+
+void CTaskList::OnMouseLeave()
+{
+	m_bMouseTracking = FALSE;
+
+	// FIX: limpiar HotItemID cuando el cursor sale del control. Antes
+	// el ultimo item hot quedaba pintado en azul porque ni OnLvnHotTrack
+	// ni ningun otro mensaje limpiaba HotItemID.
+	if (HotItemID >= 0)
+	{
+		HotItemID = -1;
+		Invalidate(0);
+	}
 }

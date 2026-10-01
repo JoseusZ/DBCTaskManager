@@ -21,7 +21,10 @@ public:
 	CImageList ImgList;
 	afx_msg void OnLvnHotTrack(NMHDR *pNMHDR, LRESULT *pResult);
 	int HotItemID;
+	BOOL m_bMouseTracking;
 	afx_msg void OnLvnItemchanged(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnMouseLeave();
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 };
 
 

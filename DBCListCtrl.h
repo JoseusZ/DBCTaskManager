@@ -3,7 +3,7 @@
 #include "NormalHeaderCtrl.h"
 /* 
 
-      ±ØÐëÔÚ¶Ô»°¿ò±à¼­Æ÷ ½çÃæÀï Ò²ÉèÖÃ³É ×Ô»æÊôÐÔ Ë¢ÐÂËÙ¶È²ÅÄÜ¸ü¿ì £¡£¡£¡
+      ï¿½ï¿½ï¿½ï¿½ï¿½Ú¶Ô»ï¿½ï¿½ï¿½à¼­ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ò²ï¿½ï¿½ï¿½Ã³ï¿½ ï¿½Ô»ï¿½ï¿½ï¿½ï¿½ï¿½ Ë¢ï¿½ï¿½ï¿½Ù¶È²ï¿½ï¿½Ü¸ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 
@@ -45,8 +45,10 @@ protected:
 	
 public:
 	int HotItemID;
+	BOOL m_bMouseTracking;
 	afx_msg void OnLvnHotTrack(NMHDR *pNMHDR, LRESULT *pResult);
-	// ÅÅÐò·½Ê½ ±êÖ¾
+	afx_msg void OnMouseLeave();
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);	// ï¿½ï¿½ï¿½ï¿½Ê½ ï¿½ï¿½Ö¾
 	BOOL FlagSortUp;
 	int CurrentSortColumn;
 	CNormalHeaderCtrl mHdCtrl;

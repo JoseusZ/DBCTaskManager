@@ -1714,4 +1714,15 @@ void CCoolListCtrl::OnMouseLeave()
 		m_nHotArrowSubItem = -1;
 		_RepaintChevronAtomic(this, nOldHotItem, FALSE);
 	}
+
+	// FIX: limpiar nHot cuando el cursor sale del control. Antes solo se
+	// reseteaban los chevrones -> la fila hot quedaba "pegada" (pintada
+	// en azul hasta el siguiente cruce por otra fila). Reprogramar el timer
+	// de coalescing para que dispare el repaint DESPUES de poner nHot = -1.
+	if (nHot >= 0)
+	{
+		nHot = -1;
+		KillTimer(ID_HOT_TRACK_COALESCE);
+		SetTimer(ID_HOT_TRACK_COALESCE, 0, _HotTrackCoalesceProc);
+	}
 }
