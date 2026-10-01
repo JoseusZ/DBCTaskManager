@@ -651,15 +651,28 @@ void CPageDetails::AddNewProcessToList(DWORD PID)
 	pPLdata->SessionID = SessionID;
 
 
-	if(SessionID == 0) //�ж���windows���̵� 
+	// FIX CAT-W7: la clasificacion antigua era
+	//     if (SessionID == 0) WINPROC; else if (IsAppProcess) APP;
+	// Eso dejaba dwm.exe / taskhostw.exe / explorer.exe como BKGPROC
+	// porque viven en sesiones != 0. Misma cadena de checks que en
+	// PreLoadProcesses: ventana visible -> APP, nombre conocido o path
+	// bajo C:\Windows\* -> WINPROC, resto -> BKGPROC.
+	// Reusamos el hProcess que ya abrio AddNewProcessToList (NO abrir
+	// otro: el handle se guarda en pPLdata->hProcess y se cierra luego
+	// en _RemoveProcessFromList).
+	BOOL IsApp       = _IsAppProcess(pPLdata->PID);
+	BOOL IsWinByName = _IsKnownWindowsProcess(StrProcessName);
+	BOOL IsWinByPath = _IsWindowsSystemPath(StrProcessFullPathName);
+
+	if (IsApp)
+	{
+		pPLdata->Type = APP;
+	}
+	else if (IsWinByName || IsWinByPath)
 	{
 		pPLdata->Type = WINPROC;
 	}
-	else if(_IsAppProcess(pPLdata->PID))
-	{
-		pPLdata->Type = APP;
-
-	}
+	// else: queda BKGPROC (default)
 
 
 
@@ -1661,39 +1674,46 @@ void CPageDetails::PreLoadProcesses(void)
 
 
 		CString StrProcessFullPathName;
-		if(hProcess  > 0) 
-		{ 
-			StrProcessFullPathName = mProcInfo.GetPathName(hProcess);	
+		if(hProcess  > 0)
+		{
+			StrProcessFullPathName = mProcInfo.GetPathName(hProcess);
 		}
 		else
 		{
-			StrProcessFullPathName = GetProcessInfoUseWMI(PID,NULL);
-		}		
-		::PathRemoveFileSpec((LPTSTR)(LPCTSTR)StrProcessFullPathName);
-		
-		BOOL IsSystemFolder = FALSE;
-		
-		if(StrProcessFullPathName.Find(L":"))
-		{
-			StrProcessFullPathName.Delete(0,3);
-
-			IsSystemFolder = (StrProcessFullPathName.CompareNoCase(L"windows\\system32") == 0);
-
-		}
-		else//��·������Ϊ��windows����
-		{
-			IsSystemFolder = TRUE;
+			// FIX CAT-W7: GetProcessInfoUseWMI devuelve SOLO el caption
+			// (filename), no el path completo. Antes, esto caia en la
+			// rama else del IsSystemFolder (sin ruta -> TRUE), marcando
+			// cualquier proceso sin servicio WMI como WINPROC. Para que
+			// el path detection siga funcionando, lo limpiamos a "" y
+			// dejamos que _IsKnownWindowsProcess decida por nombre.
+			StrProcessFullPathName = L"";
 		}
 
- 	
-		if(_IsAppProcess(pPLdata->PID))  //���ж��ǲ����д���
+		// FIX CAT-W7: cadena de checks en este orden:
+		//   1. Ventana top-level visible -> APP.
+		//      Esto cubre Chrome, taskmgr, etc. aunque vivan en
+		//      C:\Windows\System32 (taskmgr.exe), porque la realidad es
+		//      que el usuario los ve como aplicaciones.
+		//   2. Nombre conocido de Windows -> WINPROC.
+		//      dwm, lsass, csrss, services, svchost, etc. aunque vivan en
+		//      sesiones != 0.
+		//   3. Path bajo C:\Windows\* y NO tiene ventana -> WINPROC.
+		//      Catch-all para binarios de sistema que no estan en la
+		//      lista hardcodeada pero tampoco son Apps.
+		//   4. Resto -> BKGPROC.
+		BOOL IsApp       = _IsAppProcess(pPLdata->PID);
+		BOOL IsWinByName = _IsKnownWindowsProcess(StrProcessName);
+		BOOL IsWinByPath = _IsWindowsSystemPath(StrProcessFullPathName);
+
+		if (IsApp)
 		{
 			pPLdata->Type = APP;
 		}
-		else  if( IsSystemFolder ) //�ж���windows���̵� 
+		else if (IsWinByName || IsWinByPath)
 		{
 			pPLdata->Type = WINPROC;
 		}
+		// else: queda BKGPROC (default)
 		
 	
 
@@ -2095,6 +2115,95 @@ BOOL CPageDetails::_IsAppProcess(int PID)
 	}
 
 	return Ret;
+}
+
+// FIX CAT-W7: predicado de nombre para procesos que tienen que ir a la
+// categoria "Windows processes" sin importar path ni visibilidad. Lista
+// inspirada en Process Hacker + Windows 7 task manager. La razon de
+// hacerlo por nombre y no solo por path es que muchos de estos binarios
+// viven en sesiones de usuario (dwm.exe, taskhostw.exe, explorer.exe),
+// por lo que el SessionID==0 que usaba el codigo original NO los detecta.
+BOOL CPageDetails::_IsKnownWindowsProcess(const CString& Name) const
+{
+	if (Name.IsEmpty()) return FALSE;
+
+	// Comparacion case-insensitive sobre el nombre exacto (incluyendo .exe)
+	static const wchar_t* const kWinProcNames[] = {
+		// Subsistema / kernel userland
+		L"csrss.exe",
+		L"lsass.exe",
+		L"lsm.exe",
+		L"services.exe",
+		L"smss.exe",
+		L"wininit.exe",
+		L"winlogon.exe",
+		L"LogonUI.exe",
+		// Compositor y host de tareas
+		L"dwm.exe",
+		L"taskhost.exe",
+		L"taskhostw.exe",
+		// Shell y explorador
+		L"explorer.exe",
+		// Servicios genericos (svchost cubre cualquier -k flag)
+		L"svchost.exe",
+		L"WmiPrvSe.exe",
+		// System Idle / kernel
+		L"System",
+		L"System Idle Process",
+		L"[System Process]",
+		L"svchost",
+		// Otros helpers que el WM de Windows 7 marca como "Windows"
+		L"audiodg.exe",
+		L"conhost.exe",
+		L"rundll32.exe",
+		L"spoolsv.exe",
+		L"WUDFHost.exe",
+		// IIS / WAS si esta instalado
+		L"w3wp.exe",
+		// Mantenimiento y diagnostico
+		L"msconfig.exe",
+		L"msiexec.exe",
+		L"helpctr.exe",
+		// Diagnosticos de MS (Wireshark, etc. no)
+		L"mdm.exe",
+		NULL
+	};
+
+	for (int i = 0; kWinProcNames[i] != NULL; ++i)
+	{
+		if (Name.CompareNoCase(kWinProcNames[i]) == 0)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+// FIX CAT-W7: predicado de path. Acepta cualquier ruta bajo C:\Windows\
+// (raiz, System32, SysWOW64). Antes solo se aceptaba "windows\\system32"
+// literal, lo que dejaba explorer.exe (en C:\Windows\) y los svchost de
+// 32-bit (en C:\Windows\SysWOW64\) fuera de WINPROC.
+BOOL CPageDetails::_IsWindowsSystemPath(const CString& Path) const
+{
+	if (Path.IsEmpty()) return FALSE;
+
+	// Normalizamos: minusculas + barras derechas
+	CString s = Path;
+	s.MakeLower();
+	s.Replace(L'/', L'\\');
+
+	// Aceptamos: "c:\windows", "c:\windows\system32",
+	// "c:\windows\syswow64", "c:\windows\assembly" (caso GAC+),
+	// "c:\windows\microsoft.net", "c:\windows\explorer.exe", etc.
+	// Pero NO aceptamos "c:\windows_backup" ni "\windows.old". Para
+	// esto exigimos que detras de ":\\windows" haya o bien fin de
+	// cadena, o bien un separador "\\". Asi "c:\windowsapp" no entra.
+	int nDriveColon = s.Find(L':');
+	if (nDriveColon < 0) return FALSE;          // ruta sin drive letter
+	int nWinPos = s.Find(L"\\windows", nDriveColon);
+	if (nWinPos < 0) return FALSE;              // no contiene "\windows"
+	int nAfter = nWinPos + 7; // longitud de "\windows"
+	if (nAfter >= s.GetLength()) return TRUE;   // "c:\windows" exacto
+	if (s.GetAt(nAfter) == L'\\') return TRUE;   // "c:\windows\..."
+	return FALSE;                                // "c:\windowsapp" etc.
 }
 
 void CPageDetails::_AddToSimpleList(PROCLISTDATA *pListData)

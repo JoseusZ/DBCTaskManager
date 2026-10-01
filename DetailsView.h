@@ -155,6 +155,17 @@ public:
 	void SetAllListItemData(BOOL NewAdd);
 	void _FillAllDataOfItem(int Index,PROCLISTDATA *pPLdata = NULL,BOOL NewAdd = FALSE);
 	BOOL _IsAppProcess(int PID);
+	// FIX CAT-W7: nuevo helper. Reconoce procesos que SIEMPRE son de Windows
+	// por nombre, independientemente de su path o si tienen ventana visible.
+	// Es lo que Windows 7 task manager usa (lsass, winlogon, csrss, etc. son
+	// siempre WINPROC aunque vivan en una sesion != 0).
+	BOOL _IsKnownWindowsProcess(const CString& Name) const;
+	// FIX CAT-W7: predicado de path. TRUE si el path apunta al arbol de
+	// C:\Windows (System32, SysWOW64, raiz). Antes solo aceptaba
+	// "windows\\system32" literal, lo que dejaba dwm.exe (system32 pero
+	// con "Windows 8" en path), explorer.exe (C:\Windows), y todos los
+	// svchost de usuario fuera de la categoria Windows.
+	BOOL _IsWindowsSystemPath(const CString& Path) const;
 
 	void SetProcessStatusInfo(DWORD PID,int Status);
 	void ReSort(BOOL SkipStaticColumn = TRUE);
