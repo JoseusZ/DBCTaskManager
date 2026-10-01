@@ -507,6 +507,19 @@ public:
 	BOOL IsChineseEdition;
 };
 
+
+// ----------------------------------------------------------------------------
+// DIAG: lista de procesos — logging defensivo opt-in.
+// Se activa creando un archivo vacio llamado dbc_listdiag.log junto al exe.
+// El archivo de salida es dbc_listdiag.out. Usar para diagnosticar
+// desbordamientos, items colgados, items duplicados, etc.
+// ----------------------------------------------------------------------------
+
+
+// (eliminado #endif huerfano)
+extern BOOL _ListDiagEnabled(void);
+extern void _ListDiagLog(const char* fmt, ...);
+extern void _ListDiagDump(const char* szTag, int nCount, void* pListCtrl);
 extern CDBCTaskmanApp theApp;
 extern map<DWORD,PVOID> Map_PidToData;
 extern  map<CWnd*,int> HungWndMap;

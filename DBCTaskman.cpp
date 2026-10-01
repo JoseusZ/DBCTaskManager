@@ -1285,3 +1285,122 @@ void CDBCTaskmanApp::Global_EndProcessesInList(CListCtrl* pList,BOOL ShowTipWhen
 	pDataArray = NULL;
 
 }
+
+// ============================================================================
+// DIAG: logging defensivo opt-in para la lista de procesos (movido desde
+// Global.cpp, que NO esta enlazado al vcxproj).
+// ============================================================================
+// Se activa creando un archivo VACIO llamado `dbc_listdiag.log` junto al .exe.
+// Salida en `dbc_listdiag.out` (append, throttled a 4Hz desde el callback).
+// ============================================================================
+#include <stdio.h>
+#include <stdarg.h>
+
+BOOL _ListDiagEnabled(void)
+{
+   // Re-chequea en cada llamada si el archivo toggle existe.
+   // Es case-INsensitive en Windows pero usamos la ruta exacta para que
+   // un archivo llamado .OUT preexistente (de runs anteriores con el toggle
+   // activo) no confunda al operador. La latencia de GetFileAttributesA
+   // es del orden de microsegundos para un FS local, despreciable frente
+   // al throttling de 250ms en el callback.
+   return (GetFileAttributesA("dbc_listdiag.log") != INVALID_FILE_ATTRIBUTES);
+}
+
+void _ListDiagLog(const char* fmt, ...)
+{
+   if (!_ListDiagEnabled()) return;
+   FILE* f = NULL;
+   if (fopen_s(&f, "dbc_listdiag.out", "a") != 0 || !f) return;
+   SYSTEMTIME st; GetLocalTime(&st);
+   fprintf(f, "[%02u:%02u:%02u.%03u] ", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+   va_list ap; va_start(ap, fmt);
+   vfprintf(f, fmt, ap);
+   va_end(ap);
+   fputc('\n', f);
+   fclose(f);
+}
+
+// Dump resumido del estado del list control: cuenta items, separadores,
+// items con SubType=SUB_ITEM, items con pPData NULL, sub-items huerfanos.
+// Llamar desde Sort_Processes, _OpenSubList, FillAllItemData y OnUMTimer.
+//
+// FIX A: la deteccion de huerfanos ya no se limita a "la fila anterior
+// tiene el mismo PID". Ahora usa pParent (introducido por FIX T5) para
+// localizar al padre REAL del sub-item, y se considera huerfano solo si
+// el padre no esta donde deberia estar o si el pPData del padre ya no
+// es el que el sub-item guarda como padre. Esto elimina falsos
+// positivos cuando hay varios POpen y sub-items intercalados.
+//
+// Para sub-items sin pParent (legacy, binarios anteriores al fix T5),
+// se hace una busqueda hacia atras limitada a 8 filas buscando mismo
+// PID en un POpen. Si no se encuentra, se considera huerfano.
+void _ListDiagDump(const char* szTag, int nCount, void* pListCtrl)
+{
+   if (!_ListDiagEnabled()) return;
+   if (pListCtrl == NULL) {
+       _ListDiagLog("[%s] count=%d pListCtrl=NULL", szTag, nCount);
+       return;
+   }
+   CListCtrl* pL = (CListCtrl*)pListCtrl;
+   int real = pL->GetItemCount();
+   int headers = 0, parentsClose = 0, parentsOpen = 0, parentsNoSub = 0;
+   int subs = 0, nullData = 0, nullPData = 0, orphanSubs = 0;
+   for (int i = 0; i < real; i++) {
+       APPLISTDATA* pd = (APPLISTDATA*)pL->GetItemData(i);
+       if (pd == NULL) {
+          nullData++;
+          // FIX T8 diag: localizar el item corrupto para entender
+          // por qué tiene GetItemData==NULL a pesar de seguir en
+          // la lista. Dump del texto de la fila 0 para contexto.
+          {
+             CString s0 = pL->GetItemText(i, 0);
+             _ListDiagLog("  nullData at i=%d name=\"%s\" totalTextLen=%d",
+                i, (LPCSTR)(CStringA)s0.Left(40), s0.GetLength());
+          }
+          continue;
+       }
+       if (pd->pPData == NULL) { nullPData++; headers++; continue; }
+       if (pd->SubType == -1) headers++;
+       else if (pd->SubType == PARENT_ITEM_CLOSE) parentsClose++;
+       else if (pd->SubType == PARENT_ITEM_OPEN) parentsOpen++;
+       else if (pd->SubType == PARENT_ITEM_NOSUB) parentsNoSub++;
+       else if (pd->SubType == SUB_ITEM) {
+           subs++;
+           BOOL bOrphan = TRUE;
+
+           // Camino primario: usar pParent (establecido por _OpenSubList).
+           if (pd->pParent != NULL) {
+               APPLISTDATA* pp = pd->pParent;
+               // El padre es valido si:
+               //  - pd->pPData == pp->pPData (mismo PROCLISTDATA; el padre
+               //    del sub-item ES este APPLISTDATA).
+               //  - pp->SubType != SUB_ITEM (un sub-item no puede ser padre).
+               //  - pp->pPData no es NULL.
+               if (pp->pPData != NULL && pp->SubType != SUB_ITEM
+                   && pp->pPData == pd->pPData) {
+                   bOrphan = FALSE;
+               }
+           } else {
+               // Fallback para sub-items sin pParent (legacy). Buscamos
+               // hacia atras un POpen/PClose con mismo PID, dentro de un
+               // limite razonable (los sub-items siempre bajo a su padre).
+               DWORD myPID = ((PROCLISTDATA*)pd->pPData)->PID;
+               for (int j = i - 1; j >= 0 && j >= i - 8; j--) {
+                   APPLISTDATA* pp = (APPLISTDATA*)pL->GetItemData(j);
+                   if (pp == NULL || pp->pPData == NULL) continue;
+                   if (pp->SubType != PARENT_ITEM_OPEN && pp->SubType != PARENT_ITEM_CLOSE)
+                       continue;
+                   if (((PROCLISTDATA*)pp->pPData)->PID == myPID) {
+                       bOrphan = FALSE;
+                       break;
+                   }
+               }
+           }
+
+           if (bOrphan) orphanSubs++;
+       }
+   }
+   _ListDiagLog("[%s] count=%d real=%d hdr=%d PClose=%d POpen=%d PNoSub=%d Sub=%d nullData=%d nullPData=%d orphanSub=%d",
+       szTag, nCount, real, headers, parentsClose, parentsOpen, parentsNoSub, subs, nullData, nullPData, orphanSubs);
+}

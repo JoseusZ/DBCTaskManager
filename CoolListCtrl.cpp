@@ -235,7 +235,7 @@ void  CCoolListCtrl::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 
 		APPLISTDATA* pListData = (APPLISTDATA*)GetItemData(nItem);
 
-		// FIX: si el item fue eliminado entre la decisión de pintar y la pintura
+		// FIX: si el item fue eliminado entre la decisiï¿½n de pintar y la pintura
 		// real (carrera con OnUMTimer / worker thread), GetItemData puede devolver
 		// NULL. Salimos sin tocar pListData->* y sin alterar el flujo del paint.
 		if (pListData == NULL)
@@ -692,10 +692,10 @@ void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 	CRect rcItem, rcList, rcOldHot;
 	this->GetClientRect(rcList);
 
-	// FIX: si el ítem 0 no existe (lista vacía o items recién borrados),
+	// FIX: si el ï¿½tem 0 no existe (lista vacï¿½a o items reciï¿½n borrados),
 	// GetItemRect devuelve FALSE y rcItem queda con valores indeterminados;
-	// calcular NewHotID con esos valores produciría un id basura que dispara
-	// repaints sobre índices que ya no existen. Salimos sin tocar nHot ni Invalidate.
+	// calcular NewHotID con esos valores producirï¿½a un id basura que dispara
+	// repaints sobre ï¿½ndices que ya no existen. Salimos sin tocar nHot ni Invalidate.
 	if (!this->GetItemRect(0, rcItem, LVIR_BOUNDS))
 	{
 		*pResult = 0;
@@ -844,13 +844,32 @@ void CCoolListCtrl::OnLvnDeleteitem(NMHDR* pNMHDR, LRESULT* pResult)
 {
 	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
 	// TODO: Add your control notification handler code here
-	APPLISTDATA* pData = (APPLISTDATA*)GetItemData(pNMLV->iItem);
+
+	// FIX T6c: usar pNMLV->lParam (LPARAM original del item, estable)
+	// en lugar de GetItemData(pNMLV->iItem). Esto resuelve un bug
+	// critico donde el iItem de la notificacion LVN_DELETEITEM puede
+	// apuntar a una fila DISTINTA de la que se esta borrando si
+	// CListCtrl ya compacto el array interno. Consecuencias del bug
+	// legacy:
+	//   1) Se liberaba el APPLISTDATA de OTRO item (no el borrado).
+	//   2) El item borrado quedaba con un puntero a memoria liberada
+	//      (use-after-free potencial).
+	//   3) Memoria del item legitimo quedaba como "nullData=1" en
+	//      el dump, lo que provoca Sort_Processes con pData1==NULL
+	//      y QuickSort sin estabilidad â†’ orden erratico y posibles
+	//      crashes en escenarios raros.
+	//
+	// pNMLV->lParam es el LPARAM que pasamos con SetItemData al
+	// insertar la fila. Es estable a lo largo de la vida del item
+	// y NO depende del estado actual del array interno de CListCtrl.
+	APPLISTDATA* pData = (APPLISTDATA*)(UINT_PTR)pNMLV->lParam;
 
 	if (pData != NULL)
 	{
-
 		delete pData;
-		pData = NULL;
+		// pNMLV->lParam NO se modifica (es del sistema); no podemos
+		// ponerlo a NULL, pero el item ya esta fuera del del control
+		// y nadie mas lo va a leer.
 	}
 
 
@@ -868,30 +887,44 @@ int CCoolListCtrl::DeleteItemAndSub(int iItem)
 
 
 	SetRedraw(0);
-	if (pData->SubType == PARENT_ITEM_OPEN)
+	if (pData && pData->SubType == PARENT_ITEM_OPEN)
 	{
 		int Pos = iItem + 1;
 
-
-		while (1)  //????? ?????????????????????
+		// FIX T6: eliminar SOLO los sub-items cuyo pParent == pData
+		// (identidad de padre). Es robusto frente a ReSort() que pudo
+		// haber movido sub-items a posiciones arbitrarias. Tambien
+		// libera APPLISTDATA (antes solo quitaba la fila, leak
+		// garantizado) y nullifica pParent para evitar dangling
+		// pointers en logs/dumps posteriores.
+		//
+		// NOTA: usamos SOLO la identidad de puntero (pParent == pData)
+		// sin comparar por PID. Esto mantiene CoolListCtrl.cpp
+		// independiente de ProcessInfo.h/PROCLISTDATA, que es donde
+		// vive el tipo PID. La comparacion por PID como fallback queda
+		// en _CloseSubList (en ProcessesView.cpp) donde si tenemos
+		// acceso al tipo.
+		while (Pos < GetItemCount())
 		{
-
 			pDelData = (APPLISTDATA*)GetItemData(Pos);
-			if (pDelData->SubType == SUB_ITEM)
-			{
-				DeleteItem(Pos);
+			if (pDelData == NULL) break;
+			if (pDelData->SubType != SUB_ITEM) break;
+			if (pDelData->pParent != pData) break;
 
-			}
-			else
-			{
-				break;
-			}
-
+			// FIX T6 (defensa dangling): nulificar pParent antes de
+			// quitar la fila. NO hacer delete aqui: OnLvnDeleteitem
+			// en este mismo archivo YA libera el APPLISTDATA cuando
+			// CListCtrl emite LVN_DELETEITEM al ejecutar DeleteItem.
+			// Hacer delete aqui provoca DOUBLE-FREE y heap
+			// corruption (0xc0000374).
+			pDelData->pParent = NULL;
+			DeleteItem(Pos);
+			// No incrementar Pos: DeleteItem corre las filas siguientes.
 		}
 
 	}
 
-	if (pData->SubType != -1)
+	if (pData && pData->SubType != -1)
 		DeleteItem(iItem);
 	SetRedraw(1);
 
@@ -1012,7 +1045,7 @@ BOOL CCoolListCtrl::OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult)
 	case   HDN_BEGINTRACKW:
 	case   HDN_BEGINTRACKA:
 	case   HDN_DIVIDERDBLCLICKA:
-	case   HDN_DIVIDERDBLCLICKW:       //   pHDNotify->iItem —????????????,??pHDNotify->iItem=0,?????     //????
+	case   HDN_DIVIDERDBLCLICKW:       //   pHDNotify->iItem ï¿½????????????,??pHDNotify->iItem=0,?????     //????
 		if (pColStatusArray[pHDNotify->iItem].IsHiddenColumn)
 		{
 			*pResult = TRUE;                                 //   disable   tracking      

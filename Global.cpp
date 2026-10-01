@@ -6,6 +6,4 @@ CGlobal::CGlobal(void)
 {
 }
 
-CGlobal::~CGlobal(void)
-{
-}
+CGlobal::~CGlobal(v

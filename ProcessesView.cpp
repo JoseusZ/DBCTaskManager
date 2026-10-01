@@ -1,4 +1,8 @@
 // ProcessesView.cpp : implementation file
+
+}
+	}
+// ProcessesView.cpp : implementation file
 //
 
 #include "stdafx.h"
@@ -122,11 +126,31 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 	APPLISTDATA * pData1 = NULL;
 	APPLISTDATA * pData2 = NULL;
 
+
 	pData1 = (APPLISTDATA * )lParam1;
 	pData2 = (APPLISTDATA * )lParam2;
 
+	// DIAG: trace opt-in del callback de sort. Throttle 500ms para no inundar el log.
+	// Registra: iCol, SubTypes, PIDs, Str1/Str2 (texto comparado), y case del switch que se ejecuta.
+	{
+		static DWORD _lastDumpTick = 0;
+		DWORD _now = GetTickCount();
+		if (_ListDiagEnabled() && (_now - _lastDumpTick) > 500) {
+			DWORD p1 = (pData1 && pData1->pPData) ? (unsigned long)((PROCLISTDATA*)pData1->pPData)->PID : 0;
+			DWORD p2 = (pData2 && pData2->pPData) ? (unsigned long)((PROCLISTDATA*)pData2->pPData)->PID : 0;
+			_ListDiagLog("Sort iCol=%d Sub1=%d Sub2=%d PID1=%lu PID2=%lu",
+				(int)iCol,
+				pData1 ? pData1->SubType : -99,
+				pData2 ? pData2->SubType : -99,
+				(unsigned long)p1, (unsigned long)p2);
+			_ListDiagDump("Sort", 0, pList);
+			_lastDumpTick = _now;
+		}
+	}
+
 	//	int Data1,Data2;
 	if((pData1==NULL) || (pData2 == NULL) )return result;
+
 
 	CString Str1,Str2;
 
@@ -241,6 +265,44 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 
 	}
 
+
+
+
+	// DIAG: registrar el resultado del switch ANTES del tiebreak final SORTOK.
+	// Asi sabemos que case del switch se ejecuto y los Str1/Str2 que se compararon.
+	// Throttle: solo loguea cuando estamos viendo comparaciones con sub-items
+	// (Sub1==3 o Sub2==3) o cuando los PIDs empatan (comparacion padre vs sub).
+	if (_ListDiagEnabled() && pData1 && pData2 && pData1->pPData && pData2->pPData)
+	{
+		static DWORD _lastTieTick = 0;
+		DWORD _tNow = GetTickCount();
+		DWORD p1 = ((PROCLISTDATA*)pData1->pPData)->PID;
+		DWORD p2 = ((PROCLISTDATA*)pData2->pPData)->PID;
+		BOOL bRelevant = (pData1->SubType == SUB_ITEM || pData2->SubType == SUB_ITEM) || (p1 == p2);
+		if (bRelevant && (_tNow - _lastTieTick) > 100)
+		{
+			const char* szCase = "?";
+			if (iCol == PROCLIST_NAME) szCase = "NAME";
+			else if (iCol == PROCLIST_PID) szCase = "PID";
+			else if (iCol == PROCLIST_CPU) szCase = "CPU";
+			else if (iCol == PROCLIST_MEMORY) szCase = "MEM";
+			else if (iCol == PROCLIST_DISK) szCase = "DISK";
+			else if (iCol == PROCLIST_NETWORK) szCase = "NET";
+			else if (iCol == PROCLIST_TYPE) szCase = "TYPE";
+			else if (iCol == PROCLIST_STATUS) szCase = "STATUS";
+			else if (iCol == PROCLIST_PUB) szCase = "PUB";
+			else if (iCol == PROCLIST_PNAME) szCase = "PNAME";
+			else if (iCol == PROCLIST_CMDLINE) szCase = "CMD";
+			else szCase = "?";
+			_ListDiagLog("  cmp case=%s iCol=%d Sub1=%d Sub2=%d PID1=%lu PID2=%lu Str1=\"%s\" Str2=\"%s\" preResult=%d",
+				szCase, (int)iCol,
+				pData1->SubType, pData2->SubType,
+				(unsigned long)p1, (unsigned long)p2,
+				(LPCSTR)(CStringA)Str1.Left(20), (LPCSTR)(CStringA)Str2.Left(20),
+				result);
+			_lastTieTick = _tNow;
+		}
+	}
 
 
 SORTOK:
@@ -582,7 +644,25 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 			if( RedrawItem && COL_SAT_PROC[PROCLIST_NAME].Redraw   )
 			{
 
-				APPLISTDATA *pAboveData = (APPLISTDATA *)mTaskList.GetItemData(i-1);
+				// FIX T6b: usar pParent (identidad) en lugar de la fila
+				// anterior (i-1). El codigo legacy copiaba los
+				// CoolUsageArray del item inmediatamente arriba, lo cual
+				// es fragil: tras un ReSort() el sub-item puede no estar
+				// justo debajo de su padre y estar copiando datos del
+				// proceso equivocado. Esto provocaba barras de calor
+				// pintadas con valores incorrectos.
+				//
+				// pParent se asigna en _OpenSubList al insertar el
+				// sub-item, y es estable a lo largo de la vida del item.
+				// Fallback al legacy (i-1) para sub-items legados de
+				// binarios anteriores al fix T5 que tengan pParent NULL.
+				APPLISTDATA *pAboveData = pListData->pParent;
+				if (pAboveData == NULL)
+				{
+					// Legacy fallback: la fila inmediatamente arriba
+					// se asume que es el padre.
+					pAboveData = (APPLISTDATA *)mTaskList.GetItemData(i-1);
+				}
 
 				if(pAboveData!=NULL)
 				{
@@ -910,13 +990,14 @@ void CPageProcesses::_AddGroupItem(void)
 	pNewAppListData->pPData = NULL ;
 	pNewAppListData->ItemType = 0;
 	pNewAppListData->SubType = -1;
+	pNewAppListData->pParent = NULL;  // FIX T6: defensivo (estos items nunca son sub-items)
 
 	//i++;
 
 
 	StrGroupTitle.Format(L"%s(%d)",STR_GROUP_BKG,nBkg);
 	mTaskList.InsertItem(0, StrGroupTitle);
-	
+
 	pNewAppListData   =    new  APPLISTDATA  ;
 	mTaskList.SetItemData(0,(DWORD_PTR)pNewAppListData);
 
@@ -924,14 +1005,15 @@ void CPageProcesses::_AddGroupItem(void)
 	pNewAppListData->pPData = NULL ;
 	pNewAppListData->ItemType  = 2;
 	pNewAppListData->SubType = -1;
-	
+	pNewAppListData->pParent = NULL;  // FIX T6: defensivo
+
 
 	//i++;
 
 
 	StrGroupTitle.Format(L"%s (%d)",STR_GROUP_WIN,nWin);
 	mTaskList.InsertItem(0, StrGroupTitle);
-	
+
 	pNewAppListData   =    new  APPLISTDATA  ;
 	mTaskList.SetItemData(0,(DWORD_PTR)pNewAppListData);
 
@@ -939,6 +1021,7 @@ void CPageProcesses::_AddGroupItem(void)
 	pNewAppListData->pPData = NULL ;
 	pNewAppListData->ItemType   =  4;
 	pNewAppListData->SubType = -1;
+	pNewAppListData->pParent = NULL;  // FIX T6: defensivo
 
 	mTaskList.SetRedraw(1);
 
@@ -1169,6 +1252,7 @@ APPLISTDATA* CPageProcesses::AddNewItem(PROCLISTDATA * pDetailData, int ID,BOOL 
 	pNewAppListData->SubType = PARENT_ITEM_NOSUB;    //PARENT_ITEM_NOSUB
 	pNewAppListData->StrWnd  =L"";
 	pNewAppListData->nSubItem = 0;
+	pNewAppListData->pParent = NULL;  // FIX T5: padres no tienen padre
 
 
 	pNewAppListData->CoolUsageArray[PROCLIST_MEMORY] = 0.001;
@@ -1327,6 +1411,16 @@ int CPageProcesses::_OpenSubList(int ID,BOOL LockDraw)
 
 	int Pos=ID+1;
 
+	// DIAG: log contexto del padre ANTES de expandir
+	if (_ListDiagEnabled())
+	{
+		CString parentStr = mTaskList.GetItemText(ID, 0);
+		_ListDiagLog("_OpenSubList START ID=%d PID=%lu ItemType=%d SubType=%d Pos=%d parentStr=\"%s\" GroupByType=%d CurrentSortCol=%d",
+			ID, (unsigned long)ItemPID, (int)pData->ItemType, (int)pData->SubType, Pos,
+			(LPCSTR)(CStringA)parentStr.Left(40),
+			(int)theApp.AppSettings.GroupByType, mTaskList.CurrentSortColumn);
+	}
+
 	if(LockDraw) mTaskList.SetRedraw(0);
 
 	while( pAppWnd!=NULL)
@@ -1359,9 +1453,43 @@ int CPageProcesses::_OpenSubList(int ID,BOOL LockDraw)
 						mTaskList.SetItemText(Pos,0,StrWndCaption);
 						pDataNew->SubType = SUB_ITEM;
 						pDataNew->ItemType =pData->ItemType;
+						pDataNew->pParent = pData;  // FIX T5: enlace al padre real
+
+						// FIX T4: poblar las columnas numericas del sub-item con el
+						// mismo texto que usa AddNewItem/FillAllItemData para los padres.
+						// Esto es defensa redundante: ReSort() tambien copiara el texto
+						// desde el padre via pParent, pero dejarlo aqui evita que el
+						// PRIMER sort tras expandir vea "".
+						{
+							CString sTxt;
+							sTxt = mTaskList.GetItemText(pData->SortID, PROCLIST_CPU);
+							if (sTxt.IsEmpty()) sTxt = L"0%";
+							mTaskList.SetItemText(Pos, PROCLIST_CPU, sTxt);
+
+							sTxt = mTaskList.GetItemText(pData->SortID, PROCLIST_MEMORY);
+							if (sTxt.IsEmpty())
+								sTxt = theApp.AppSettings.ProcList_MemPercents ? L"0%" : L"0 MB";
+							mTaskList.SetItemText(Pos, PROCLIST_MEMORY, sTxt);
+
+							sTxt = mTaskList.GetItemText(pData->SortID, PROCLIST_DISK);
+							if (sTxt.IsEmpty()) sTxt = L"0 MB/s";
+							mTaskList.SetItemText(Pos, PROCLIST_DISK, sTxt);
+
+							sTxt = mTaskList.GetItemText(pData->SortID, PROCLIST_NETWORK);
+							if (sTxt.IsEmpty()) sTxt = L"0 KB/s";
+							mTaskList.SetItemText(Pos, PROCLIST_NETWORK, sTxt);
+						}
+
+						// DIAG: log del sub-item insertado
+						if (_ListDiagEnabled())
+						{
+							_ListDiagLog("  inserted sub-item Pos=%d WindowPID=%lu SubWnd=\"%s\"",
+								Pos, (unsigned long)WindowPID,
+								(LPCSTR)(CStringA)StrWndCaption.Left(40));
+						}
 
 						Pos++;
-						n++;	
+						n++;
 					}
 				}
 			}
@@ -1382,6 +1510,12 @@ int CPageProcesses::_OpenSubList(int ID,BOOL LockDraw)
 
 	ReSort(FALSE);
 
+	// DIAG: trace opt-in tras expandir un proceso
+	if (_ListDiagEnabled()) {
+		_ListDiagLog("_OpenSubList ID=%d subItems=%d", ID, n);
+		_ListDiagDump("post-OpenSub", n, &mTaskList);
+	}
+
 	if(LockDraw)mTaskList.SetRedraw(1);
 	mTaskList.Invalidate();
 
@@ -1396,28 +1530,102 @@ int CPageProcesses::_CloseSubList(int ID,BOOL LockDraw)
 
 	pData=(APPLISTDATA * )mTaskList.GetItemData(ID);
 
-
-	int Pos = ID+1;
-	if(LockDraw)mTaskList.SetRedraw(0);
-	while(1)  //ע��ɾ���� �����λ�ñ仯����ֻ��Ҫɾ��ͬ��λ�����
+	// DIAG: log inicio
+	if (_ListDiagEnabled() && pData && pData->pPData)
 	{
-
-		pDelData = (APPLISTDATA * )mTaskList.GetItemData(Pos);
-		if(pDelData == NULL) break;
-		if(pDelData->SubType == SUB_ITEM)
-		{
-			mTaskList.DeleteItem(Pos);
-
-		}
-		else
-		{
-			break ;
-		}
-
+		_ListDiagLog("_CloseSubList START ID=%d PID=%lu SubType=%d CurrentSortCol=%d",
+			ID, (unsigned long)((PROCLISTDATA*)pData->pPData)->PID,
+			(int)pData->SubType, mTaskList.CurrentSortColumn);
 	}
 
-	if(pData != NULL) 
-		pData->SubType = PARENT_ITEM_CLOSE ;
+	// FIX T6: ya no asumimos que el sub-item esta en Pos = ID+1.
+	// Tras un ReSort() (cambio de columna o insercion concurrente),
+	// SortItems (QuickSort) puede haber movido al sub-item a otra
+	// posicion arbitraria. La busqueda legacy por Pos=ID+1 fallaba:
+	// si entre padre y sub-item habia otro item (PNoSub, otro POpen
+	// que se reordeno, etc.), el while salia con break y dejaba el
+	// sub-item huerfano en la lista con texto "" heredado del padre
+	// equivocado. Eso disparaba el bug T6 + reintroducia el bug T5.
+	//
+	// Solucion: iterar DESDE ID+1 y eliminar UNICAMENTE los sub-items
+	// cuyo pParent == pData (identidad de padre, no igualdad de PID).
+	// Esto es robusto frente a reordenamientos porque compara el
+	// puntero, no una posicion volatil.
+	if(LockDraw)mTaskList.SetRedraw(0);
+	if (pData != NULL)
+	{
+		int i = ID + 1;
+		while (i < mTaskList.GetItemCount())
+		{
+			pDelData = (APPLISTDATA *)mTaskList.GetItemData(i);
+			if (pDelData == NULL) break;
+
+			// Si no es SUB_ITEM, hemos llegado al siguiente item
+			// del bloque (puede ser otro POpen, PNoSub, PClose, o
+			// header de seccion). Fin del bucle.
+			if (pDelData->SubType != SUB_ITEM) break;
+
+			// Es SUB_ITEM. Verificamos que sea NUESTRO sub-item
+			// comparando el puntero al padre que guardamos en
+			// pDelData->pParent al insertarlo en _OpenSubList.
+			// Esto es robusto frente a reordenamientos porque el
+			// puntero es estable aunque la posicion cambie.
+			//
+			// Fallback: si pParent es NULL (sub-item legado de un
+			// binario anterior al fix T5, o construido por otro
+			// camino), usamos igualdad de PID como red de seguridad.
+			BOOL bMine = FALSE;
+			if (pDelData->pParent == pData)
+			{
+				bMine = TRUE;
+			}
+			else if (pDelData->pParent == NULL
+				&& pDelData->pPData != NULL
+				&& pData->pPData != NULL
+				&& ((PROCLISTDATA *)pDelData->pPData)->PID
+				   == ((PROCLISTDATA *)pData->pPData)->PID)
+			{
+				bMine = TRUE;
+			}
+
+			if (!bMine)
+			{
+				// No es nuestro sub-item. Esto NO deberia pasar
+				// en una lista coherente: todos los SUB_ITEM de
+				// un proceso estan fisicamente agrupados bajo su
+				// padre (la insercion siempre se hace en Pos=ID+1
+				// en _OpenSubList, y los sort no rompen esa
+				// adyacencia salvo bugs previos). Pero si pasa,
+				// salimos por seguridad para no borrar items
+				// ajenos.
+				if (_ListDiagEnabled())
+				{
+					_ListDiagLog(
+						"  _CloseSubList ABORT: sub at i=%d no pertenece al padre ID=%d (pParent=%p vs pData=%p, PIDSub=%lu PIDParent=%lu)",
+						i, ID,
+						(void*)pDelData->pParent, (void*)pData,
+						pDelData->pPData ? (unsigned long)((PROCLISTDATA*)pDelData->pPData)->PID : 0,
+						pData->pPData ? (unsigned long)((PROCLISTDATA*)pData->pPData)->PID : 0);
+				}
+				break;
+			}
+
+			// FIX T6 (defensa dangling): nulificar pParent antes de
+			// quitar la fila. NO hacer delete aqui: OnLvnDeleteitem
+			// en CoolListCtrl.cpp YA libera el APPLISTDATA cuando
+			// CListCtrl emite LVN_DELETEITEM al ejecutar DeleteItem.
+			// Hacer delete aqui provoca DOUBLE-FREE y heap
+			// corruption (0xc0000374) en cuanto se cierra un padre.
+			pDelData->pParent = NULL;
+			mTaskList.DeleteItem(i);
+			// NO incrementamos i: tras DeleteItem, la fila en i+1
+			// pasa a ocupar i. Si hay mas sub-items nuestros, los
+			// iremos encontrando consecutivamente.
+		}
+
+		pData->SubType = PARENT_ITEM_CLOSE;
+		pData->nSubItem = 0;
+	}
 
 
 	if(LockDraw)mTaskList.SetRedraw(1);
@@ -2091,6 +2299,12 @@ void CPageProcesses::FillAllItemData(BOOL LoadAllTrueData)
 
 	ReSort(FALSE);
 
+	// DIAG: trace opt-in tras recargar la lista
+	if (_ListDiagEnabled()) {
+		_ListDiagLog("FillAllItemData complete loadAll=%d", (int)LoadAllTrueData);
+		_ListDiagDump("post-FillAll", 0, &mTaskList);
+	}
+
 	//-------------------------------------------------------------------------
 
 
@@ -2329,29 +2543,8 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 	//-------------------------------------------------
 	//   �������   �Ƴ�/���� �������     �����б���֮��
 
-	int LastParentItemID = -1 ;
-	nCount = mTaskList.GetItemCount();
-	for(int i= 0;i<nCount;i++)
-	{
-		pListData = (APPLISTDATA *) mTaskList.GetItemData(i);
-		if(pListData == NULL) continue;
 
-		//mDetailsList.SetItemData(i,(DWORD_PTR)i);  //�б����������Ϊ���
 
-		if(pListData->SubType == PARENT_ITEM_OPEN)
-		{
-			LastParentItemID = i;
-		}	
-
-		if(pListData->SubType == SUB_ITEM && (nCol != PROCLIST_NAME)) //��������ܶ������������� ��������������Ӧ�� ע�ⲻ������������� ��Ϊ��ʱid �����Ѿ�����
-		{
-			CString StrItemText;
-			StrItemText=mTaskList.GetItemText(LastParentItemID,nCol);
-			mTaskList.SetItemText(i,nCol,StrItemText);
-		}
-
-		pListData->SortID = i;
-	}
 
 
 	if(InvertSort)
@@ -2371,6 +2564,66 @@ void CPageProcesses::Sort(int nCol,BOOL InvertSort)
 
 
 	//���ûص������Ĳ�������ڵ�ַ   
+
+	int LastParentItemID = -1 ;
+	nCount = mTaskList.GetItemCount();
+	for(int i= 0;i<nCount;i++)
+	{
+		APPLISTDATA *pListData = (APPLISTDATA *) mTaskList.GetItemData(i);
+		if(pListData == NULL) continue;
+		if(pListData->SubType == PARENT_ITEM_OPEN)
+		{
+			LastParentItemID = i;
+		}
+		if(pListData->SubType == SUB_ITEM && (nCol != PROCLIST_NAME))
+		{
+			CString StrItemText;
+
+			// FIX T5: usar el puntero al APPLISTDATA padre guardado en el
+			// sub-item (pListData->pParent) en lugar del LastParentItemID
+			// del recorrido. El bug raiz era: si hay varios padres
+			// expandidos y el sort pone un sub-item DESPUES del padre de
+			// OTRO proceso (o antes del primer POpen), LastParentItemID
+			// apunta al padre equivocado (o a -1), y el sub-item acaba
+			// con texto "" en columnas numericas. Sort_Processes entonces
+			// compara "" vs "" en lstrcmp de strings pad-eados a 16 chars
+			// -> empate -> tiebreak por PID -> QuickSort no estable -> el
+			// sub-item se separa del padre que le corresponde.
+			//
+			// Con pParent tenemos el padre real, asi que su SortID es
+			// siempre el correcto (fue asignado en el ciclo previo o en
+			// este mismo antes de llegar aqui).
+			int parentSortID = -1;
+			if (pListData->pParent != NULL)
+				parentSortID = pListData->pParent->SortID;
+
+			// Fallback defensivo: si por alguna razon pParent es NULL
+			// (sub-item huérfano de una version vieja del binario,
+			// por ejemplo), recurrimos al LastParentItemID legacy.
+			if (parentSortID < 0)
+				parentSortID = LastParentItemID;
+
+			if (parentSortID >= 0)
+				StrItemText = mTaskList.GetItemText(parentSortID, nCol);
+
+			// Si el padre tampoco tiene texto (caso raro, primer tick
+			// tras expandir antes de que llegue datos reales), usamos
+			// defaults para no dejar "".
+			if (StrItemText.IsEmpty())
+			{
+				switch (nCol)
+				{
+				case PROCLIST_CPU:     StrItemText = L"0%"; break;
+				case PROCLIST_MEMORY:  StrItemText = theApp.AppSettings.ProcList_MemPercents ? L"0%" : L"0 MB"; break;
+				case PROCLIST_DISK:    StrItemText = L"0 MB/s"; break;
+				case PROCLIST_NETWORK: StrItemText = L"0 KB/s"; break;
+				default: break;
+				}
+			}
+			mTaskList.SetItemText(i, nCol, StrItemText);
+		}
+		pListData->SortID = i;
+	}
 	mTaskList.SortItems(Sort_Processes, nCol);
 
 
@@ -2607,8 +2860,13 @@ void CPageProcesses::_RemoveGroupTitle(void)
 		for(int i=nCount-1;i>=0;i--)  //�Ӻ�ɾ����ֹ�кű仯��ɵ��鷳
 		{
 			APPLISTDATA *pListData = (APPLISTDATA *)mTaskList.GetItemData(i);
-			if(pListData->pPData ==NULL)
+			if(pListData && pListData->pPData ==NULL)
 			{
+				// NO hacer delete aqui: OnLvnDeleteitem en
+				// CoolListCtrl.cpp YA libera el APPLISTDATA cuando
+				// CListCtrl emite LVN_DELETEITEM. Hacer delete
+				// aqui seria double-free (STATUS_HEAP_CORRUPTION
+				// 0xc0000374).
 				mTaskList.DeleteItem(i);  //�����Զ�ɾ��
 
 			}

@@ -34,6 +34,20 @@ typedef  struct  CoolListData
 	// que hace el taskmgr nativo de Win10: lista plana + indentacion.
 	int  IndentLevel;
 
+	// FIX T5: puntero al APPLISTDATA padre (solo valido cuando
+	// SubType == SUB_ITEM). Permite que ReSort() copie el texto de las
+	// columnas numericas desde el padre REAL de cada sub-item, no desde
+	// el ultimo PARENT_ITEM_OPEN visto en el recorrido (que era la causa
+	// raiz del bug: LastParentItemID podia apuntar al padre equivocado
+	// o a -1 si un sub-item aparecia antes que cualquier POpen).
+	//
+	// NOTA: usamos "struct CoolListData *" en lugar de "APPLISTDATA *"
+	// porque el typedef todavia no esta disponible dentro del propio
+	// struct (C++ no permite autoreferenciar el typedef, pero SI el
+	// nombre del struct). APPLISTDATA == CoolListData por el typedef
+	// de la linea siguiente, asi que el cast es identico en runtime.
+	struct CoolListData *pParent;
+
 }COOLLISTDATA,APPLISTDATA,USERLISTDATA;
 
 
