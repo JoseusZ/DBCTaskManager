@@ -135,6 +135,20 @@ public:
 	void UpdateSimpleList(void);
 	BOOL SimpleListSortEnable;
 	NOTIFYICONDATA mNotifyIconData;
+
+	// Ultimo nivel de icono de bandeja aplicado (0..11). Se usa para evitar
+	// llamar Shell_NotifyIcon(NIM_MODIFY) si el nivel no ha cambiado desde
+	// la ultima actualizacion. -1 = aun no asignado (fuerza el primer set).
+	INT mLastTrayCpuLevel;
+
+	// Cache del ultimo tooltip aplicado (4 metricas: CPU/Mem/Disk/Net como
+	// enteros %). Evita llamar Shell_NotifyIcon(NIM_MODIFY) por cada WM_MOUSEMOVE
+	// sobre el icono (que genera decenas de mensajes por segundo).
+	INT mLastTipCpu;
+	INT mLastTipMem;
+	INT mLastTipDisk;
+	INT mLastTipNet;
+
 	void _HICONFromCBitmap(CBitmap& bitmap,HICON *phIcon);
 	afx_msg void OnNcDestroy();
 	

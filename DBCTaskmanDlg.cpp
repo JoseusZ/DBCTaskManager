@@ -34,19 +34,19 @@
 
 
 
-//Simple list ÅÅÐòµÄ»Øµ÷º¯Êý   
+//Simple list ï¿½ï¿½ï¿½ï¿½Ä»Øµï¿½ï¿½ï¿½ï¿½ï¿½   
 int CALLBACK SortFuncSimpleList(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)  
 {  
-	int result;     //·µ»ØÖµ   
+	int result;     //ï¿½ï¿½ï¿½ï¿½Öµ   
 
 	PROCLISTDATA* pAnalysis1= NULL;
 	PROCLISTDATA* pAnalysis2 =NULL;  
 
-	//Á½ÐÐµÄ²ÎÊý£¬ÓÃÓÚ±È½Ï   
+	//ï¿½ï¿½ï¿½ÐµÄ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú±È½ï¿½   
 	pAnalysis1 = (PROCLISTDATA*)lParam1;  
 	pAnalysis2 = (PROCLISTDATA*)lParam2;  
 
-	//ÅÅÐò   
+	//ï¿½ï¿½ï¿½ï¿½   
 	if(lParamSort==0)
 	{
 		result = wcscmp(pAnalysis1->Description, pAnalysis2->Description);  
@@ -96,7 +96,7 @@ static UINT Thread_DeleteData(LPVOID pParam)
 
 	if(pData == NULL) return -1; //
 
-	Sleep(0); //¶ÌÔÝ¹ÒÆðÈÃÈÎºÎ¹ÒÆðµÄÖ÷Ïß³ÌÏûÏ¢´¦ÀíÍê³É,È»ºóÁ¢¼´É¾³ý(±ÜÃâ³¤Ê±¼äÐü¿ÕÖ¸Õë)
+	Sleep(0); //ï¿½ï¿½ï¿½Ý¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÎºÎ¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,È»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½(ï¿½ï¿½ï¿½â³¤Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½)
 	
 
 	delete  pData ;
@@ -174,15 +174,20 @@ static UINT Thread_ListTask(LPVOID pParam)
 
 CDBCTaskmanDlg::CDBCTaskmanDlg(CWnd* pParent /*=NULL*/)
 : CDialog(CDBCTaskmanDlg::IDD, pParent)
-,pPageProcesses(NULL)   
-,pPagePerformance(NULL) 
-,pPageDetails(NULL) 
-,pPageServices(NULL) 
-,pPageUsers(NULL) 
+,pPageProcesses(NULL)
+,pPagePerformance(NULL)
+,pPageDetails(NULL)
+,pPageServices(NULL)
+,pPageUsers(NULL)
 , pMainMenu(NULL)
 , FirstShow(TRUE)
 , SimpleListSortEnable(TRUE)
 , pPageStartup(NULL)
+, mLastTrayCpuLevel(-1)
+, mLastTipCpu(-1)
+, mLastTipMem(-1)
+, mLastTipDisk(-1)
+, mLastTipNet(-1)
 {
 
 	CString   ExeFullPath;
@@ -391,10 +396,10 @@ void CDBCTaskmanDlg::PlaceAllCtrl(void)
 	rc.top=rcTab.Height()+3;
 
 
-	//Î´ÆôÓÃÖ÷Ìâ ¶¥²¿ÏÂÒÆ£¡
+	//Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ£ï¿½
 	if(!theApp.FlagThemeActive)  rc.top+=15;
 
-	if(theApp.FlagSummaryView)//¾«¼òÄ£Ê½ÏÂÖ±½Ó³äÂú´°¿Ú
+	if(theApp.FlagSummaryView)//ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½Ö±ï¿½Ó³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{
 		rc.top = 0;
 	}
@@ -453,7 +458,7 @@ void CDBCTaskmanDlg::PlaceAllCtrl(void)
 	}
 
 
-	//±£Ö¤²»³öË®Æ½¹ö¶¯Ìõ
+	//ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½Ë®Æ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	mSimpleTaskList.SetColumnWidth(0,rc.Width()-4-ScrollBarWidth);
 	mSimpleTaskList.SetColumnWidth(1,0);
 	mSimpleTaskList.SetColumnWidth(2,0);
@@ -535,7 +540,7 @@ void CDBCTaskmanDlg::InitAll(void)
 
 
 	theApp.pButtonFOM = & mBtnFewerOrMore;
-	mBtnFewerOrMore.Type = 1; //Çø±ð°´Å¥ÖÖÀàÕâ¸ö´ú±íÊÇ Fewer details  /More Details  ÇÐ»»°´Å¥
+	mBtnFewerOrMore.Type = 1; //ï¿½ï¿½ï¿½ï¿½Å¥ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Fewer details  /More Details  ï¿½Ð»ï¿½ï¿½ï¿½Å¥
 
 
 
@@ -546,7 +551,7 @@ void CDBCTaskmanDlg::InitAll(void)
 
 
 
-	//----------Install Hook Î´Ê¹ÓÃ£¡£¡£¡£¡ ---------------
+	//----------Install Hook Î´Ê¹ï¿½Ã£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ---------------
 	//HMODULE hModuleHook = LoadLibrary(L"DBCTaskmgr.dll"); 
 
 	//if(hModuleHook ==NULL)
@@ -571,14 +576,14 @@ void CDBCTaskmanDlg::InitAll(void)
 
 
 
-	//User Í¼±ê
+	//User Í¼ï¿½ï¿½
 	HICON hIcon;
 	::ExtractIconEx(L"imageres.dll",207,NULL,&hIcon,1);  
 
 	if(hIcon)
 	{
 		theApp.mImagelistNormal.Create(16,16,ILC_COLOR32,1,1);
-		theApp.mImagelistNormal.Add(hIcon);  //User Í¼±ê
+		theApp.mImagelistNormal.Add(hIcon);  //User Í¼ï¿½ï¿½
 		::DestroyIcon(hIcon);
 	}
 
@@ -613,14 +618,14 @@ void CDBCTaskmanDlg::InitAll(void)
 
 
 
-	//±ØÐëÔÚ´Ë´¦ ³õÊ¼»¯ ·ñÔò´°¿Ú»¹Ã»Íê³É´´½¨ 
+	//ï¿½ï¿½ï¿½ï¿½ï¿½Ú´Ë´ï¿½ ï¿½ï¿½Ê¼ï¿½ï¿½ ï¿½ï¿½ï¿½ò´°¿Ú»ï¿½Ã»ï¿½ï¿½É´ï¿½ï¿½ï¿½ 
 
 
 	pPageDetails->pServiceView = pPageServices;
 
 	
-	pPageDetails->pTaskList = & pPageProcesses->mTaskList;	//Ô¤ÏÈ¸³Öµ ±ÜÃâ ³õÊ¼»¯³ö´í	 ³õÊ¼Ê±pPageDetailsÏòÆä·¢ËÍÏûÏ¢
-	pPageDetails->InitList();//Ðí¶àÆäËûÁÐ±í »ùÓÚ pPageDetails  ÁÐ±íË÷ÒýÕâ¸öÏÈ³õÊ¼»¯
+	pPageDetails->pTaskList = & pPageProcesses->mTaskList;	//Ô¤ï¿½È¸ï¿½Öµ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½	 ï¿½ï¿½Ê¼Ê±pPageDetailsï¿½ï¿½ï¿½ä·¢ï¿½ï¿½ï¿½ï¿½Ï¢
+	pPageDetails->InitList();//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ ï¿½ï¿½ï¿½ï¿½ pPageDetails  ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È³ï¿½Ê¼ï¿½ï¿½
 
 	pPageProcesses->pPageDetails = pPageDetails;  
 	pPageProcesses->InitList();
@@ -636,13 +641,13 @@ void CDBCTaskmanDlg::InitAll(void)
 
 
 
-	//---------- ¼òÒ×ÁÐ±í------------
+	//---------- ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½------------
 
 
 	mSimpleTaskList.SetExtendedStyle( mSimpleTaskList.GetExtendedStyle()|LVS_EX_FULLROWSELECT| LVS_OWNERDRAWFIXED|LVS_EX_DOUBLEBUFFER   );  //| LVS_EX_GRIDLINES |LVS_EX_CHECKBOXES /
 	mSimpleTaskList.InsertColumn(0,L"TaskName",0);
-	mSimpleTaskList.InsertColumn(1,L"Status",0) ;//´ËÁÐ²»ÏÔÊ¾ ÓÃÓÚ±£´æ½ø³Ì×´Ì¬
-	mSimpleTaskList.InsertColumn(2,L"Win",0) ;//´ËÁÐ²»ÏÔÊ¾ ÓÃÓÚ±£´æ´°¿Ú¿É¼û
+	mSimpleTaskList.InsertColumn(1,L"Status",0) ;//ï¿½ï¿½ï¿½Ð²ï¿½ï¿½ï¿½Ê¾ ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
+	mSimpleTaskList.InsertColumn(2,L"Win",0) ;//ï¿½ï¿½ï¿½Ð²ï¿½ï¿½ï¿½Ê¾ ï¿½ï¿½ï¿½Ú±ï¿½ï¿½æ´°ï¿½Ú¿É¼ï¿½
 
 
 
@@ -674,7 +679,7 @@ void CDBCTaskmanDlg::InitAll(void)
 
 
 
-	//--------------´¥·¢Êµ¼Ê¶¯×÷---------- 
+	//--------------ï¿½ï¿½ï¿½ï¿½Êµï¿½Ê¶ï¿½ï¿½ï¿½---------- 
 	NMHDR nmhdr; 
 	nmhdr.code = TCN_SELCHANGE;  
 	nmhdr.hwndFrom = mTab.GetSafeHwnd();  
@@ -682,11 +687,11 @@ void CDBCTaskmanDlg::InitAll(void)
 	::SendMessage(mTab.GetSafeHwnd(), WM_NOTIFY,MAKELONG(TCN_SELCHANGE,0), (LPARAM)(&nmhdr));
 
 
-	//---------------------ÐÔÄÜ¼àÊÓ---------------------
+	//---------------------ï¿½ï¿½ï¿½Ü¼ï¿½ï¿½ï¿½---------------------
 
 
 
-	//mPerformanceMon.Init(); //Âý£¡£¡£¡·ÅÈë¶ÀÁ¢Ïß³Ì£¡£¡£¡
+	//mPerformanceMon.Init(); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß³Ì£ï¿½ï¿½ï¿½ï¿½ï¿½
 	AfxBeginThread(Thread_InitPerformanceMon,this);
 
 
@@ -708,7 +713,7 @@ void CDBCTaskmanDlg::InitAll(void)
 
 	//--------------------------------
 
-	this->SetTimer(0,(UINT)((double)theApp.AppSettings.TimerStep*1000.0),NULL); //Ö÷Òâ£ºÒ»¶¨ÒªÔÚ³Ë1000Ö®ºóÔÙ×ªÎªUINT ·ñÔòµ±TimerStep ==0.5Ê±  »á±äÎª0
+	this->SetTimer(0,(UINT)((double)theApp.AppSettings.TimerStep*1000.0),NULL); //ï¿½ï¿½ï¿½â£ºÒ»ï¿½ï¿½Òªï¿½Ú³ï¿½1000Ö®ï¿½ï¿½ï¿½ï¿½×ªÎªUINT ï¿½ï¿½ï¿½ï¿½TimerStep ==0.5Ê±  ï¿½ï¿½ï¿½Îª0
 
 
 	if((double)theApp.AppSettings.TimerStep == 0.5)
@@ -741,16 +746,11 @@ void CDBCTaskmanDlg::OnTimer(UINT_PTR nIDEvent)
 
 	int Sec = (int)theApp.UpTimeSec;
 
-	// Cambio D: throttle SetTrayIcon(NIM_MODIFY) to every 3 seconds. Each call
-	// allocates a 16x16 memory DC + bitmap, draws 14 CPU bars, converts to
-	// HICON, and issues a Shell_NotifyIcon syscall. Updating the tray icon at
-	// >1Hz is imperceptible to the user, but is one of the heaviest single
-	// idle-time consumers in this code path. Pattern mirrors TestHungProcess
-	// (below) so both idle-time work items share the same modulus style.
-	if(Sec % 3 == 0)
-	{
-		SetTrayIcon(NIM_MODIFY);
-	}
+	// FIX: ya no hace falta throttlear a 3s. Antes era obligatorio porque
+	// cada llamada pintaba 14 barras con GDI y allocaba un HICON. Ahora
+	// SetTrayIcon solo hace LoadIcon + Shell_NotifyIcon cuando el nivel
+	// de CPU realmente cambia (ver mLastTrayCpuLevel en SetTrayIcon).
+	SetTrayIcon(NIM_MODIFY);
 
 	UpdateUpTime();
 
@@ -761,7 +761,7 @@ void CDBCTaskmanDlg::OnTimer(UINT_PTR nIDEvent)
 
 	if(theApp.StartPerformancePageTimer)
 	{
-		pPagePerformance->pViewBox->OnUMTimer(0,0);  // ÐÔÄÜÒ³×Ü¸üÐÂ
+		pPagePerformance->pViewBox->OnUMTimer(0,0);  // ï¿½ï¿½ï¿½ï¿½Ò³ï¿½Ü¸ï¿½ï¿½ï¿½
 		
 	}
 
@@ -813,28 +813,28 @@ BOOL CDBCTaskmanDlg::PreTranslateMessage(MSG* pMsg)
 			break; 
 		}
 		break; 	
-	//----------------ÇÐ»»»ù±¾ /¸ß¼¶ Ä£Ê½----------------
+	//----------------ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½ /ï¿½ß¼ï¿½ Ä£Ê½----------------
 	case UM_TOGGLE_TMMODE:  
 
 		mTab.IsWindowVisible() ? _SetToSimpleMode():_SetToAdvanceMode();		 
 
 		break; 
 
-		//----------------Ìí¼Óµ½simple list----------------
+		//----------------ï¿½ï¿½ï¿½Óµï¿½simple list----------------
 	case UM_ADD_PROC_SIMPEL_LIST:
 		
 		AddToSimpleList((PROCLISTDATA * )pMsg->lParam);
 
 		break; 	
 
-		//----------------´Ósimple listÉ¾³ý--------------------------
+		//----------------ï¿½ï¿½simple listÉ¾ï¿½ï¿½--------------------------
 	case UM_PROCEXIT: 
 			
 		DeleteFromSimpleList((PROCLISTDATA * )pMsg->lParam);
 
 		break; 	
 
-		//--------------------------ÇÐ»»¾«¼òÍ¼Ä£Ê½-----------------------
+		//--------------------------ï¿½Ð»ï¿½ï¿½ï¿½ï¿½ï¿½Í¼Ä£Ê½-----------------------
 	case  UM_SUMMARYVIEW:  
 
 		int ShowWndFlag;
@@ -856,13 +856,13 @@ BOOL CDBCTaskmanDlg::PreTranslateMessage(MSG* pMsg)
 		}
 
 
-		//theApp.FlagSummaryView Í³Ò»±»¸Ä±äÎÞÂÛÄÄ¸ö²¿·ÖÕªÒªÏÔÊ¾  theApp.FlagSummaryView ¿ÉÓÃ×öÔÚSummarymodeÏÂÌØÊâ´¦ÀíÊ±ÅÐ¶Ï±êÖ¾
+		//theApp.FlagSummaryView Í³Ò»ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½ÕªÒªï¿½ï¿½Ê¾  theApp.FlagSummaryView ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Summarymodeï¿½ï¿½ï¿½ï¿½ï¿½â´¦ï¿½ï¿½Ê±ï¿½Ð¶Ï±ï¿½Ö¾
 
 		if((CPerformanceBox *)pMsg->wParam == pPagePerformance->pViewBox)
 		{
 			pPagePerformance->pViewBox->mPItemList.ShowWindow(ShowWndFlag);
 		}
-		else if((CPItemList *)pMsg->wParam == (&pPagePerformance->pViewBox->mPItemList))  //ÐÔÄÜÀà±ðÁÐ±í
+		else if((CPItemList *)pMsg->wParam == (&pPagePerformance->pViewBox->mPItemList))  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½
 		{
 			pPagePerformance->pViewBox->ShowWindow(ShowWndFlag);
 			CRect rc;
@@ -1091,7 +1091,7 @@ int CDBCTaskmanDlg::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	// TODO:  Add your specialized creation code here
 
-   //ÉèÖÃ²éÕÒ±ê¼Ç¡£ 
+   //ï¿½ï¿½ï¿½Ã²ï¿½ï¿½Ò±ï¿½Ç¡ï¿½ 
 	::SetProp(this->m_hWnd,L"DBC_TASKMAN_001",(HANDLE)1); 
 
 	InitPages();
@@ -1232,7 +1232,7 @@ void CDBCTaskmanDlg::InitPages(void)
 
 
 
-	//³õÊ¼»¯pSelPage  ·ñÔò×î³õÅÅÐò »áÓÐÎÊÌâ£¡£¡£¡£¡£¡£¡£¡£¡
+	//ï¿½ï¿½Ê¼ï¿½ï¿½pSelPage  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	switch(theApp.AppSettings.ActiveTab)
 	{
@@ -1325,7 +1325,7 @@ void CDBCTaskmanDlg::UpdateUpTime(void)
 
 
 
-void CDBCTaskmanDlg::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysMenu)  //¶¯Ì¬ÐÞ¸Ä²Ëµ¥  ON_WM_INITMENUPOPUP () ÎªÏàÓ¦ÏûÏ¢
+void CDBCTaskmanDlg::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysMenu)  //ï¿½ï¿½Ì¬ï¿½Þ¸Ä²Ëµï¿½  ON_WM_INITMENUPOPUP () Îªï¿½ï¿½Ó¦ï¿½ï¿½Ï¢
 {
 	CDialog::OnInitMenuPopup(pPopupMenu, nIndex, bSysMenu);
 
@@ -1362,7 +1362,7 @@ void CDBCTaskmanDlg::OnInitMenuPopup(CMenu* pPopupMenu, UINT nIndex, BOOL bSysMe
 	Flag = (nTabSel==0)? MF_ENABLED:MF_DISABLED|MF_GRAYED;
 	pPopupMenu->EnableMenuItem(ID_VIEW_GROUPBYTYPE,Flag|MF_BYCOMMAND );
 	APPLISTDATA *pData =  NULL;
-	pData = (APPLISTDATA *) pPageProcesses->mTaskList.GetItemData(0);//ÓÐ·Ö×éÊ±ºò,µÚ0ÏîÊÇ·Ö×é±êÌâ
+	pData = (APPLISTDATA *) pPageProcesses->mTaskList.GetItemData(0);//ï¿½Ð·ï¿½ï¿½ï¿½Ê±ï¿½ï¿½,ï¿½ï¿½0ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if(pData!=NULL)
 	{
 		Flag = (pData->SubType == -1)?MF_CHECKED:MF_UNCHECKED;
@@ -1525,16 +1525,16 @@ void CDBCTaskmanDlg::OnMM_FileRunNewTask()
 {
 
 	/************************************************************************************** 
-	* º¯ÊýÃû³Æ : ShowMyRunDlg(...) 
-	* ¹¦ÄÜÃèÊö : ÏÔÊ¾¶¨ÖÆµÄÔËÐÐ¶Ô»°¿ò 
-	* Èë  ²Î   : HWND   hWndOwner,        //ËùÓÐÕß´°¿Ú¾ä±ú 
-	HICON  hIcon,            //ÒªÏÔÊ¾µÄÍ¼±ê¾ä±ú 
-	PTCHAR pszDirectory,     //¡°ä¯ÀÀ¡±°´Å¥µÄÄ¿Â¼£¬¸ÃÄ¿Â¼ÏÂµÄÎÄ¼þ¿ÉÊ¡ÂÔÂ·¾¶ 
-	PTCHAR pszTitle,         //´°¿Ú±êÌâµÄÎÄ×Ö 
-	PTCHAR pszDescription,   //´°¿ÚÉÏµÄÎÄ±¾ÃèÊö 
-	UINT   nFlags            //ÑùÊ½ 
+	* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ : ShowMyRunDlg(...) 
+	* ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ : ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½Ð¶Ô»ï¿½ï¿½ï¿½ 
+	* ï¿½ï¿½  ï¿½ï¿½   : HWND   hWndOwner,        //ï¿½ï¿½ï¿½ï¿½ï¿½ß´ï¿½ï¿½Ú¾ï¿½ï¿½ 
+	HICON  hIcon,            //Òªï¿½ï¿½Ê¾ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ 
+	PTCHAR pszDirectory,     //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å¥ï¿½ï¿½Ä¿Â¼ï¿½ï¿½ï¿½ï¿½Ä¿Â¼ï¿½Âµï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ê¡ï¿½ï¿½Â·ï¿½ï¿½ 
+	PTCHAR pszTitle,         //ï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
+	PTCHAR pszDescription,   //ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½ï¿½ 
+	UINT   nFlags            //ï¿½ï¿½Ê½ 
 
-	* ´¦ÀíËµÃ÷ : ÏÔÊ¾¶¨ÖÆµÄÔËÐÐ¶Ô»°¿ò 
+	* ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ : ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ï¿½Ð¶Ô»ï¿½ï¿½ï¿½ 
 	*************************************************************************************/ 
 
 	typedef void (CALLBACK *lpfnRunDlg)(HWND, HICON, PTCHAR, PTCHAR, PTCHAR, UINT);  
@@ -1630,7 +1630,7 @@ void CDBCTaskmanDlg::_SetToSimpleMode(BOOL SaveWndPos)
 	theApp.pSelPage->ShowWindow(SW_HIDE);
 	mBtnFewerOrMore.SetParent(this);			
 	this->SetMenu(NULL);
-	theApp.AppSettings.TaskManMode = 0;//¾«¼òÄ£Ê½
+	theApp.AppSettings.TaskManMode = 0;//ï¿½ï¿½ï¿½ï¿½Ä£Ê½
 	mSimpleTaskList.ShowWindow(SW_SHOW);
 	this->Invalidate();
 
@@ -1677,7 +1677,7 @@ void CDBCTaskmanDlg::_SetToAdvanceMode(BOOL SaveWndPos)
 
 	mBtnFewerOrMore.SetParent(theApp.pSelPage);
 	SetMenu(pMainMenu);
-	theApp.AppSettings.TaskManMode = 1;//¸ß¼¶Ä£Ê½
+	theApp.AppSettings.TaskManMode = 1;//ï¿½ß¼ï¿½Ä£Ê½
 	theApp.pSelPage->PostMessageW(WM_SIZE);
 	theApp.pSelPage->ShowWindow(SW_SHOW);
 
@@ -1724,7 +1724,7 @@ void CDBCTaskmanDlg::DeleteProcessItem(PROCLISTDATA * pDetailsListData)
 	while(1)
 	{
 		pThisListData = (PROCLISTDATA * ) mSimpleTaskList.GetItemData(nID);
-		if(pThisListData == NULL){break;} //´ú±íÁÐ±í±éÀúÍê³É
+		if(pThisListData == NULL){break;} //ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		if(pDetailsListData == NULL){nID++; continue;}
 		if(pDetailsListData->PID == pThisListData->PID)
 		{	
@@ -1746,7 +1746,7 @@ void CDBCTaskmanDlg::OnNMRClickSimpletaskList(NMHDR *pNMHDR, LRESULT *pResult)
 	CMenu PopMenu;
 	CMenu *pMenu;
 	PopMenu.LoadMenuW(MAKEINTRESOURCE( IDR_POPMENU_BASE) );
-	pMenu = PopMenu.GetSubMenu(7);  //ÊÇ Õâ¸ö ¶ÔÓ¦µÄ ²Ëµ¥ ºÍ±êÇ©Ë³Ðò¶ÔÓ¦
+	pMenu = PopMenu.GetSubMenu(7);  //ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½Ó¦ï¿½ï¿½ ï¿½Ëµï¿½ ï¿½Í±ï¿½Ç©Ë³ï¿½ï¿½ï¿½Ó¦
 
 	CPoint CurPos ;
 	GetCursorPos(&CurPos); 
@@ -1772,7 +1772,7 @@ void CDBCTaskmanDlg::OnPop_SimplelistSwitchTo()
 	DWORD PID = pData->PID;
 
 
-	//±¾½ø³Ì 
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
 	if(theApp.CurrentPID == PID)
 	{
 		theApp.m_pMainWnd->FlashWindow(0);
@@ -1857,7 +1857,7 @@ void CDBCTaskmanDlg::TestHungProcess(void)
 			{
 				map<CWnd*,int>::iterator Iter= HungWndMap.find(pAppWnd); 
 
-				if(Iter == HungWndMap.end())//²»´æÔÚÓÚÎÞÏìÓ¦´°¿ÚÁÐ±í 
+				if(Iter == HungWndMap.end())//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ 
 				{
 					GetWindowThreadProcessId(pAppWnd->m_hWnd,&WindowPID);
 					pPageDetails->SetProcessStatusInfo(WindowPID,PS_NOTRESPONDING);
@@ -1875,7 +1875,7 @@ void CDBCTaskmanDlg::TestHungProcess(void)
 
 	}
 
-	//°üÀ¨Á½¸öÊý¾Ý iterator->first ºÍ iterator->second ·Ö±ð´ú±í¹Ø¼ü×ÖºÍ´æ´¢µÄÊý¾Ý
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ iterator->first ï¿½ï¿½ iterator->second ï¿½Ö±ï¿½ï¿½ï¿½ï¿½ï¿½Ø¼ï¿½ï¿½ÖºÍ´æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 
 	for (map<CWnd*,int>::iterator i=HungWndMap.begin(); i!=HungWndMap.end();  i++ ) 
@@ -2030,14 +2030,14 @@ void CDBCTaskmanDlg::UpdateSimpleList(void)
 {
 
 
-	SimpleListSortEnable = FALSE;//ÔÝÊ±½ûÖ¹ÅÅÐò Ìí¼ÓÊ±»á½«ÐÄÏîÌí¼Óµ½×îºó ·ÀÖ¹map»ìÂÒ£¡£¡£¡£¡
+	SimpleListSortEnable = FALSE;//ï¿½ï¿½Ê±ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ê±ï¿½á½«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Ö¹mapï¿½ï¿½ï¿½Ò£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	CWnd *pDeskTop=CWnd::GetDesktopWindow();
 
 	CWnd  *pAppWnd = pDeskTop->GetWindow(GW_CHILD);
 	DWORD WindowPID ;
 
-	map<int,int> PIDList ;  //<PID,´ËÊ±ÔÚÁÐ±íÖÐµÄÐòºÅ>
+	map<int,int> PIDList ;  //<PID,ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ð±ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½>
 
 	int n =mSimpleTaskList.GetItemCount();
 	PROCLISTDATA *pData =  NULL;
@@ -2058,13 +2058,13 @@ void CDBCTaskmanDlg::UpdateSimpleList(void)
 
 		if(  !(pAppWnd->GetExStyle()&WS_EX_TOOLWINDOW)   )  //      WS_CAPTION    pAppWnd->IsWindowVisible() &&
 		{
-			GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID); // »ñµÃÕÒµ½´°¿ÚËùÊôµÄ½ø³Ì 
+			GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID); // ï¿½ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä½ï¿½ï¿½ï¿½ 
 
 
 			map<int,int>::iterator Iter= PIDList.find(WindowPID); 
-			if(Iter == PIDList.end())//²»´æÔÚÓÚÁÐ±í ÔòÌí¼Ó
+			if(Iter == PIDList.end())//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			{					
-				if( pAppWnd->IsWindowVisible()  )//¿É¼û
+				if( pAppWnd->IsWindowVisible()  )//ï¿½É¼ï¿½
 				{
 					n=pPageDetails->mDetailsList.GetItemCount();
 					for(int i = 0;i<n;i++)
@@ -2079,10 +2079,10 @@ void CDBCTaskmanDlg::UpdateSimpleList(void)
 				}
 
 			}
-			else//´æÔÚÓÚÁÐ±í  
+			else//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½  
 			{
-				if( pAppWnd->IsWindowVisible() )//¿É¼û
-					mSimpleTaskList.SetItemText(Iter->second,2,L"VISIBLE"); //±ê¼ÇÎªÉ¾³ý ´ËÊ±²»ÒªÉ¾³ý·ÀÖ¹mapÖÐÐòºÅ´íÂÒ
+				if( pAppWnd->IsWindowVisible() )//ï¿½É¼ï¿½
+					mSimpleTaskList.SetItemText(Iter->second,2,L"VISIBLE"); //ï¿½ï¿½ï¿½ÎªÉ¾ï¿½ï¿½ ï¿½ï¿½Ê±ï¿½ï¿½ÒªÉ¾ï¿½ï¿½ï¿½ï¿½Ö¹mapï¿½ï¿½ï¿½ï¿½Å´ï¿½ï¿½ï¿½
 			}
 
 
@@ -2093,7 +2093,7 @@ void CDBCTaskmanDlg::UpdateSimpleList(void)
 
 
 
-	//¿ªÊ¼Êµ¼ÊÉ¾³ý´ÓºóÏòÇ°É¾
+	//ï¿½ï¿½Ê¼Êµï¿½ï¿½É¾ï¿½ï¿½ï¿½Óºï¿½ï¿½ï¿½Ç°É¾
 	n =mSimpleTaskList.GetItemCount(); 
 	CString StrMark;
 	for(int i=n-1;i>=0;i--)
@@ -2131,7 +2131,7 @@ void CDBCTaskmanDlg::_HICONFromCBitmap(CBitmap& bitmap,HICON *phIcon)
 	ICONINFO ii = {0};ii.fIcon = TRUE;
 	ii.hbmColor = bitmap; 
 	ii.hbmMask = hbmMask; 	 
-	*phIcon= ::CreateIconIndirect(&ii);//Ò»µ©²»ÔÙÐèÒª£¬×¢ÒâÓÃDestroyIconº¯ÊýÊÍ·ÅÕ¼ÓÃµÄÄÚ´æ¼°×ÊÔ´  
+	*phIcon= ::CreateIconIndirect(&ii);//Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½×¢ï¿½ï¿½ï¿½ï¿½DestroyIconï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½Õ¼ï¿½Ãµï¿½ï¿½Ú´æ¼°ï¿½ï¿½Ô´  
 	::DeleteObject(hbmMask);  
 	::DeleteDC(dc); 
 
@@ -2161,81 +2161,51 @@ void CDBCTaskmanDlg::OnNcDestroy()
 
 void CDBCTaskmanDlg::SetTrayIcon(DWORD Message)
 {
+	
 
-
-	CDC *pDC = this->GetDC();
-	CDC MemDC;//ÄÚ´æID±í  
-	CBitmap MemMap;
-	MemDC.CreateCompatibleDC(pDC); 
-	MemMap.CreateCompatibleBitmap(pDC,16,16);
-	MemDC.SelectObject(&MemMap);
-	MemDC.FillSolidRect(0,0,16,16,RGB(255,255,255));
-
-	CRect rcBar(1,0,2,16);
-
-	//MemDC.FillSolidRect(rcBar,RGB(99,99,rand()%255));
-
-	if(pPagePerformance!=NULL)
+	if(Message == NIM_ADD)
 	{
-		if(pPagePerformance->pViewBox!=NULL)
-		{
-			if(pPagePerformance->pViewBox->pTotalCpuBox!=NULL)
-			{
-				for(int x=0;x<14;x++)
-				{
-					//MSB(0)
-					rcBar.top = rcBar.bottom-(LONG)(16*(pPagePerformance->pViewBox->pTotalCpuBox->Num[0][61-14+x]))-1;
-					MemDC.FillSolidRect(rcBar,theApp.AppSettings.CpuColor.BorderColor);
-					rcBar.OffsetRect(1,0);
-
-				}
-			}
-		}
-	}
-
-
-	MemDC.Draw3dRect(0,0,16,16,RGB(99,99,99),RGB(99,99,99));
-
-
-	//----------------------
-
-	//	HICON hNotifyIcon = _HICONFromCBitmap(MemMap);
-
-
-
-	if(Message == NIM_ADD) //±ä»¯Í¼±ê ²»ÐèÒªµÄ²Ù×÷
-	{
-		mNotifyIconData.uVersion= NOTIFYICON_VERSION_4;		
-		mNotifyIconData.cbSize = sizeof(NOTIFYICONDATA); 	
-		mNotifyIconData.hWnd = theApp.m_pMainWnd->GetSafeHwnd();//½ÓÊÕÍÐÅÌÍ¼±êÍ¨ÖªÏûÏ¢µÄ´°¿Ú¾ä±ú
-		mNotifyIconData.uCallbackMessage = UM_NOTIFYICON;                //Ó¦ÓÃ³ÌÐò¶¨ÒåµÄÏûÏ¢IDºÅ
-		mNotifyIconData.uFlags = NIF_MESSAGE|NIF_ICON|NIIF_INFO|NIIF_USER ;               //Í¼±êµÄÊôÐÔ£ºÉèÖÃ³ÉÔ±uCallbackMessage¡¢hIcon¡¢szTipÓÐÐ§
-		StringCchCopy(mNotifyIconData.szTip,128,L"DBC Task Manager");
+		mNotifyIconData.uVersion  = NOTIFYICON_VERSION_4;		
+		mNotifyIconData.cbSize    = sizeof(NOTIFYICONDATA); 	
+		mNotifyIconData.hWnd = theApp.m_pMainWnd->GetSafeHwnd();//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½Í¨Öªï¿½ï¿½Ï¢ï¿½Ä´ï¿½ï¿½Ú¾ï¿½ï¿½
+		mNotifyIconData.uCallbackMessage = UM_NOTIFYICON;                //Ó¦ï¿½Ã³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢IDï¿½ï¿½
+		mNotifyIconData.uFlags    = NIF_MESSAGE | NIF_ICON | NIF_TIP;               //Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô£ï¿½ï¿½ï¿½ï¿½Ã³ï¿½Ô±uCallbackMessageï¿½ï¿½hIconï¿½ï¿½szTipï¿½ï¿½Ð§
+		StringCchCopy(mNotifyIconData.szTip, 128, L"DBC Task Manager");
+		mLastTrayCpuLevel = -1; // forzar icono en este primer NIM_ADD
 	
 	}
 
 
 
 
-	_HICONFromCBitmap(MemMap,&mNotifyIconData.hIcon);
-	::Shell_NotifyIcon(Message , &mNotifyIconData);
-	DestroyIcon(mNotifyIconData.hIcon );
+	// Calcular nivel de icono segun %CPU. Indice 0..11 = IconGroup127..138.
+	// LoadIcon retorna HICON shared del binario; no requiere DestroyIcon.
+	double Cpu = theApp.PerformanceInfo.CpuUsage;
+	if(Cpu < 0.0)   Cpu = 0.0;
+	if(Cpu > 100.0) Cpu = 100.0;
+	int nLevel = (int)((Cpu / 100.0) * 11.0);
+	if(nLevel < 0)  nLevel = 0;
+	if(nLevel > 11) nLevel = 11;
 
+	if(Message != NIM_ADD && nLevel == mLastTrayCpuLevel)
+	{
+		return;
+	}
 
-
-
-
-	MemDC.DeleteDC();
-	MemMap.DeleteObject();
-	pDC->DeleteDC();
-	pDC=NULL;
-
+	HICON hTray = (HICON)::LoadIcon(theApp.m_hInstance,
+		MAKEINTRESOURCE(IDI_TRAY_CPU1 + nLevel));
+	if(hTray != NULL)
+	{
+		mNotifyIconData.hIcon = hTray;
+		mLastTrayCpuLevel = nLevel;
+		::Shell_NotifyIcon(Message, &mNotifyIconData);
+	}
 }
 
 
 LRESULT CDBCTaskmanDlg::OnTrayIcon(WPARAM wParam, LPARAM lParam)
 {
-	if(lParam == WM_LBUTTONDBLCLK)   //Ë«»÷ÍÐÅÌÍ¼±ê
+	if(lParam == WM_LBUTTONDBLCLK)   
 	{
 		//Shell_NotifyIcon(NIM_DELETE,&m_nfData);
 		ShowWindow(SW_SHOWNORMAL);
@@ -2267,8 +2237,35 @@ LRESULT CDBCTaskmanDlg::OnTrayIcon(WPARAM wParam, LPARAM lParam)
 	else if(lParam == WM_MOUSEMOVE)  //M_CONTEXTMENU
 	{
 		CString StrTip;
-		StrTip.Format(L"DBC Task Manager\nCPU Usage: %.2f%%  \nMemory Usage:%.2f%%",theApp.PerformanceInfo.CpuUsage,theApp.PerformanceInfo.MemoryUsage);
-		StringCchCopy(mNotifyIconData.szTip,128,StrTip);
+		int nCpu  = (int)(theApp.PerformanceInfo.CpuUsage       + 0.5);
+		int nMem  = (int)(theApp.PerformanceInfo.MemoryUsage    + 0.5);
+		int nDisk = (int)(theApp.PerformanceInfo.TotalDiskUsage + 0.5);
+		int nNet  = (int)(theApp.PerformanceInfo.TotalNetUsage  + 0.5);
+
+		// Cache: WM_MOUSEMOVE se dispara docenas de veces por segundo cuando
+		// el cursor esta sobre el icono. Solo pedimos NIM_MODIFY si algun
+		// valor entero (ya redondeado) cambio respecto al ultimo aplicado.
+		if(nCpu == mLastTipCpu && nMem == mLastTipMem &&
+		   nDisk == mLastTipDisk && nNet == mLastTipNet)
+		{
+			return 0;
+		}
+		mLastTipCpu  = nCpu;
+		mLastTipMem  = nMem;
+		mLastTipDisk = nDisk;
+		mLastTipNet  = nNet;
+
+		StrTip.Format(
+			L"CPU     %d%%\n"
+			L"Memoria %d%%\n"
+			L"Disco   %d%%\n"
+			L"Red     %d%%",
+			nCpu, nMem, nDisk, nNet);
+		StringCchCopy(mNotifyIconData.szTip, 128, StrTip);
+		// Forzar al shell a releer el tooltip. Sin NIM_MODIFY aqui, Explorer
+		// muestra el tip cacheado desde el NIM_ADD original y nunca se actualiza.
+		mNotifyIconData.uFlags |= NIF_TIP;
+		::Shell_NotifyIcon(NIM_MODIFY, &mNotifyIconData);
 	}
 
 
@@ -2294,10 +2291,10 @@ void CDBCTaskmanDlg::OnPop_NotifyRestore()
 void CDBCTaskmanDlg::OnMM_GroupByType()
 {
 	APPLISTDATA *pData =  NULL;
-	pData = (APPLISTDATA *) pPageProcesses->mTaskList.GetItemData(0);//ÓÐ·Ö×éÊ±ºòµÚ0ÏîÊÇ·Ö×é±êÌâ
+	pData = (APPLISTDATA *) pPageProcesses->mTaskList.GetItemData(0);//ï¿½Ð·ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if(pData!=NULL)
 	{
-		if(pData->SubType == -1)//ÓÐ±êÌâ
+		if(pData->SubType == -1)//ï¿½Ð±ï¿½ï¿½ï¿½
 		{
 			theApp.AppSettings.GroupByType = FALSE;
 			pPageProcesses->_RemoveGroupTitle();
@@ -2323,7 +2320,7 @@ void CDBCTaskmanDlg::_RegisterForDevChange(void)
 	memset(&DevInt,0,sizeof(DEV_BROADCAST_DEVICEINTERFACE));
 	DevInt.dbcc_size = sizeof(DEV_BROADCAST_DEVICEINTERFACE);
 	DevInt.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
-	//DevInt.dbcc_classguid = DevGuid; //Éè±¸µÄ GUID, ²»Í¬µÄÉè±¸ÓÐ²»Í¬µÄ GUID£¬¸ù¾ÝÊµ¼ÊÇé¿öÉè¶¨
+	//DevInt.dbcc_classguid = DevGuid; //ï¿½è±¸ï¿½ï¿½ GUID, ï¿½ï¿½Í¬ï¿½ï¿½ï¿½è±¸ï¿½Ð²ï¿½Í¬ï¿½ï¿½ GUIDï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½è¶¨
 	//hDevNotify = 
 
 	//RegisterDeviceNotification(this->GetSafeHwnd(), &DevInt, DEVICE_NOTIFY_WINDOW_HANDLE);
@@ -2340,7 +2337,7 @@ LRESULT CDBCTaskmanDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 	if(message==WM_DEVICECHANGE)
 	{
-		if(wParam==DBT_DEVICEARRIVAL)//ÓÐÐÂÉè±¸²åÈëÏµÍ³ 
+		if(wParam==DBT_DEVICEARRIVAL)//ï¿½ï¿½ï¿½ï¿½ï¿½è±¸ï¿½ï¿½ï¿½ï¿½ÏµÍ³ 
 		{ 
 			int i=2;
 			int CurrentMaxDiskID = 0;
@@ -2352,7 +2349,7 @@ LRESULT CDBCTaskmanDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 				if(pData->Type == PM_ETHERNET)break;
 				if(pData->ID>CurrentMaxDiskID)
 				{
-					CurrentMaxDiskID = pData->ID; //»ñÈ¡µ±Ç°×î´óID ÓÃÓÚÈ·¶¨ÐÂÌí¼ÓµÄ´ÅÅÌID
+					CurrentMaxDiskID = pData->ID; //ï¿½ï¿½È¡ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ID ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÓµÄ´ï¿½ï¿½ï¿½ID
 				}
 				i++;
 
@@ -2386,8 +2383,8 @@ LRESULT CDBCTaskmanDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 				if(pData->Type != PM_ETHERNET) break;
 
 			
-				map<int, int>::iterator Iter = NetAdapterList.find(pData->ID); // <Íø¿¨ID,ÁÐ±íÏîÄ¿ID>
-				if(Iter != NetAdapterList.end())//´æÔÚ
+				map<int, int>::iterator Iter = NetAdapterList.find(pData->ID); // <ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ð±ï¿½ï¿½ï¿½Ä¿ID>
+				if(Iter != NetAdapterList.end())//ï¿½ï¿½ï¿½ï¿½
 				{
 					
 					Iter->second += NewAddDiskCount;
@@ -2430,14 +2427,14 @@ LRESULT CDBCTaskmanDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 				{
 					 
 					
-					map<int, int>::iterator Iter = NetAdapterList.find(pData->ID); // <Íø¿¨ID,ÁÐ±íÏîÄ¿ID>
-					if(Iter != NetAdapterList.end())//´æÔÚ
+					map<int, int>::iterator Iter = NetAdapterList.find(pData->ID); // <ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ð±ï¿½ï¿½ï¿½Ä¿ID>
+					if(Iter != NetAdapterList.end())//ï¿½ï¿½ï¿½ï¿½
 					{
-						NetAdapterList.erase(Iter); //Çå³ý
+						NetAdapterList.erase(Iter); //ï¿½ï¿½ï¿½
 				
 					}
 
-					//Ñ¡ÖÐÉÏÒ»Ïî
+					//Ñ¡ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
 					pPagePerformance->pViewBox->mPItemList.SetItemState(i-1,LVIS_SELECTED|LVIS_FOCUSED,LVIS_SELECTED|LVIS_FOCUSED);	 
 
 
@@ -2485,8 +2482,8 @@ LRESULT CDBCTaskmanDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 				if(pData==NULL)break;
 				if(pData->Type != PM_ETHERNET)break;
 			
-				map<int, int>::iterator Iter = NetAdapterList.find(pData->ID); // <Íø¿¨ID,ÁÐ±íÏîÄ¿ID>
-				if(Iter != NetAdapterList.end())//´æÔÚ
+				map<int, int>::iterator Iter = NetAdapterList.find(pData->ID); // <ï¿½ï¿½ï¿½ï¿½ID,ï¿½Ð±ï¿½ï¿½ï¿½Ä¿ID>
+				if(Iter != NetAdapterList.end())//ï¿½ï¿½ï¿½ï¿½
 				{					
 					Iter->second --;
 				
@@ -2506,7 +2503,7 @@ LRESULT CDBCTaskmanDlg::WindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 		//DEV_BROADCAST_HDR* pDev=(DEV_BROADCAST_HDR*)lParam; 
 		//	
 		//int N=pDev->dbch_devicetype;
-		//if(N=DBT_DEVTYP_VOLUME )//Ö»´¦ÀíÒÆ¶¯´æ´¢Éè±¸ 
+		//if(N=DBT_DEVTYP_VOLUME )//Ö»ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½æ´¢ï¿½è±¸ 
 		//{ 
 		//	CString Str;
 		//	//Str.Format(rand());
@@ -2561,7 +2558,7 @@ void CDBCTaskmanDlg::OnPop_SimplelistProperties()
 
 void CDBCTaskmanDlg::OnPop_SimplelistAlwaysOnTop()
 {
-	//ÒÔÏÂ´úÂëÉèÖÃ Ñ¡¶¨Ïî Ö÷´°¿Ú Topmost!!!
+	//ï¿½ï¿½ï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Ñ¡ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Topmost!!!
 	/*
 
 	INT nSel = 0;
@@ -2582,7 +2579,7 @@ void CDBCTaskmanDlg::OnPop_SimplelistAlwaysOnTop()
 	{
 	if(  !(pAppWnd->GetExStyle()&WS_EX_TOOLWINDOW)   )  //      WS_CAPTION    pAppWnd->IsWindowVisible() &&
 	{
-	GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID); // »ñµÃÕÒµ½´°¿ÚËùÊôµÄ½ø³Ì 
+	GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID); // ï¿½ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä½ï¿½ï¿½ï¿½ 
 
 	if(pData->PID == WindowPID)
 	{
@@ -2607,7 +2604,7 @@ void CDBCTaskmanDlg::InitUpTime(void)
 {
 	CString str,str1;     
 
-	//»ñÈ¡ÏµÍ³ÔËÐÐÊ±¼ä         
+	//ï¿½ï¿½È¡ÏµÍ³ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½         
 
 	ULONGLONG UpTime=GetTickCount64();  
 
@@ -2660,7 +2657,7 @@ void CDBCTaskmanDlg::DeleteFromSimpleList(PROCLISTDATA * pData)
 	DeleteProcessItem(pData);
 
 
-	::AfxBeginThread(Thread_DeleteData,pData);//ÑÓ³ÙÉ¾³ý·ÀÖ¹ÅÅÐòÎ´Íê³É Êý¾ÝÒÑ¾­É¾³ýÔì³É´íÎó
+	::AfxBeginThread(Thread_DeleteData,pData);//ï¿½Ó³ï¿½É¾ï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½É¾ï¿½ï¿½ï¿½ï¿½É´ï¿½ï¿½ï¿½
 
 
 	/*delete  pData ;
@@ -2741,13 +2738,13 @@ void CDBCTaskmanDlg::SaveScreenshot(CString StrFileName)
 	HBITMAP hOldBitmap = (HBITMAP)SelectObject(hMemDC, hMemBitmap); 
 
 	//-------------------------------------------------------------------------------------------
-	//Ó³ÉäÄ£Ê½  
+	//Ó³ï¿½ï¿½Ä£Ê½  
 	//int iMapMode = SetMapMode(hMemDC, MM_ANISOTROPIC);  
 	//	SIZE szViewportExt, szWindowExt;  
 	//	SetViewportExtEx(hMemDC, 1,  1,   &szViewportExt);  
 	//	SetWindowExtEx(hMemDC, 1, 1, &szWindowExt);  
 
-	//×ø±êÔ­µã  
+	//ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ï¿½  
 	//POINT ptOrg;  
 	//	SetViewportOrgEx(hMemDC, 0, 0,  &ptOrg);  
 	//-------------------------------------------------------------------------------------------
@@ -2755,12 +2752,10 @@ void CDBCTaskmanDlg::SaveScreenshot(CString StrFileName)
 	//::PrintWindow(SrcWnd,hMemDC,0);
 
 
-	//»æÖÆ´úÂë  
+	//ï¿½ï¿½ï¿½Æ´ï¿½ï¿½ï¿½  
 	BitBlt(hMemDC, 0, 0, nWdith, nHeigth, hSrcDC, 0, 0, SRCCOPY);  
 
-	//-------------------------------------------------------------------------------------------
-
-	//»Ö¸´Ó³ÉäÄ£Ê½¡¢×ø±êÖá·½Ïò¼°×ø±êÔ­µã      
+	//-------------------------------------------------------------------------------------------     
 	//	SetMapMode(hMemDC, iMapMode);  
 	//	SetViewportExtEx(hMemDC, szViewportExt.cx, szViewportExt.cy, NULL);  
 	//	SetWindowExtEx(hMemDC, szWindowExt.cx, szWindowExt.cy, NULL);  
@@ -2768,13 +2763,13 @@ void CDBCTaskmanDlg::SaveScreenshot(CString StrFileName)
 	//-------------------------------------------------------------------------------------------
 
 
-	//Ê¹ÓÃGDI+±£´æ³É  
+	//Ê¹ï¿½ï¿½GDI+ï¿½ï¿½ï¿½ï¿½ï¿½  
 	Gdiplus::Bitmap ShotImage(hMemBitmap, NULL);  
 	CLSID pngClsid;  
 	_GetEncoderClsid(L"image/png", &pngClsid);  
 	ShotImage.Save(StrFileName, &pngClsid);  
 
-	//½áÊø»Ö¸´  
+	//ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½  
 	SelectObject(hMemDC, hOldBitmap);  
 	DeleteDC(hMemDC);  
 	DeleteObject(hMemBitmap);  
@@ -2821,7 +2816,7 @@ void CDBCTaskmanDlg::OnFileSaveScreenshot()
 
 	StrDefaultFileName = L"DBCTaskman_";
 
-	CString StrTime;//»ñÈ¡ÏµÍ³Ê±¼ä	
+	CString StrTime;//ï¿½ï¿½È¡ÏµÍ³Ê±ï¿½ï¿½	
 	CTime tm;
 	tm=CTime::GetCurrentTime();
 	StrTime=tm.Format("(%Y%m%d-%X)");
@@ -2865,7 +2860,7 @@ void CDBCTaskmanDlg::OnDestroy()
 	CDialog::OnDestroy();
 
 	// TODO: Add your message handler code here
-	//É¾³ýËùÉèÖÃµÄ±ê¼Ç¡£ 
+	//É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÃµÄ±ï¿½Ç¡ï¿½ 
 	::RemoveProp(m_hWnd,L"DBC_TASKMAN_001"); 
 }
 

@@ -86,6 +86,21 @@ IDR_MAINFRAME           ICON                    "res\\DBCTaskman.ico"
 IDI_SERVICE             ICON                    "res\\service.ico"
 IDI_SVCHOST             ICON                    "res\\SVCHOST.ico"
 
+// Sprites del icono de la bandeja del sistema (12 niveles de uso de CPU,
+// extraídos del taskmgr.exe original de Windows 7).
+IDI_TRAY_CPU1           ICON                    "res\\IconGroup127.ico"
+IDI_TRAY_CPU2           ICON                    "res\\IconGroup128.ico"
+IDI_TRAY_CPU3           ICON                    "res\\IconGroup129.ico"
+IDI_TRAY_CPU4           ICON                    "res\\IconGroup130.ico"
+IDI_TRAY_CPU5           ICON                    "res\\IconGroup131.ico"
+IDI_TRAY_CPU6           ICON                    "res\\IconGroup132.ico"
+IDI_TRAY_CPU7           ICON                    "res\\IconGroup133.ico"
+IDI_TRAY_CPU8           ICON                    "res\\IconGroup134.ico"
+IDI_TRAY_CPU9           ICON                    "res\\IconGroup135.ico"
+IDI_TRAY_CPU10          ICON                    "res\\IconGroup136.ico"
+IDI_TRAY_CPU11          ICON                    "res\\IconGroup137.ico"
+IDI_TRAY_CPU12          ICON                    "res\\IconGroup138.ico"
+
 /////////////////////////////////////////////////////////////////////////////
 //
 // PNG

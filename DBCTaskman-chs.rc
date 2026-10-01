@@ -74,6 +74,21 @@ IDR_MAINFRAME           ICON                    "res\\DBCTaskman.ico"
 IDI_SERVICE             ICON                    "res\\service.ico"
 IDI_SVCHOST             ICON                    "res\\SVCHOST.ico"
 
+// Sprites del icono de la bandeja del sistema (12 niveles de uso de CPU,
+// extraÃ­dos del taskmgr.exe original de Windows 7).
+IDI_TRAY_CPU1           ICON                    "res\\IconGroup127.ico"
+IDI_TRAY_CPU2           ICON                    "res\\IconGroup128.ico"
+IDI_TRAY_CPU3           ICON                    "res\\IconGroup129.ico"
+IDI_TRAY_CPU4           ICON                    "res\\IconGroup130.ico"
+IDI_TRAY_CPU5           ICON                    "res\\IconGroup131.ico"
+IDI_TRAY_CPU6           ICON                    "res\\IconGroup132.ico"
+IDI_TRAY_CPU7           ICON                    "res\\IconGroup133.ico"
+IDI_TRAY_CPU8           ICON                    "res\\IconGroup134.ico"
+IDI_TRAY_CPU9           ICON                    "res\\IconGroup135.ico"
+IDI_TRAY_CPU10          ICON                    "res\\IconGroup136.ico"
+IDI_TRAY_CPU11          ICON                    "res\\IconGroup137.ico"
+IDI_TRAY_CPU12          ICON                    "res\\IconGroup138.ico"
+
 /////////////////////////////////////////////////////////////////////////////
 //
 // Dialog
@@ -84,14 +99,14 @@ STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
 FONT 9, "Microsoft YaHei", 400, 0, 0x1
 BEGIN
     CONTROL         "",IDC_DETAILSLIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_OWNERDRAWFIXED | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,244,62
-    PUSHBUTTON      "½áÊø½ø³Ì",IDC_BTN_ENDPROCESS,190,82,61,14
+    PUSHBUTTON      "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",IDC_BTN_ENDPROCESS,190,82,61,14
 END
 
 IDD_PAGE_PERFORMANCE DIALOGEX 0, 0, 414, 278
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_SYSMENU
 FONT 9, "Microsoft YaHei", 400, 0, 0x1
 BEGIN
-    PUSHBUTTON      "´ò¿ª×ÊÔ´¼àÊÓÆ÷",IDC_BTN_OPENRESMON,97,254,86,17
+    PUSHBUTTON      "ï¿½ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",IDC_BTN_OPENRESMON,97,254,86,17
 END
 
 IDD_PAGE_SERVICES DIALOGEX 0, 0, 385, 200
@@ -99,7 +114,7 @@ STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
 FONT 9, "Microsoft YaHei", 400, 0, 0x1
 BEGIN
     CONTROL         "",IDC_SERVICESLIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_AUTOARRANGE | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,371,62
-    PUSHBUTTON      "´ò¿ª·þÎñ",IDC_BTN_OPENSERVICES,41,173,96,19
+    PUSHBUTTON      "ï¿½ò¿ª·ï¿½ï¿½ï¿½",IDC_BTN_OPENSERVICES,41,173,96,19
 END
 
 IDD_PAGE_USERS DIALOGEX 0, 0, 385, 200
@@ -107,7 +122,7 @@ STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
 FONT 9, "Microsoft YaHei", 400, 0, 0x1
 BEGIN
     CONTROL         "",IDC_USERLIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_AUTOARRANGE | LVS_OWNERDRAWFIXED | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,371,62
-    PUSHBUTTON      "¶Ï¿ªÁ¬½Ó",IDC_BTN_DISCONNECT,287,174,68,18
+    PUSHBUTTON      "ï¿½Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½",IDC_BTN_DISCONNECT,287,174,68,18
 END
 
 IDD_PAGE_PERFORMANCE_BOX DIALOGEX 0, 0, 414, 278
@@ -115,15 +130,15 @@ STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
 FONT 9, "Microsoft YaHei", 400, 0, 0x1
 BEGIN
     LTEXT           "Item",IDC_ITEMLABEL,14,11,76,17
-    LTEXT           "60 ÃëÄÚµÄÀûÓÃÂÊ %",IDC_TIP1,13,35,101,9
+    LTEXT           "60 ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ %",IDC_TIP1,13,35,101,9
     RTEXT           "100%",IDC_TIP2,217,35,25,9
     RTEXT           "Item Name",IDC_ITEMNAME,71,18,186,11,SS_ENDELLIPSIS,WS_EX_RIGHT
     CONTROL         "",IDC_LIST_PERFORMANCEITEM,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_OWNERDRAWFIXED | LVS_ALIGNLEFT | LVS_NOCOLUMNHEADER | WS_TABSTOP,3,122,125,149
-    LTEXT           "60Ãë",IDC_TIP3,16,57,101,9
+    LTEXT           "60ï¿½ï¿½",IDC_TIP3,16,57,101,9
     RTEXT           "0",IDC_TIP4,176,57,76,9
     LTEXT           "-",IDC_TIP5,16,78,62,9
     RTEXT           "100%",IDC_TIP6,193,78,76,9
-    LTEXT           "60Ãë",IDC_TIP7,14,105,76,9
+    LTEXT           "60ï¿½ï¿½",IDC_TIP7,14,105,76,9
     RTEXT           "0",IDC_TIP8,207,105,76,9
 END
 
@@ -132,17 +147,17 @@ STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_SYSMENU
 FONT 9, "Microsoft YaHei", 400, 0, 0x1
 BEGIN
     CONTROL         "",IDC_PROCESSLIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_OWNERDRAWFIXED | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,6,7,245,62
-    PUSHBUTTON      "½áÊøÈÎÎñ",IDC_BTN_ENDTASK,190,82,61,14,WS_DISABLED
+    PUSHBUTTON      "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",IDC_BTN_ENDTASK,190,82,61,14,WS_DISABLED
 END
 
 IDD_SEL_COLUMNS DIALOGEX 0, 0, 248, 224
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "Ñ¡ÔñÁÐ"
+CAPTION "Ñ¡ï¿½ï¿½ï¿½ï¿½"
 FONT 9, "Microsoft YaHei", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "È·¶¨",IDOK,134,203,50,14
-    PUSHBUTTON      "È¡Ïû",IDCANCEL,191,203,50,14
-    LTEXT           "Ñ¡Ôñ½«ÏÔÊ¾ÔÚ±íÖÐµÄÁÐ.",IDC_STATIC,7,7,169,19,SS_CENTERIMAGE
+    DEFPUSHBUTTON   "È·ï¿½ï¿½",IDOK,134,203,50,14
+    PUSHBUTTON      "È¡ï¿½ï¿½",IDCANCEL,191,203,50,14
+    LTEXT           "Ñ¡ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½Ú±ï¿½ï¿½Ðµï¿½ï¿½ï¿½.",IDC_STATIC,7,7,169,19,SS_CENTERIMAGE
     CONTROL         "",IDC_SELCOLUMN_LIST,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | LVS_NOCOLUMNHEADER | WS_BORDER | WS_TABSTOP,7,29,234,165
 END
 
@@ -168,16 +183,16 @@ IDD_MINI_PERFERMANCEBOX DIALOGEX 0, 0, 163, 183
 STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_SYSMENU | WS_THICKFRAME
 FONT 9, "Microsoft YaHei", 400, 0, 0x1
 BEGIN
-    PUSHBUTTON      "È¡Ïû",IDCANCEL,23,164,14,12,NOT WS_VISIBLE
-    DEFPUSHBUTTON   "È·¶¨",IDOK,9,160,12,16,NOT WS_VISIBLE
+    PUSHBUTTON      "È¡ï¿½ï¿½",IDCANCEL,23,164,14,12,NOT WS_VISIBLE
+    DEFPUSHBUTTON   "È·ï¿½ï¿½",IDOK,9,160,12,16,NOT WS_VISIBLE
     CONTROL         "",IDC_PROGRESS_CPU,"msctls_progress32",PBS_SMOOTH | WS_BORDER,9,24,144,6
     LTEXT           "CPU",IDC_STATIC,9,10,46,9,0,WS_EX_TRANSPARENT
     CONTROL         "",IDC_PROGRESS_MEMORY,"msctls_progress32",PBS_SMOOTH | WS_BORDER,9,56,144,6
     CONTROL         "",IDC_PROGRESS_DISK,"msctls_progress32",PBS_SMOOTH | WS_BORDER,9,89,144,6
     CONTROL         "",IDC_PROGRESS_NETWORK,"msctls_progress32",PBS_SMOOTH | WS_DISABLED | WS_BORDER,9,121,144,6
-    LTEXT           "ÄÚ´æ  ",IDC_STATIC,9,42,46,11,0,WS_EX_TRANSPARENT
-    LTEXT           "´ÅÅÌ",IDC_STATIC,9,75,46,11,0,WS_EX_TRANSPARENT
-    LTEXT           "ÍøÂç",IDC_STATIC,9,108,46,11,0,WS_EX_TRANSPARENT
+    LTEXT           "ï¿½Ú´ï¿½  ",IDC_STATIC,9,42,46,11,0,WS_EX_TRANSPARENT
+    LTEXT           "ï¿½ï¿½ï¿½ï¿½",IDC_STATIC,9,75,46,11,0,WS_EX_TRANSPARENT
+    LTEXT           "ï¿½ï¿½ï¿½ï¿½",IDC_STATIC,9,108,46,11,0,WS_EX_TRANSPARENT
     RTEXT           "0.00%",IDC_STATIC_CPU,107,10,46,9,0,WS_EX_TRANSPARENT
     RTEXT           "0.00%",IDC_STATIC_MEM,107,42,46,9,0,WS_EX_TRANSPARENT
     RTEXT           "0.00%",IDC_STATIC_DISK,107,75,46,9,0,WS_EX_TRANSPARENT
@@ -206,22 +221,22 @@ END
 
 IDD_ABOUTBOX DIALOGEX 0, 0, 261, 214
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "¹ØÓÚ DBC Task Manager"
+CAPTION "ï¿½ï¿½ï¿½ï¿½ DBC Task Manager"
 FONT 9, "MS Shell Dlg", 400, 0, 0x0
 BEGIN
     ICON            IDR_MAINFRAME,IDC_STATIC,6,24,20,20,SS_REALSIZEIMAGE | NOT WS_VISIBLE
-    DEFPUSHBUTTON   "È·¶¨",IDOK,212,194,43,13,WS_GROUP
+    DEFPUSHBUTTON   "È·ï¿½ï¿½",IDOK,212,194,43,13,WS_GROUP
     CTEXT           "Ver",IDC_STATIC_A,6,58,249,12,0,WS_EX_TRANSPARENT
-    CONTROL         "<a>DBC Task Manager Ö÷Ò³</a>",IDC_SYSLINK1,"SysLink",WS_TABSTOP,94,154,76,13
+    CONTROL         "<a>DBC Task Manager ï¿½ï¿½Ò³</a>",IDC_SYSLINK1,"SysLink",WS_TABSTOP,94,154,76,13
     CONTROL         "",IDC_STATIC,"Static",SS_ETCHEDFRAME | NOT WS_VISIBLE,0,61,260,1
     CTEXT           "Static",IDC_DBCVER,6,125,249,13
-    CONTROL         "<a>ÎÊÌâ¼°½¨Òé</a>",IDC_SYSLINK2,"SysLink",WS_TABSTOP,89,169,39,13
-    CONTROL         "<a>¾èÔù(BTC/IFC)</a>",IDC_SYSLINK3,"SysLink",WS_TABSTOP,133,169,57,13
+    CONTROL         "<a>ï¿½ï¿½ï¿½â¼°ï¿½ï¿½ï¿½ï¿½</a>",IDC_SYSLINK2,"SysLink",WS_TABSTOP,89,169,39,13
+    CONTROL         "<a>ï¿½ï¿½ï¿½ï¿½(BTC/IFC)</a>",IDC_SYSLINK3,"SysLink",WS_TABSTOP,133,169,57,13
 END
 
 IDD_PROCESS_PROPERTIES_PERFORMANCE DIALOGEX 0, 0, 337, 259
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_CHILD | WS_CAPTION | WS_SYSMENU
-CAPTION "ÐÔÄÜ"
+CAPTION "ï¿½ï¿½ï¿½ï¿½"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     GROUPBOX        "CPU",IDC_STATIC,7,7,155,76
@@ -240,13 +255,13 @@ BEGIN
     LTEXT           "Virtual Size",IDC_STATIC,15,124,39,8
     LTEXT           "Page Faults",IDC_STATIC,15,135,39,8
     LTEXT           "Page Fault Delta",IDC_STATIC,15,146,62,8
-    GROUPBOX        "ÎïÀíÄÚ´æ",IDC_STATIC,7,87,155,76
+    GROUPBOX        "ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½",IDC_STATIC,7,87,155,76
     LTEXT           "Memory Priority",IDC_STATIC,15,180,57,8
     LTEXT           "Working Set",IDC_STATIC,15,191,65,8
     LTEXT           "WS Private",IDC_STATIC,29,202,39,8
     LTEXT           "WS Shareable",IDC_STATIC,29,213,59,8
     LTEXT           "WS Shared",IDC_STATIC,29,224,62,8
-    GROUPBOX        "ÐéÄâÄÚ´æ",IDC_STATIC,7,167,155,85
+    GROUPBOX        "ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½",IDC_STATIC,7,167,155,85
     LTEXT           "Peak Working Set",IDC_STATIC,15,235,62,8
     RTEXT           "-",IDC_PRIVATE_BYTES,94,101,62,8
     RTEXT           "-",IDC_PEAKPRIVATE_BYTES2,98,112,58,8
@@ -274,7 +289,7 @@ END
 
 IDD_PROCESS_PROPERTIES_MODULES DIALOGEX 0, 0, 329, 241
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_CHILD | WS_CAPTION | WS_SYSMENU
-CAPTION "Ä£¿é"
+CAPTION "Ä£ï¿½ï¿½"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     CONTROL         "",IDC_MOUDLE,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_GROUP | WS_TABSTOP,6,7,316,146
@@ -283,7 +298,7 @@ END
 IDD_PROCESS_PROPERTIES_IMAGE DIALOGEX 0, 0, 355, 272
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_CHILD | WS_CLIPCHILDREN | WS_CAPTION | WS_SYSMENU
 EXSTYLE WS_EX_TRANSPARENT
-CAPTION "¾µÏñ"
+CAPTION "ï¿½ï¿½ï¿½ï¿½"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     EDITTEXT        IDC_EDIT_PATH,7,95,341,12,ES_AUTOHSCROLL | ES_READONLY
@@ -292,18 +307,18 @@ BEGIN
     EDITTEXT        IDC_EDIT_PUBLISHER,56,30,292,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER,WS_EX_TRANSPARENT
     ICON            "",IDC_STATIC_ICON,7,13,21,20,SS_CENTERIMAGE | SS_REALSIZEIMAGE
     EDITTEXT        IDC_EDIT_VER,56,50,292,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER,WS_EX_TRANSPARENT
-    LTEXT           "°æ±¾:",IDC_STATIC,7,50,32,9
-    LTEXT           "Â·¾¶:",IDC_STATIC,7,83,32,8
-    LTEXT           "ÃüÁîÐÐ:",IDC_STATIC,7,114,80,8
-    LTEXT           "¸¸½ø³Ì:",IDC_STATIC,7,174,32,8
+    LTEXT           "ï¿½æ±¾:",IDC_STATIC,7,50,32,9
+    LTEXT           "Â·ï¿½ï¿½:",IDC_STATIC,7,83,32,8
+    LTEXT           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:",IDC_STATIC,7,114,80,8
+    LTEXT           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:",IDC_STATIC,7,174,32,8
     EDITTEXT        IDC_EDIT_PARENT,56,174,292,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER,WS_EX_TRANSPARENT
-    LTEXT           "ÓÃ»§:",IDC_STATIC,7,191,32,8
+    LTEXT           "ï¿½Ã»ï¿½:",IDC_STATIC,7,191,32,8
     EDITTEXT        IDC_EDIT_USER,56,191,292,12,ES_AUTOHSCROLL | ES_READONLY | NOT WS_BORDER,WS_EX_TRANSPARENT
 END
 
 IDD_PROCESS_PROPERTIES_HANDLES DIALOGEX 0, 0, 340, 269
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_CHILD | WS_CAPTION | WS_SYSMENU
-CAPTION "¾ä±ú"
+CAPTION "ï¿½ï¿½ï¿½"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     CONTROL         "",IDC_LIST_HANDLES,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,325,255
@@ -318,43 +333,43 @@ END
 
 IDR_MAINMENU MENU 
 BEGIN
-    POPUP "ÎÄ¼þ(&F)"
+    POPUP "ï¿½Ä¼ï¿½(&F)"
     BEGIN
-        MENUITEM "ÔËÐÐÐÂÈÎÎñ(&N)",                   ID_FILE_RUNNEWTASK
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&N)",                   ID_FILE_RUNNEWTASK
         MENUITEM SEPARATOR
-        MENUITEM "±£´æ...",                       ID_FILE_SAVELIST
-        MENUITEM "±£´æ½ØÍ¼...",                     ID_FILE_SAVESCREENSHOT
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½...",                       ID_FILE_SAVELIST
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½Í¼...",                     ID_FILE_SAVESCREENSHOT
         MENUITEM SEPARATOR
-        MENUITEM "ÍË³ö(&X)",                      ID_FILE_EXIT
+        MENUITEM "ï¿½Ë³ï¿½(&X)",                      ID_FILE_EXIT
     END
-    POPUP "Ñ¡Ïî(&O)"
+    POPUP "Ñ¡ï¿½ï¿½(&O)"
     BEGIN
-        MENUITEM "ÖÃÓÚ¶¥²ã(&A)",                    ID_OPTIONS_ALWAYSONTOP
-        MENUITEM "Ê¹ÓÃÊ±×îÐ¡»¯(&M)",                  ID_OPTIONS_MINIMIZEONUSE
-        MENUITEM "×îÐ¡»¯Ê±Òþ²Ø(&H)",                  ID_OPTIONS_HIDEWHENMINIMIZED
+        MENUITEM "ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½(&A)",                    ID_OPTIONS_ALWAYSONTOP
+        MENUITEM "Ê¹ï¿½ï¿½Ê±ï¿½ï¿½Ð¡ï¿½ï¿½(&M)",                  ID_OPTIONS_MINIMIZEONUSE
+        MENUITEM "ï¿½ï¿½Ð¡ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½(&H)",                  ID_OPTIONS_HIDEWHENMINIMIZED
         MENUITEM SEPARATOR
-        MENUITEM "ÉèÖÃ...",                       ID_OPTIONS_SETTINGS
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½...",                       ID_OPTIONS_SETTINGS
     END
-    POPUP "²é¿´(&V)"
+    POPUP "ï¿½é¿´(&V)"
     BEGIN
-        MENUITEM "Á¢¼´Ë¢ÐÂ(&R)     \tF5",           ID_VIEW_REFRESHNOW
-        POPUP "Ë¢ÐÂËÙ¶È(&U)"
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½Ë¢ï¿½ï¿½(&R)     \tF5",           ID_VIEW_REFRESHNOW
+        POPUP "Ë¢ï¿½ï¿½ï¿½Ù¶ï¿½(&U)"
         BEGIN
-            MENUITEM "¸ß(&H)",                       ID_UPDATESPEED_HIGH
-            MENUITEM "±ê×¼(&N)",                      ID_UPDATESPEED_NORMAL
-            MENUITEM "µÍ(&L)",                       ID_UPDATESPEED_LOW
-            MENUITEM "ÔÝÍ£(&P)",                      ID_UPDATESPEED_PAUSED
+            MENUITEM "ï¿½ï¿½(&H)",                       ID_UPDATESPEED_HIGH
+            MENUITEM "ï¿½ï¿½×¼(&N)",                      ID_UPDATESPEED_NORMAL
+            MENUITEM "ï¿½ï¿½(&L)",                       ID_UPDATESPEED_LOW
+            MENUITEM "ï¿½ï¿½Í£(&P)",                      ID_UPDATESPEED_PAUSED
         END
         MENUITEM SEPARATOR
-        MENUITEM "°´ÀàÐÍ·Ö×é(&G)",                   ID_VIEW_GROUPBYTYPE
-        MENUITEM "È«²¿Õ¹¿ª(&E)",                    ID_VIEW_EXPANDALL
-        MENUITEM "È«²¿ÊÕÆð",                        ID_VIEW_COLLAPSEALL
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½(&G)",                   ID_VIEW_GROUPBYTYPE
+        MENUITEM "È«ï¿½ï¿½Õ¹ï¿½ï¿½(&E)",                    ID_VIEW_EXPANDALL
+        MENUITEM "È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",                        ID_VIEW_COLLAPSEALL
     END
-    POPUP "°ïÖú(&H)"
+    POPUP "ï¿½ï¿½ï¿½ï¿½(&H)"
     BEGIN
-        MENUITEM "Task Manager °ïÖúÖ÷Ìâ        \tF1", ID_HELP_TASKMANAGERHELPTOPIC
+        MENUITEM "Task Manager ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½        \tF1", ID_HELP_TASKMANAGERHELPTOPIC
         MENUITEM SEPARATOR
-        MENUITEM "¹ØÓÚ DBC Task Manager",         ID_HELP_ABOUTTASKMANAGER
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ DBC Task Manager",         ID_HELP_ABOUTTASKMANAGER
     END
 END
 
@@ -362,135 +377,135 @@ IDR_POPMENU_BASE MENU
 BEGIN
     POPUP "ProcessesList"
     BEGIN
-        MENUITEM "Õ¹¿ª",                          ID_PROCESSESLIST_EXPAND
-        MENUITEM "½áÊøÈÎÎñ",                        ID_PROCESSESLIST_ENDTASK
-        POPUP "×ÊÔ´Öµ"
+        MENUITEM "Õ¹ï¿½ï¿½",                          ID_PROCESSESLIST_EXPAND
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",                        ID_PROCESSESLIST_ENDTASK
+        POPUP "ï¿½ï¿½Ô´Öµ"
         BEGIN
-            POPUP "ÄÚ´æ"
+            POPUP "ï¿½Ú´ï¿½"
             BEGIN
-                MENUITEM "°Ù·Ö±È",                         ID_MEMORY_PERCENTS_PLIST
+                MENUITEM "ï¿½Ù·Ö±ï¿½",                         ID_MEMORY_PERCENTS_PLIST
                 MENUITEM "Öµ",                           ID_MEMORY_VALUES_PLIST
             END
-            POPUP "´ÅÅÌ"
+            POPUP "ï¿½ï¿½ï¿½ï¿½"
             BEGIN
-                MENUITEM "°Ù·Ö±È",                         ID_DISK_PERCENTS32877
+                MENUITEM "ï¿½Ù·Ö±ï¿½",                         ID_DISK_PERCENTS32877
                 MENUITEM "Öµ",                           ID_DISK_VALUES32878
             END
-            POPUP "ÍøÂç"
+            POPUP "ï¿½ï¿½ï¿½ï¿½"
             BEGIN
-                MENUITEM "°Ù·Ö±È",                         ID_NETWORK_PERCENTS32879
+                MENUITEM "ï¿½Ù·Ö±ï¿½",                         ID_NETWORK_PERCENTS32879
                 MENUITEM "Öµ",                           ID_NETWORK_VALUSE
             END
         END
         MENUITEM SEPARATOR
-        MENUITEM "×ªµ½ÏêÏ¸ÐÅÏ¢(&G)",                  ID_PROCESSESLIST_GOTODETAILS
-        MENUITEM "´ò¿ªÎÄ¼þÎ»ÖÃ(&O)",                  ID_PROCESSESLIST_OPENFILELOCATION
-        MENUITEM "Áª»úËÑË÷(&S)",                    ID_PROCESSESLIST_SEARCHONLINE
-        MENUITEM "ÊôÐÔ(&I)",                      ID_PROCESSESLIST_PROPERTIES
+        MENUITEM "×ªï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½Ï¢(&G)",                  ID_PROCESSESLIST_GOTODETAILS
+        MENUITEM "ï¿½ï¿½ï¿½Ä¼ï¿½Î»ï¿½ï¿½(&O)",                  ID_PROCESSESLIST_OPENFILELOCATION
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&S)",                    ID_PROCESSESLIST_SEARCHONLINE
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½(&I)",                      ID_PROCESSESLIST_PROPERTIES
     END
     POPUP "Performance"
     BEGIN
-        POPUP "½«Í¼ÐÎ¸ü¸ÄÎª(&G)"
+        POPUP "ï¿½ï¿½Í¼ï¿½Î¸ï¿½ï¿½ï¿½Îª(&G)"
         BEGIN
-            MENUITEM "×ÜÌåÀûÓÃÂÊ(&O)",                   ID_CHANGEGRAPHTO_OVERALLUTILIZATION
-            MENUITEM "Âß¼­´¦ÀíÆ÷(&L)",                   ID_CHANGEGRAPHTO_LOGICALPROCESSORS
-            MENUITEM "NUMA ½Úµã(&N)",                 ID_CHANGEGRAPHTO_NUMANODES
+            MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&O)",                   ID_CHANGEGRAPHTO_OVERALLUTILIZATION
+            MENUITEM "ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&L)",                   ID_CHANGEGRAPHTO_LOGICALPROCESSORS
+            MENUITEM "NUMA ï¿½Úµï¿½(&N)",                 ID_CHANGEGRAPHTO_NUMANODES
         END
-        MENUITEM "ÏÔÊ¾ÄÚºËÊ±¼ä(&K)",                  ID_PERFORMANCE_SHOWKERNELTIMES
+        MENUITEM "ï¿½ï¿½Ê¾ï¿½Úºï¿½Ê±ï¿½ï¿½(&K)",                  ID_PERFORMANCE_SHOWKERNELTIMES
         MENUITEM SEPARATOR
-        MENUITEM "Í¼ÐÎÕªÒªÊÓÍ¼(&W)",                  ID_PERFORMANCE_GRAPHSUMMARYVIEW
-        POPUP "²é¿´(&V)"
+        MENUITEM "Í¼ï¿½ï¿½ÕªÒªï¿½ï¿½Í¼(&W)",                  ID_PERFORMANCE_GRAPHSUMMARYVIEW
+        POPUP "ï¿½é¿´(&V)"
         BEGIN
             MENUITEM "CPU(&P)",                     ID_VIEW_CPU
-            MENUITEM "ÄÚ´æ(&M)",                      ID_VIEW_MEMORY
-            POPUP "´ÅÅÌ(D)"
+            MENUITEM "ï¿½Ú´ï¿½(&M)",                      ID_VIEW_MEMORY
+            POPUP "ï¿½ï¿½ï¿½ï¿½(D)"
             BEGIN
                 MENUITEM "...",                         ID_DISK_NONE
             END
         END
-        MENUITEM "²é¿´ÍøÂçÏêÏ¸ÐÅÏ¢(&D)",                ID_PERFORMANCE_VIEWNETWORKDETAILS
+        MENUITEM "ï¿½é¿´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½Ï¢(&D)",                ID_PERFORMANCE_VIEWNETWORKDETAILS
         MENUITEM SEPARATOR
-        MENUITEM "¸´ÖÆ(&C)                              \tCtrl_C", ID_PERFORMANCE_COPY
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½(&C)                              \tCtrl_C", ID_PERFORMANCE_COPY
     END
     POPUP "UsersList"
     BEGIN
-        MENUITEM "Õ¹¿ª(&P)",                      ID_USERSLIST_EXPAND
-        MENUITEM "¶Ï¿ªÁ¬½Ó(&D)",                    ID_USERSLIST_DISCONNECT
+        MENUITEM "Õ¹ï¿½ï¿½(&P)",                      ID_USERSLIST_EXPAND
+        MENUITEM "ï¿½Ï¿ï¿½ï¿½ï¿½ï¿½ï¿½(&D)",                    ID_USERSLIST_DISCONNECT
         MENUITEM SEPARATOR
-        MENUITEM "¹ÜÀíÓÃ»§ÕË»§(&M)",                  ID_USERSLIST_MANAGEUSERACCOUNTS
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ë»ï¿½(&M)",                  ID_USERSLIST_MANAGEUSERACCOUNTS
     END
     POPUP "DetailsList"
     BEGIN
-        MENUITEM "½áÊø½ø³Ì(&E)",                    ID_POP_DETAILSLIST_ENDPROCESS
-        MENUITEM "½áÊø½ø³ÌÊ÷(&T)",                   ID_POP_DETAILSLIST_ENDPROCESSTREE
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&E)",                    ID_POP_DETAILSLIST_ENDPROCESS
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&T)",                   ID_POP_DETAILSLIST_ENDPROCESSTREE
         MENUITEM SEPARATOR
-        POPUP "ÉèÖÃÓÅÏÈ¼¶(&P)"
+        POPUP "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½(&P)"
         BEGIN
             MENUITEM "ÊµÊ±(&R)",                      ID_SETPRIORITY_REALTIME
-            MENUITEM "¸ß(&H)",                       ID_SETPRIORITY_HIGH
-            MENUITEM "¸ßÓÚÕý³£(&A)",                    ID_SETPRIORITY_ABOVENORMAL
-            MENUITEM "Õý³£(&N)",                      ID_SETPRIORITY_NORMAL
-            MENUITEM "µÍÓÚÕý³£(&B)",                    ID_SETPRIORITY_BELOWNORMAL
-            MENUITEM "µÍ(&L)",                       ID_SETPRIORITY_LOW
+            MENUITEM "ï¿½ï¿½(&H)",                       ID_SETPRIORITY_HIGH
+            MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&A)",                    ID_SETPRIORITY_ABOVENORMAL
+            MENUITEM "ï¿½ï¿½ï¿½ï¿½(&N)",                      ID_SETPRIORITY_NORMAL
+            MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&B)",                    ID_SETPRIORITY_BELOWNORMAL
+            MENUITEM "ï¿½ï¿½(&L)",                       ID_SETPRIORITY_LOW
         END
-        MENUITEM "ÉèÖÃÏà¹ØÐÔ(&F)...",                ID_DETAILSLIST_SETAFFINITY
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&F)...",                ID_DETAILSLIST_SETAFFINITY
         MENUITEM SEPARATOR
-        POPUP "´´½¨×ª´¢ÎÄ¼þ(&C)"
+        POPUP "ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½Ä¼ï¿½(&C)"
         BEGIN
-            MENUITEM "¼òÒ× ...",                      ID_CREATEDUMPFILE_CREATEMINIDUMP
-            MENUITEM "ÍêÕû ...",                      ID_CREATEDUMPFILE_CREATEFULLDUMP
+            MENUITEM "ï¿½ï¿½ï¿½ï¿½ ...",                      ID_CREATEDUMPFILE_CREATEMINIDUMP
+            MENUITEM "ï¿½ï¿½ï¿½ï¿½ ...",                      ID_CREATEDUMPFILE_CREATEFULLDUMP
         END
         MENUITEM SEPARATOR
-        MENUITEM "´ò¿ªÎÄ¼þÎ»ÖÃ(&O)",                  ID_POP_DETAILSLIST_OPENFILELOCATION
-        MENUITEM "Áª»úËÑË÷(&N)",                    ID_DETAILSLIST_SEARCHONLINE
-        MENUITEM "ÊôÐÔ(&R)",                      ID_DETAILSLIST_PROPERTIES
-        MENUITEM "×ªµ½·þÎñ(&S)",                    ID_DETAILSLIST_GOTOSERVICE
+        MENUITEM "ï¿½ï¿½ï¿½Ä¼ï¿½Î»ï¿½ï¿½(&O)",                  ID_POP_DETAILSLIST_OPENFILELOCATION
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&N)",                    ID_DETAILSLIST_SEARCHONLINE
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½(&R)",                      ID_DETAILSLIST_PROPERTIES
+        MENUITEM "×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&S)",                    ID_DETAILSLIST_GOTOSERVICE
     END
     POPUP "ServicesList"
     BEGIN
-        MENUITEM "Æô¶¯(&S)",                      ID_SERVICESLIST_START
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½(&S)",                      ID_SERVICESLIST_START
         MENUITEM "Í£Ö¹(&T)",                      ID_SERVICESLIST_STOP
-        MENUITEM "ÖØÐÂÆô¶¯(&R)",                    ID_SERVICESLIST_RESTART
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&R)",                    ID_SERVICESLIST_RESTART
         MENUITEM SEPARATOR
-        MENUITEM "´ò¿ª·þÎñ(&V)",                    ID_SERVICESLIST_OPENSERVICES
-        MENUITEM "Áª»úËÑË÷(&O)",                    ID_SERVICESLIST_SEARCHONLINE
-        MENUITEM "×ªµ½ÏêÏ¸ÐÅÏ¢(&D)",                  ID_SERVICESLIST_GOTODETAILS
+        MENUITEM "ï¿½ò¿ª·ï¿½ï¿½ï¿½(&V)",                    ID_SERVICESLIST_OPENSERVICES
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&O)",                    ID_SERVICESLIST_SEARCHONLINE
+        MENUITEM "×ªï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½Ï¢(&D)",                  ID_SERVICESLIST_GOTODETAILS
     END
     POPUP "PerformanceType"
     BEGIN
-        MENUITEM "ÕªÒªÊÓÍ¼",                        ID_PERFORMANCETYPE_SUMMARYVIEW
-        MENUITEM "Òþ²ØÍ¼±í",                        ID_PERFORMANCETYPE_HIDEGRAPHS
+        MENUITEM "ÕªÒªï¿½ï¿½Í¼",                        ID_PERFORMANCETYPE_SUMMARYVIEW
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½",                        ID_PERFORMANCETYPE_HIDEGRAPHS
         MENUITEM SEPARATOR
-        MENUITEM "¸´ÖÆ                       \tCtrl+C", ID_PERFORMANCETYPE_COPY
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½                       \tCtrl+C", ID_PERFORMANCETYPE_COPY
     END
     POPUP "ProcListTaskItem"
     BEGIN
-        MENUITEM "ÇÐ»»µ½",                         ID_PROCLISTTASKITEM_SWITCHTO
-        MENUITEM "Ç°ÖÃ(&B)",                      ID_PROCLISTTASKITEM_BRINGTOFRONT
-        MENUITEM "×îÐ¡»¯(&M)",                     ID_PROCLISTTASKITEM_MINIMIZE
-        MENUITEM "×î´ó»¯(&X)",                     ID_PROCLISTTASKITEM_MAXIMIZE
-        MENUITEM "½áÊøÈÎÎñ(&E)",                    ID_PROCLISTTASKITEM_ENDTASK
+        MENUITEM "ï¿½Ð»ï¿½ï¿½ï¿½",                         ID_PROCLISTTASKITEM_SWITCHTO
+        MENUITEM "Ç°ï¿½ï¿½(&B)",                      ID_PROCLISTTASKITEM_BRINGTOFRONT
+        MENUITEM "ï¿½ï¿½Ð¡ï¿½ï¿½(&M)",                     ID_PROCLISTTASKITEM_MINIMIZE
+        MENUITEM "ï¿½ï¿½ï¿½(&X)",                     ID_PROCLISTTASKITEM_MAXIMIZE
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&E)",                    ID_PROCLISTTASKITEM_ENDTASK
     END
     POPUP "SimpleList"
     BEGIN
-        MENUITEM "ÇÐ»»µ½(&T)",                     ID_SIMPLELIST_SWITCHTO
-        MENUITEM "½áÊøÈÎÎñ(&E)",                    ID_SIMPLELIST_ENDTASK
+        MENUITEM "ï¿½Ð»ï¿½ï¿½ï¿½(&T)",                     ID_SIMPLELIST_SWITCHTO
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&E)",                    ID_SIMPLELIST_ENDTASK
         MENUITEM SEPARATOR
-        MENUITEM "ÔËÐÐÐÂÈÎÎñ",                       ID_FILE_RUNNEWTASK
-        MENUITEM "ÖÃÓÚ¶¥²ã(&A)",                    ID_OPTIONS_ALWAYSONTOP
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",                       ID_FILE_RUNNEWTASK
+        MENUITEM "ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½(&A)",                    ID_OPTIONS_ALWAYSONTOP
         MENUITEM SEPARATOR
-        MENUITEM "´ò¿ªÎÄ¼þÎ»ÖÃ(&O)",                  ID_SIMPLELIST_OPENFILELOCATION
-        MENUITEM "Áª»úËÑË÷(&S)",                    ID_SIMPLELIST_SEARCHONLINE
-        MENUITEM "ÊôÐÔ(&I)",                      ID_SIMPLELIST_PROPERTIES
+        MENUITEM "ï¿½ï¿½ï¿½Ä¼ï¿½Î»ï¿½ï¿½(&O)",                  ID_SIMPLELIST_OPENFILELOCATION
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&S)",                    ID_SIMPLELIST_SEARCHONLINE
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½(&I)",                      ID_SIMPLELIST_PROPERTIES
     END
     POPUP "StartupList"
     BEGIN
-        MENUITEM "½ûÖ¹",                          ID_STARTUPLIST_DISABLE
+        MENUITEM "ï¿½ï¿½Ö¹",                          ID_STARTUPLIST_DISABLE
         MENUITEM SEPARATOR
-        MENUITEM "´ò¿ªÎÄ¼þÎ»ÖÃ(&O)",                  ID_STARTUPLIST_OPENFILELOCATION
-        MENUITEM "Ìø×ªµ½Èë¿Ú(&J)",                   ID_STARTUPLIST_JUMPTOENTRY
-        MENUITEM "Áª»úËÑË÷(&S)",                    ID_STARTUPLIST_SEARCHONLINE
-        MENUITEM "ÊôÐÔ(&I)",                      ID_STARTUPLIST_PROPERTIES
+        MENUITEM "ï¿½ï¿½ï¿½Ä¼ï¿½Î»ï¿½ï¿½(&O)",                  ID_STARTUPLIST_OPENFILELOCATION
+        MENUITEM "ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½(&J)",                   ID_STARTUPLIST_JUMPTOENTRY
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(&S)",                    ID_STARTUPLIST_SEARCHONLINE
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½(&I)",                      ID_STARTUPLIST_PROPERTIES
     END
 END
 
@@ -498,32 +513,32 @@ IDR_POPMENU_COLUMN MENU
 BEGIN
     POPUP "processes"
     BEGIN
-        MENUITEM "ÀàÐÍ",                          ID_PROCESSES_TYPE
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½",                          ID_PROCESSES_TYPE
         MENUITEM "×´Ì¬",                          ID_PROCESSES_STATUS
-        MENUITEM "·¢²¼Õß",                         ID_PROCESSES_PUBLISHER
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",                         ID_PROCESSES_PUBLISHER
         MENUITEM "PID",                         ID_PROCESSES_PID
-        MENUITEM "½ø³ÌÃû",                         ID_PROCESSES_PROCESSNAME
-        MENUITEM "ÃüÁîÐÐ",                         ID_PROCESSES_COMMANDLINE
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",                         ID_PROCESSES_PROCESSNAME
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½",                         ID_PROCESSES_COMMANDLINE
         MENUITEM "CPU",                         ID_PROCESSES_CPU
-        MENUITEM "ÄÚ´æ",                          ID_PROCESSES_MEMORY
-        MENUITEM "´ÅÅÌ",                          ID_PROCESSES_DISK
-        MENUITEM "ÍøÂç",                          ID_PROCESSES_NETWORK
+        MENUITEM "ï¿½Ú´ï¿½",                          ID_PROCESSES_MEMORY
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½",                          ID_PROCESSES_DISK
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½",                          ID_PROCESSES_NETWORK
         MENUITEM SEPARATOR
-        POPUP "×ÊÔ´Öµ"
+        POPUP "ï¿½ï¿½Ô´Öµ"
         BEGIN
-            POPUP "ÄÚ´æ(&M)"
+            POPUP "ï¿½Ú´ï¿½(&M)"
             BEGIN
-                MENUITEM "°Ù·Ö±È",                         ID_MEMORY_PERCENTS
+                MENUITEM "ï¿½Ù·Ö±ï¿½",                         ID_MEMORY_PERCENTS
                 MENUITEM "Öµ",                           ID_MEMORY_VALUES
             END
-            POPUP "´ÅÅÌ(&K)"
+            POPUP "ï¿½ï¿½ï¿½ï¿½(&K)"
             BEGIN
-                MENUITEM "°Ù·Ö±È",                         ID_DISK_PERCENTS
+                MENUITEM "ï¿½Ù·Ö±ï¿½",                         ID_DISK_PERCENTS
                 MENUITEM "Öµ",                           ID_DISK_VALUES
             END
-            POPUP "ÍøÂç(&N)"
+            POPUP "ï¿½ï¿½ï¿½ï¿½(&N)"
             BEGIN
-                MENUITEM "°Ù·Ö±È",                         ID_NETWORK_PERCENTS
+                MENUITEM "ï¿½Ù·Ö±ï¿½",                         ID_NETWORK_PERCENTS
                 MENUITEM "Öµ",                           ID_NETWORK_VALUES
             END
         END
@@ -531,29 +546,29 @@ BEGIN
     POPUP "Users"
     BEGIN
         MENUITEM "ID",                          ID_USERS_ID
-        MENUITEM "»á»°",                          ID_USERS_SESSION
-        MENUITEM "¿Í»§¶ËÃû",                        ID_USERS_CLIENTNAME
+        MENUITEM "ï¿½á»°",                          ID_USERS_SESSION
+        MENUITEM "ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½",                        ID_USERS_CLIENTNAME
         MENUITEM "×´Ì¬",                          ID_USERS_STATUS
         MENUITEM "CPU",                         ID_USERS_CPU
-        MENUITEM "ÄÚ´æ",                          ID_USERS_MEMORY
-        MENUITEM "´ÅÅÌ",                          ID_USERS_DISK
-        MENUITEM "ÍøÂç",                          ID_USERS_NETWORK
+        MENUITEM "ï¿½Ú´ï¿½",                          ID_USERS_MEMORY
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½",                          ID_USERS_DISK
+        MENUITEM "ï¿½ï¿½ï¿½ï¿½",                          ID_USERS_NETWORK
         MENUITEM SEPARATOR
-        POPUP "×ÊÔ´Öµ"
+        POPUP "ï¿½ï¿½Ô´Öµ"
         BEGIN
-            POPUP "ÄÚ´æ"
+            POPUP "ï¿½Ú´ï¿½"
             BEGIN
-                MENUITEM "°Ù·Ö±È",                         ID_USERS_MEMORY_PERCENTS
+                MENUITEM "ï¿½Ù·Ö±ï¿½",                         ID_USERS_MEMORY_PERCENTS
                 MENUITEM "Öµ",                           ID_USERS_MEMORY_VALUES
             END
-            POPUP "´ÅÅÌ"
+            POPUP "ï¿½ï¿½ï¿½ï¿½"
             BEGIN
-                MENUITEM "°Ù·Ö±È",                         ID_USERS_DISK_PERCENTS
+                MENUITEM "ï¿½Ù·Ö±ï¿½",                         ID_USERS_DISK_PERCENTS
                 MENUITEM "Öµ",                           ID_USERS_DISK_VALUES
             END
-            POPUP "ÍøÂç"
+            POPUP "ï¿½ï¿½ï¿½ï¿½"
             BEGIN
-                MENUITEM "°Ù·Ö±È",                         ID_USERS_NETWORK_PERCENTS
+                MENUITEM "ï¿½Ù·Ö±ï¿½",                         ID_USERS_NETWORK_PERCENTS
                 MENUITEM "Öµ",                           ID_USERS_NETWORK_VALUES
             END
         END
@@ -569,10 +584,10 @@ IDR_MENU_SHELL MENU
 BEGIN
     POPUP "Notify"
     BEGIN
-        MENUITEM "»¹Ô­(&R)",                      ID_NOTIFY_RESTORE
-        MENUITEM "ÖÃÓÚ¶¥²ã(&A)",                    ID_OPTIONS_ALWAYSONTOP
+        MENUITEM "ï¿½ï¿½Ô­(&R)",                      ID_NOTIFY_RESTORE
+        MENUITEM "ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½(&A)",                    ID_OPTIONS_ALWAYSONTOP
         MENUITEM SEPARATOR
-        MENUITEM "ÍË³ö",                          ID_FILE_EXIT
+        MENUITEM "ï¿½Ë³ï¿½",                          ID_FILE_EXIT
     END
 END
 
@@ -691,192 +706,192 @@ END
 
 STRINGTABLE 
 BEGIN
-    IDS_STRING_COLUMN_000   "Ãû³Æ"
-    IDS_STRING102           "ÀàÐÍ"
+    IDS_STRING_COLUMN_000   "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING102           "ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING103           "PID"
     IDS_STRING155           "×´Ì¬"
-    IDS_STRING104           "ÓÃ»§Ãû"
-    IDS_STRING105           "»á»° ID"
+    IDS_STRING104           "ï¿½Ã»ï¿½ï¿½ï¿½"
+    IDS_STRING105           "ï¿½á»° ID"
     IDS_STRING106           "CPU"
-    IDS_STRING107           "CPU Ê±¼ä"
-    IDS_STRING108           "ÄÚ´æ-¹¤×÷¼¯"
-    IDS_STRING109           "ÄÚ´æ-¹¤×÷¼¯·åÖµ"
-    IDS_STRING110           "ÄÚ´æ-¹¤×÷¼¯ÔöÁ¿)"
+    IDS_STRING107           "CPU Ê±ï¿½ï¿½"
+    IDS_STRING108           "ï¿½Ú´ï¿½-ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING109           "ï¿½Ú´ï¿½-ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ"
+    IDS_STRING110           "ï¿½Ú´ï¿½-ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½)"
 END
 
 STRINGTABLE 
 BEGIN
-    IDS_STRING111           "ÄÚ´æ-×¨ÓÃ¹¤×÷¼¯"
-    IDS_STRING112           "ÄÚ´æ-Ìá½»´óÐ¡"
-    IDS_STRING113           "ÄÚ´æ-Ò³Ãæ»º³å³Ø"
-    IDS_STRING114           "ÄÚ´æ-·ÇÒ³Ãæ»º³å³Ø"
-    IDS_STRING115           "Ò³Ãæ´íÎó"
-    IDS_STRING116           "Ò³Ãæ´íÎóÔöÁ¿"
-    IDS_STRING117           "»ù±¾ÓÅÏÈ¼¶"
-    IDS_STRING118           "¾ä±úÊý"
-    IDS_STRING119           "Ïß³ÌÊý"
-    IDS_STRING120           "ÓÃ»§¶ÔÏó"
-    IDS_STRING121           "GDI ¶ÔÏó"
-    IDS_STRING122           "I/O ¶ÁÈ¡"
-    IDS_STRING123           "I/O Ð´Èë"
-    IDS_STRING124           "I/O ÆäËû"
-    IDS_STRING125           "I/O ¶ÁÈ¡×Ö½Ú"
-    IDS_STRING126           "I/O Ð´Èë×Ö½Ú"
+    IDS_STRING111           "ï¿½Ú´ï¿½-×¨ï¿½Ã¹ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING112           "ï¿½Ú´ï¿½-ï¿½á½»ï¿½ï¿½Ð¡"
+    IDS_STRING113           "ï¿½Ú´ï¿½-Ò³ï¿½æ»ºï¿½ï¿½ï¿½"
+    IDS_STRING114           "ï¿½Ú´ï¿½-ï¿½ï¿½Ò³ï¿½æ»ºï¿½ï¿½ï¿½"
+    IDS_STRING115           "Ò³ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING116           "Ò³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING117           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¼ï¿½"
+    IDS_STRING118           "ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING119           "ï¿½ß³ï¿½ï¿½ï¿½"
+    IDS_STRING120           "ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING121           "GDI ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING122           "I/O ï¿½ï¿½È¡"
+    IDS_STRING123           "I/O Ð´ï¿½ï¿½"
+    IDS_STRING124           "I/O ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING125           "I/O ï¿½ï¿½È¡ï¿½Ö½ï¿½"
+    IDS_STRING126           "I/O Ð´ï¿½ï¿½ï¿½Ö½ï¿½"
 END
 
 STRINGTABLE 
 BEGIN
-    IDS_STRING127           "I/O ÆäËû×Ö½Ú"
-    IDS_STRING128           "Ó³ÏñÍêÕûÂ·¾¶"
-    IDS_STRING129           "ÃüÁîÐÐ"
-    IDS_STRING130           "ÓÃ»§ÕÊ»§¿ØÖÆ£¨UAC£©ÐéÄâ»¯"
-    IDS_STRING132           "ÃèÊö"
-    IDS_STRING_COLUMN_END   "Êý¾ÝÖ´ÐÐ±£»¤"
-    IDS_ABOUTBOX            "¹ØÓÚ DBC Task manager"
-    IDS_STRING_COL_PS0      "Ãû³Æ"
-    IDS_STRING135           "ÀàÐÍ"
+    IDS_STRING127           "I/O ï¿½ï¿½ï¿½ï¿½ï¿½Ö½ï¿½"
+    IDS_STRING128           "Ó³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½"
+    IDS_STRING129           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING130           "ï¿½Ã»ï¿½ï¿½Ê»ï¿½ï¿½ï¿½ï¿½Æ£ï¿½UACï¿½ï¿½ï¿½ï¿½ï¿½â»¯"
+    IDS_STRING132           "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING_COLUMN_END   "ï¿½ï¿½ï¿½ï¿½Ö´ï¿½Ð±ï¿½ï¿½ï¿½"
+    IDS_ABOUTBOX            "ï¿½ï¿½ï¿½ï¿½ DBC Task manager"
+    IDS_STRING_COL_PS0      "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING135           "ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING136           "×´Ì¬"
-    IDS_STRING137           "·¢²¼Õß"
+    IDS_STRING137           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING138           "PID"
-    IDS_STRING139           "½ø³ÌÃû"
-    IDS_STRING140           "ÃüÁîÐÐ"
+    IDS_STRING139           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING140           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING141           "CPU"
-    IDS_STRING142           "ÄÚ´æ"
+    IDS_STRING142           "ï¿½Ú´ï¿½"
 END
 
 STRINGTABLE 
 BEGIN
-    IDS_STRING143           "´ÅÅÌ"
-    IDS_STRING_COL_PSEND    "ÍøÂç"
-    IDS_STRING_COL_US0      "ÓÃ»§"
+    IDS_STRING143           "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING_COL_PSEND    "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING_COL_US0      "ï¿½Ã»ï¿½"
     IDS_STRING146           "ID"
-    IDS_STRING147           "»á»°"
-    IDS_STRING149           "¿Í»§¶ËÃû"
+    IDS_STRING147           "ï¿½á»°"
+    IDS_STRING149           "ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING150           "×´Ì¬"
     IDS_STRING151           "CPU"
-    IDS_STRING152           "ÄÚ´æ"
-    IDS_STRING153           "´ÅÅÌ"
-    IDS_STRING_COL_USEND    "ÍøÂç"
-    IDS_STRING_WAVETIME_SLOW "4·ÖÖÓ"
-    IDS_STRING_WAVETIME_NORMAL "60Ãë"
-    IDS_STRING_WAVETIME_FAST "30Ãë"
-    IDS_STRING_FEWERDETAILS "¼òÂÔÐÅÏ¢(D)"
-    IDS_STRING_MOREDETAILS  "ÏêÏ¸ÐÅÏ¢"
+    IDS_STRING152           "ï¿½Ú´ï¿½"
+    IDS_STRING153           "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING_COL_USEND    "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING_WAVETIME_SLOW "4ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING_WAVETIME_NORMAL "60ï¿½ï¿½"
+    IDS_STRING_WAVETIME_FAST "30ï¿½ï¿½"
+    IDS_STRING_FEWERDETAILS "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢(D)"
+    IDS_STRING_MOREDETAILS  "ï¿½ï¿½Ï¸ï¿½ï¿½Ï¢"
 END
 
 STRINGTABLE 
 BEGIN
-    IDS_STRING_POPMENU_EXP  "Õ¹¿ª"
-    IDS_STRING_POPMENU_COLL "ÊÕÆð"
-    IDS_STRING_ENDPROCTIP   "Èç¹ûÄ³¸ö´ò¿ªµÄ³ÌÐòÓë´Ë½ø³Ì¹ØÁª£¬Ôò»á¹Ø±Õ´Ë³ÌÐò²¢ÇÒ½«¶ªÊ§ËùÓÐÎ´±£´æµÄÊý¾Ý¡£Èç¹û½áÊøÄ³¸öÏµÍ³½ø³Ì£¬Ôò¿ÉÄÜµ¼ÖÂÏµÍ³²»ÎÈ¶¨¡£ÄãÈ·¶¨Òª¼ÌÐøÂð?"
-    IDS_STRING_ENDPROCTITLETIP "ÄãÏ£Íû½áÊø '%s' Âð?"
-    IDS_STRING_ENDPROCBTN   "½áÊø½ø³Ì"
-    IDS_STRING_SHOWGRAPH    "ÏÔÊ¾Í¼±í"
-    IDS_STRING_HIDEGRAPH    "Òþ²ØÍ¼±í"
-    IDS_STRING_COL_STARTUP0 "Ãû³Æ"
+    IDS_STRING_POPMENU_EXP  "Õ¹ï¿½ï¿½"
+    IDS_STRING_POPMENU_COLL "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING_ENDPROCTIP   "ï¿½ï¿½ï¿½Ä³ï¿½ï¿½ï¿½ò¿ªµÄ³ï¿½ï¿½ï¿½ï¿½ï¿½Ë½ï¿½ï¿½Ì¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø±Õ´Ë³ï¿½ï¿½ï¿½ï¿½Ò½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½Ì£ï¿½ï¿½ï¿½ï¿½ï¿½Üµï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½È¶ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½?"
+    IDS_STRING_ENDPROCTITLETIP "ï¿½ï¿½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ '%s' ï¿½ï¿½?"
+    IDS_STRING_ENDPROCBTN   "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING_SHOWGRAPH    "ï¿½ï¿½Ê¾Í¼ï¿½ï¿½"
+    IDS_STRING_HIDEGRAPH    "ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½"
+    IDS_STRING_COL_STARTUP0 "ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING168           "×´Ì¬"
-    IDS_STRING169           "·¢²¼Õß"
-    IDS_STRING170           "Æô¶¯ÀàÐÍ"
-    IDS_STRING171           "ÃüÁîÐÐ"
+    IDS_STRING169           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING170           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING171           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING_ENDPROCTREETIP 
-                            "Èç¹û¶à¸ö´ò¿ªµÄ³ÌÐò»ò½ø³ÌÓë´Ë½ø³ÌÊ÷¹ØÁª£¬Ôò»á¹Ø±ÕÕâÐ©³ÌÐò»ò½ø³Ì²¢ÇÒ½«¶ªÊ§ËùÓÐÎ´±£´æµÄÊý¾Ý¡£Èç¹û½áÊøÄ³¸öÏµÍ³½ø³Ì£¬Ôò¿ÉÄÜµ¼ÖÂÏµÍ³²»ÎÈ¶¨¡£ÄãÈ·¶¨Òª¼ÌÐøÂð?"
-    IDS_STRING_ENDPROCTREEBTN "½áÊø½ø³ÌÊ÷"
-    IDS_STRING_ENDPROCTREETITLETIP "ÄãÏ£Íû½áÊø '%s' µÄ½ø³ÌÊ÷Âð?"
+                            "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ò¿ªµÄ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø±ï¿½ï¿½ï¿½Ð©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì²ï¿½ï¿½Ò½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½Ì£ï¿½ï¿½ï¿½ï¿½ï¿½Üµï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½È¶ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½?"
+    IDS_STRING_ENDPROCTREEBTN "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING_ENDPROCTREETITLETIP "ï¿½ï¿½Ï£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ '%s' ï¿½Ä½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½?"
     IDS_FONTNAME            "Microsoft YaHei"
 END
 
 STRINGTABLE 
 BEGIN
     IDS_PITEM_CPU           "CPU"
-    IDS_PITEM_MEM           "ÄÚ´æ"
-    IDS_PITEM_DISK          "´ÅÅÌ"
-    IDS_PITEM_NET           "ÒÔÌ«Íø"
-    IDS_PITEM_WIRELESS      "ÎÞÏßÍøÂç"
+    IDS_PITEM_MEM           "ï¿½Ú´ï¿½"
+    IDS_PITEM_DISK          "ï¿½ï¿½ï¿½ï¿½"
+    IDS_PITEM_NET           "ï¿½ï¿½Ì«ï¿½ï¿½"
+    IDS_PITEM_WIRELESS      "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
     IDS_PITEM_GPU           "GPU"
-    IDS_TABITEM_PROCESSES   "½ø³Ì"
-    IDS_TABITEM_PERFORMANCE "ÐÔÄÜ"
-    IDS_TABITEM_USERS       "ÓÃ»§"
-    IDS_TABITEM_DETAILS     "ÏêÏ¸ÐÅÏ¢"
-    IDS_TABITEM_SERV        "·þÎñ"
-    IDS_TABITEM_STARTUP     "Æô¶¯"
-    IDS_COL_SERV0           "Ãû³Æ"
+    IDS_TABITEM_PROCESSES   "ï¿½ï¿½ï¿½ï¿½"
+    IDS_TABITEM_PERFORMANCE "ï¿½ï¿½ï¿½ï¿½"
+    IDS_TABITEM_USERS       "ï¿½Ã»ï¿½"
+    IDS_TABITEM_DETAILS     "ï¿½ï¿½Ï¸ï¿½ï¿½Ï¢"
+    IDS_TABITEM_SERV        "ï¿½ï¿½ï¿½ï¿½"
+    IDS_TABITEM_STARTUP     "ï¿½ï¿½ï¿½ï¿½"
+    IDS_COL_SERV0           "ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING190           "PID"
-    IDS_STRING191           "ÃèÊö"
+    IDS_STRING191           "ï¿½ï¿½ï¿½ï¿½"
 END
 
 STRINGTABLE 
 BEGIN
     IDS_STRING192           "×´Ì¬"
-    IDS_STRING193           "Æô¶¯ÀàÐÍ"
-    IDS_COL_SERV_END        "×é"
+    IDS_STRING193           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_COL_SERV_END        "ï¿½ï¿½"
     IDS_STR_FONTNAME        "Tahoma"
-    IDS_MAIN_CAPTION        "ÈÎÎñ¹ÜÀíÆ÷"
-    IDS_STR_GROUP_APP       "Ó¦ÓÃ"
-    IDS_STR_GROUP_BKG       "ºóÌ¨½ø³Ì"
-    IDS_STR_GROUP_WIN       "Windows½ø³Ì"
-    IDS_STR_CPUINFO_0       "ÀûÓÃÂÊ"
-    IDS_STR_CPUINFO_1       "ËÙ¶È"
-    IDS_STR_CPUINFO_2       "½ø³Ì"
+    IDS_MAIN_CAPTION        "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_GROUP_APP       "Ó¦ï¿½ï¿½"
+    IDS_STR_GROUP_BKG       "ï¿½ï¿½Ì¨ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_GROUP_WIN       "Windowsï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_CPUINFO_0       "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_CPUINFO_1       "ï¿½Ù¶ï¿½"
+    IDS_STR_CPUINFO_2       "ï¿½ï¿½ï¿½ï¿½"
 END
 
 STRINGTABLE 
 BEGIN
-    IDS_STR_CPUINFO_3       "Ïß³Ì"
-    IDS_STR_CPUINFO_4       "¾ä±ú"
-    IDS_STR_CPUINFO_5       "Õý³£ÔËÐÐÊ±¼ä"
-    IDS_STR_CPUINFO_6       "×î´óËÙ¶È:\n²å²Û:\nÄÚºË:\nÂß¼­´¦ÀíÆ÷:\nÐéÄâ»¯:\n1¼¶»º´æ:\n2¼¶»º´æ:\n3¼¶»º´æ:"
-    IDS_STR_TIP1_CPU_TOTAL  "% ÀûÓÃÂÊ"
-    IDS_STR_TIP1_CPU_LOGICAL "ÄÚµÄÀûÓÃÂÊ"
-    IDS_STR_TIP1_CPU_NUMA   "Âß¼­´¦ÀíÆ÷"
-    IDS_STR_MEMINFO_0       "Ê¹ÓÃÖÐ"
-    IDS_STR_MEMINFO_1       "¿ÉÓÃ"
-    IDS_STR_MEMINFO_2       "ÒÑÌá½»"
-    IDS_STR_MEMINFO_3       "ÒÑ»º´æ"
+    IDS_STR_CPUINFO_3       "ï¿½ß³ï¿½"
+    IDS_STR_CPUINFO_4       "ï¿½ï¿½ï¿½"
+    IDS_STR_CPUINFO_5       "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½"
+    IDS_STR_CPUINFO_6       "ï¿½ï¿½ï¿½ï¿½Ù¶ï¿½:\nï¿½ï¿½ï¿½:\nï¿½Úºï¿½:\nï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:\nï¿½ï¿½ï¿½â»¯:\n1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:\n2ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:\n3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:"
+    IDS_STR_TIP1_CPU_TOTAL  "% ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_TIP1_CPU_LOGICAL "ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_TIP1_CPU_NUMA   "ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_MEMINFO_0       "Ê¹ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_MEMINFO_1       "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_MEMINFO_2       "ï¿½ï¿½ï¿½á½»"
+    IDS_STR_MEMINFO_3       "ï¿½Ñ»ï¿½ï¿½ï¿½"
 END
 
 STRINGTABLE 
 BEGIN
-    IDS_STR_MEMINFO_4       "Ò³Ãæ»º³å³Ø"
-    IDS_STR_MEMINFO_5       "·ÇÒ³Ãæ»º³å³Ø"
-    IDS_STR_MEMINFO_6       "ËÙ¶È:\nÒÑÊ¹ÓÃµÄ²å²Û::\n¹æ¸ñ:\nÎªÓ²¼þ±£ÁôµÄÄÚ´æ:"
-    IDS_STR_TIP3_MEMORY     "ÄÚ´æÊ¹ÓÃÁ¿"
-    IDS_STR_TIP5_MEMORY     "ÄÚ´æ×éºÏ"
-    IDS_STR_DISKINFO_0      "»î¶¯Ê±¼ä"
-    IDS_STR_DISKINFO_1      "Æ½¾ùÏìÓ¦Ê±¼ä"
-    IDS_STR_DISKINFO_2      "¶ÁÈ¡ËÙ¶È"
-    IDS_STR_DISKINFO_3      "Ð´ÈëËÙ¶È"
-    IDS_STR_DISKINFO_6      "ÈÝÁ¿:\nÒÑ¸ñÊ½»¯:\nÏµÍ³´ÅÅÌ:\nÒ³ÃæÎÄ¼þ:"
-    IDS_STR_TIP5_DISK       "´ÅÅÌ´«ÊäËÙÂÊ"
+    IDS_STR_MEMINFO_4       "Ò³ï¿½æ»ºï¿½ï¿½ï¿½"
+    IDS_STR_MEMINFO_5       "ï¿½ï¿½Ò³ï¿½æ»ºï¿½ï¿½ï¿½"
+    IDS_STR_MEMINFO_6       "ï¿½Ù¶ï¿½:\nï¿½ï¿½Ê¹ï¿½ÃµÄ²ï¿½ï¿½::\nï¿½ï¿½ï¿½:\nÎªÓ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½:"
+    IDS_STR_TIP3_MEMORY     "ï¿½Ú´ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_TIP5_MEMORY     "ï¿½Ú´ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_DISKINFO_0      "ï¿½î¶¯Ê±ï¿½ï¿½"
+    IDS_STR_DISKINFO_1      "Æ½ï¿½ï¿½ï¿½ï¿½Ó¦Ê±ï¿½ï¿½"
+    IDS_STR_DISKINFO_2      "ï¿½ï¿½È¡ï¿½Ù¶ï¿½"
+    IDS_STR_DISKINFO_3      "Ð´ï¿½ï¿½ï¿½Ù¶ï¿½"
+    IDS_STR_DISKINFO_6      "ï¿½ï¿½ï¿½ï¿½:\nï¿½Ñ¸ï¿½Ê½ï¿½ï¿½:\nÏµÍ³ï¿½ï¿½ï¿½ï¿½:\nÒ³ï¿½ï¿½ï¿½Ä¼ï¿½:"
+    IDS_STR_TIP5_DISK       "ï¿½ï¿½ï¿½Ì´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
 END
 
 STRINGTABLE 
 BEGIN
-    IDS_STR_NETWORKINFO_0   "·¢ËÍ"
-    IDS_STR_NETWORKINFO_2   "½ÓÊÕ"
-    IDS_STR_NETWORKINFO_6   "ÊÊÅäÆ÷Ãû³Æ:\nÁ¬½ÓÀàÐÍ:\nIPv4 µØÖ·:\nIPv6 µØÖ·:"
-    IDS_STR_TIP3_NETWORK    "ÍÌÍÂÁ¿"
-    IDS_STR_PROPERTIESDLG_CAPTION "ÊôÐÔ"
+    IDS_STR_NETWORKINFO_0   "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_NETWORKINFO_2   "ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_NETWORKINFO_6   "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:\nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½:\nIPv4 ï¿½ï¿½Ö·:\nIPv6 ï¿½ï¿½Ö·:"
+    IDS_STR_TIP3_NETWORK    "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STR_PROPERTIESDLG_CAPTION "ï¿½ï¿½ï¿½ï¿½"
 END
 
 STRINGTABLE 
 BEGIN
-    IDS_STR_SVR_STATUS      "ÒÑÍ£Ö¹"
-    IDS_STRING261           "ÕýÔÚÆô¶¯"
-    IDS_STRING262           "ÕýÔÚÍ£Ö¹"
-    IDS_STRING263           "ÕýÔÚÔËÐÐ"
+    IDS_STR_SVR_STATUS      "ï¿½ï¿½Í£Ö¹"
+    IDS_STRING261           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
+    IDS_STRING262           "ï¿½ï¿½ï¿½ï¿½Í£Ö¹"
+    IDS_STRING263           "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING265           "SERVICE_CONTINUE_PENDING"
     IDS_STRING266           "SERVICE_PAUSE_PENDING"
-    IDS_STRING267           "ÔÝÍ£"
+    IDS_STRING267           "ï¿½ï¿½Í£"
     IDS_STRING268           "Î´Öª×´Ì¬"
-    IDS_STR_SVR_STARTTYPE   "Òýµ¼"
+    IDS_STR_SVR_STARTTYPE   "ï¿½ï¿½ï¿½ï¿½"
     IDS_STRING270           "ÏµÍ³"
-    IDS_STRING271           "×Ô¶¯"
+    IDS_STRING271           "ï¿½Ô¶ï¿½"
 END
 
 STRINGTABLE 
 BEGIN
-    IDS_STRING272           "ÊÖ¶¯"
-    IDS_STRING273           "½ûÖ¹"
+    IDS_STRING272           "ï¿½Ö¶ï¿½"
+    IDS_STRING273           "ï¿½ï¿½Ö¹"
     IDS_STRING274           "Î´Öª"
 END
 

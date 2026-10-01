@@ -431,6 +431,22 @@
 #define ID_DISK_PERCENTS32912           32912
 #define ID_NETWORK_PERCENTS32913        32913
 #define ID_NETWORK_VALUES32914          32914
+
+// Sprites del icono de la bandeja del sistema (12 niveles, extraídos del
+// taskmgr.exe original de Windows 7). Indice 0 = CPU ~0%, indice 11 = CPU 100%.
+// Formula: idx = max(0, min(11, (Cpu / 100) * 11))
+#define IDI_TRAY_CPU1                   800
+#define IDI_TRAY_CPU2                   801
+#define IDI_TRAY_CPU3                   802
+#define IDI_TRAY_CPU4                   803
+#define IDI_TRAY_CPU5                   804
+#define IDI_TRAY_CPU6                   805
+#define IDI_TRAY_CPU7                   806
+#define IDI_TRAY_CPU8                   807
+#define IDI_TRAY_CPU9                   808
+#define IDI_TRAY_CPU10                  809
+#define IDI_TRAY_CPU11                  810
+#define IDI_TRAY_CPU12                  811
 #define ID_DISK_VALUES32915             32915
 #define ID_MEMORY_VALUES32916           32916
 #define ID_SIMPLELIST_SWITCHTO          32917
