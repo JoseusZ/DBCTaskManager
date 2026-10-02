@@ -103,6 +103,14 @@ typedef struct tagWNDINFO
 	HWND Dll_hwnd;
 } WNDINFO, *LPWNDINFO;
 
+struct PROCWNDCOUNTS
+{
+	int AppWndCount;
+	int BkgWndCount;
+};
+
+static map<DWORD, PROCWNDCOUNTS> g_ProcWndCounts;
+
 
 
 
@@ -561,7 +569,6 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 
 	CString StrItem;
-	CProcess mProcInfo;
 
 
 	int i= 0;
@@ -884,62 +891,78 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 
 	CString StrColheaderTemp;
-	int FlagRedrawHeacerCtrl = 0;
+	BOOL FlagRedrawHeacerCtrl = FALSE;
 	if(COL_SAT_PROC[PROCLIST_CPU].Redraw)
 	{
-		StrColheaderTemp.Format(L"%.0f%%",theApp.PerformanceInfo.CpuUsage);
-		StringCchCopy(COL_SAT_PROC[PROCLIST_CPU].StrItem,5,StrColheaderTemp);
-		COL_SAT_PROC[PROCLIST_CPU].Percents = (float)theApp.PerformanceInfo.CpuUsage;
-		FlagRedrawHeacerCtrl++;
+		float NewCpuPct = (float)theApp.PerformanceInfo.CpuUsage;
+		StrColheaderTemp.Format(L"%.0f%%", NewCpuPct);
+		if ((wcscmp(COL_SAT_PROC[PROCLIST_CPU].StrItem, StrColheaderTemp) != 0) || (COL_SAT_PROC[PROCLIST_CPU].Percents != NewCpuPct))
+		{
+			StringCchCopy(COL_SAT_PROC[PROCLIST_CPU].StrItem,5,StrColheaderTemp);
+			COL_SAT_PROC[PROCLIST_CPU].Percents = NewCpuPct;
+			FlagRedrawHeacerCtrl = TRUE;
+		}
 	}
 
 	if(COL_SAT_PROC[PROCLIST_MEMORY].Redraw)
 	{
-		StrColheaderTemp.Format(L"%d%%",(int)theApp.PerformanceInfo.MemoryUsage);
-		StringCchCopy(COL_SAT_PROC[PROCLIST_MEMORY].StrItem,5,StrColheaderTemp);
-		COL_SAT_PROC[PROCLIST_MEMORY].Percents = (float)theApp.PerformanceInfo.MemoryUsage;
-		FlagRedrawHeacerCtrl++;
+		float NewMemPct = (float)theApp.PerformanceInfo.MemoryUsage;
+		StrColheaderTemp.Format(L"%d%%",(int)NewMemPct);
+		if ((wcscmp(COL_SAT_PROC[PROCLIST_MEMORY].StrItem, StrColheaderTemp) != 0) || (COL_SAT_PROC[PROCLIST_MEMORY].Percents != NewMemPct))
+		{
+			StringCchCopy(COL_SAT_PROC[PROCLIST_MEMORY].StrItem,5,StrColheaderTemp);
+			COL_SAT_PROC[PROCLIST_MEMORY].Percents = NewMemPct;
+			FlagRedrawHeacerCtrl = TRUE;
+		}
 	}
 
 	if(COL_SAT_PROC[PROCLIST_DISK].Redraw)
 	{
-		//double UsePercents = pPerformanceMon->GetTotalDiskIO();
 		double DiskPct = theApp.PerformanceInfo.TotalDiskUsage;
-		// Bug fix Win7 non-admin: TotalDiskUsage can be NaN/Inf when the disk
-		// counter failed. Clamp before formatting so the header never prints
-		// "-nan%" or "inf%".
 		if(_finite(DiskPct) == 0) DiskPct = 0;
 		if(DiskPct < 0) DiskPct = 0;
 		if(DiskPct > 100) DiskPct = 100;
-		StrColheaderTemp.Format(L"%.0f%%", DiskPct);
-
-		StringCchCopy(COL_SAT_PROC[PROCLIST_DISK].StrItem,5,StrColheaderTemp);
-		COL_SAT_PROC[PROCLIST_DISK].Percents = (float)DiskPct;
-		FlagRedrawHeacerCtrl++;
+		float NewDiskPct = (float)DiskPct;
+		StrColheaderTemp.Format(L"%.0f%%", NewDiskPct);
+		if ((wcscmp(COL_SAT_PROC[PROCLIST_DISK].StrItem, StrColheaderTemp) != 0) || (COL_SAT_PROC[PROCLIST_DISK].Percents != NewDiskPct))
+		{
+			StringCchCopy(COL_SAT_PROC[PROCLIST_DISK].StrItem,5,StrColheaderTemp);
+			COL_SAT_PROC[PROCLIST_DISK].Percents = NewDiskPct;
+			FlagRedrawHeacerCtrl = TRUE;
+		}
 	}
 
 	if(COL_SAT_PROC[PROCLIST_NETWORK].Redraw)
 	{
-		StrColheaderTemp.Format(L"%.0f%%",theApp.PerformanceInfo.TotalNetUsage );
-		StringCchCopy(COL_SAT_PROC[PROCLIST_NETWORK].StrItem,5,StrColheaderTemp);
-		COL_SAT_PROC[PROCLIST_NETWORK].Percents = (float)theApp.PerformanceInfo.TotalNetUsage;
-		FlagRedrawHeacerCtrl++;
+		float NewNetPct = (float)theApp.PerformanceInfo.TotalNetUsage;
+		StrColheaderTemp.Format(L"%.0f%%", NewNetPct);
+		if ((wcscmp(COL_SAT_PROC[PROCLIST_NETWORK].StrItem, StrColheaderTemp) != 0) || (COL_SAT_PROC[PROCLIST_NETWORK].Percents != NewNetPct))
+		{
+			StringCchCopy(COL_SAT_PROC[PROCLIST_NETWORK].StrItem,5,StrColheaderTemp);
+			COL_SAT_PROC[PROCLIST_NETWORK].Percents = NewNetPct;
+			FlagRedrawHeacerCtrl = TRUE;
+		}
 	}
 
-	if(FlagRedrawHeacerCtrl!=0)
-		this->mTaskList.CoolheaderCtrl.Invalidate(0);
+	if(FlagRedrawHeacerCtrl)
+		this->mTaskList.CoolheaderCtrl.RedrawWindow(NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
 
 
 
 
 
-	nApp = NewAppCount   ;
-	nBkg = NewBkgPrcCount ;
-	nWin =  NewWinPrcCount ;
+	int OldAppCount = nApp;
+	int OldBkgCount = nBkg;
+	int OldWinCount = nWin;
 
+	nApp = NewAppCount;
+	nBkg = NewBkgPrcCount;
+	nWin = NewWinPrcCount;
 
-
-	UpdateGroupText();
+	if(OldAppCount != nApp || OldBkgCount != nBkg || OldWinCount != nWin)
+	{
+		UpdateGroupText();
+	}
 
 
 
@@ -1638,70 +1661,30 @@ int CPageProcesses::_CloseSubList(int ID,BOOL LockDraw)
 
 int CPageProcesses::ListItemWindows(int nItem,APPLISTDATA * pListData )
 {
-	 
-
-	APPLISTDATA *  pData = NULL ;
+	APPLISTDATA *pData = NULL;
 	if(pListData == NULL)
 	{
-		pData = (APPLISTDATA *) mTaskList.GetItemData(nItem);
+		pData = (APPLISTDATA *)mTaskList.GetItemData(nItem);
 	}
 	else
 	{
 		pData = pListData;
 	}
 
-	if(pData == NULL) return -1;
-
-
-
-	//----------------------------------
-
+	if(pData == NULL || pData->pPData == NULL) return -1;
 
 	DWORD PID = ((PROCLISTDATA *)pData->pPData)->PID;
+	int nAppWnd = 0;
+	int nBkgWnd = 0;
 
-	CWnd *pDeskTop=CWnd::GetDesktopWindow();
-
-	CWnd  *pAppWnd = pDeskTop->GetWindow(GW_CHILD);
-
-	CString  StrWndCaptionF;
-	CString  StrWndCaptionB;
-	CString Strtemp;
-	DWORD WindowPID ;
-
-
-	int nAppWnd=0;
-	int nBkgWnd=0;
-
-
-
-	while( pAppWnd!=NULL)
+	map<DWORD, PROCWNDCOUNTS>::iterator it = g_ProcWndCounts.find(PID);
+	if(it != g_ProcWndCounts.end())
 	{
-		
-		GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID); // ����ҵ����������Ľ��� 
-
-		if(WindowPID ==PID)
-		{
-			DWORD  WndExStyle = pAppWnd->GetExStyle();
-			if(pAppWnd->IsWindowVisible()&& (!(WndExStyle&WS_EX_TOOLWINDOW))&&(pAppWnd->GetParent()==NULL)&&(!(WndExStyle&0x200000)))
-			{				
-
-				nAppWnd ++;
-			}
-			else  if(pAppWnd->GetParent()==NULL)
-			{
-				pAppWnd->GetWindowText(Strtemp);
-				//StrWndCaptionB = StrWndCaptionB+L"   "+Strtemp+L"\n";
-				if(Strtemp!=L"")nBkgWnd ++ ;
-			}
-
-		}
-		
-		pAppWnd=pAppWnd->GetWindow(GW_HWNDNEXT);
-
+		nAppWnd = it->second.AppWndCount;
+		nBkgWnd = it->second.BkgWndCount;
 	}
 
 	CString StrItem;
-
 
 	if(nAppWnd>0 )
 	{
@@ -1789,74 +1772,79 @@ int CPageProcesses::ListItemWindows(int nItem,APPLISTDATA * pListData )
 
 BOOL CPageProcesses::CheckWndChange(void)
 {
-
-
-	int n=0; 
-	CWnd *pDeskTop=CWnd::GetDesktopWindow();
-	CWnd  *pAppWnd = pDeskTop->GetWindow(GW_CHILD);
-
-	CString  StrWndCaption;
+	CWnd *pDeskTop = CWnd::GetDesktopWindow();
+	CWnd *pAppWnd = pDeskTop->GetWindow(GW_CHILD);
 
 	CString StrNewWndList;
-	// Opt 4: Reserve once to avoid realloc'ing StrNewWndList every append.
-	// Called from OnUMTimer (process list refresh). Each loop iteration
-	// appends one entry (~30-60 hex chars + caption). Typical desktop has
-	// 30-80 top-level windows so the final string is 4-10KB. Reserving
-	// 64KB keeps every += in-place, eliminating the per-tick heap churn
-	// that previously showed up in profile traces.
-	StrNewWndList.Preallocate(65536);
+	StrNewWndList.Preallocate(8192);
 
-	CString StrTemp ;
+	CString StrTemp;
+	DWORD hWndNum;
 
-	DWORD   hWndNum;
+	g_ProcWndCounts.clear();
 
-	while( pAppWnd!=NULL)
+	while (pAppWnd != NULL)
 	{
-
-		DWORD  WndExStyle =  pAppWnd->GetExStyle(); 
-		if( !( WndExStyle & WS_EX_TOOLWINDOW)  )  //      WS_CAPTION   pAppWnd->IsWindowVisible() && 
+		DWORD WndExStyle = pAppWnd->GetExStyle();
+		if (!(WndExStyle & WS_EX_TOOLWINDOW))
 		{
+			hWndNum = (DWORD)pAppWnd->GetSafeHwnd();
 
-			hWndNum = (DWORD) pAppWnd->GetSafeHwnd();
-			pAppWnd->GetWindowTextW(StrWndCaption);
-			StrTemp.Format(L"%x",hWndNum);
-			StrTemp=StrTemp+StrWndCaption;
-
-			if(pAppWnd->IsWindowVisible()&&(pAppWnd->GetParent()==NULL)&& (!(WndExStyle & 0x200000)) )  //����0x200000�����Ϊ��̨����
-			{				 
-				StrTemp = StrTemp+L"{APP}";
-			}
-			else if(pAppWnd->GetParent()==NULL)
+			CWnd *pParentWnd = pAppWnd->GetParent();
+			BOOL IsTopLevel = (pParentWnd == NULL);
+			BOOL IsAppWnd = (pAppWnd->IsWindowVisible() && IsTopLevel && (!(WndExStyle & 0x200000)));
+			BOOL IsBkgWnd = ((!IsAppWnd) && IsTopLevel);
+			int CaptionLen = 0;
+			if (IsBkgWnd)
 			{
-				StrTemp = StrTemp+L"{BKG}";
+				CaptionLen = pAppWnd->GetWindowTextLengthW();
 			}
-			// Opt 4: operator+= appends in place when capacity allows, so the
-			// StrNewWndList+StrTemp pattern that always reallocated is now
-			// a no-grow append for any session whose window list fits in
-			// the 64KB reserved buffer.
+
+			DWORD WindowPID = 0;
+			if (IsTopLevel)
+			{
+				GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID);
+			}
+
+			// Solo codificamos señales que afectan la clasificacion/conteos:
+			// HWND + PID + estado APP/BKG(counted). Los cambios de caption
+			// que no alteran estos flags ya no disparan trabajo O(N procesos).
+			int SigState = 0;
+			if (IsAppWnd)
+			{
+				SigState = 1;
+			}
+			else if (IsBkgWnd)
+			{
+				SigState = (CaptionLen > 0) ? 2 : 3;
+			}
+			StrTemp.Format(L"%x:%lu:%d;", hWndNum, (unsigned long)WindowPID, SigState);
 			StrNewWndList += StrTemp;
 
-
+			if (WindowPID != 0)
+			{
+				PROCWNDCOUNTS &counts = g_ProcWndCounts[WindowPID];
+				if (IsAppWnd)
+				{
+					counts.AppWndCount++;
+				}
+				else if (IsBkgWnd && CaptionLen > 0)
+				{
+					counts.BkgWndCount++;
+				}
+			}
 		}
 
-		pAppWnd=pAppWnd->GetWindow(GW_HWNDNEXT);
-
+		pAppWnd = pAppWnd->GetWindow(GW_HWNDNEXT);
 	}
 
 	BOOL Ret = TRUE;
-
-	//if(StrNewWndList.Compare(StrWndList) ==0 ) //û�仯 ����FALSE
-	if(	wcscmp(StrNewWndList,StrWndList)==0)
+	if (wcscmp(StrNewWndList, StrWndList) == 0)
 	{
-		Ret =FALSE;
+		Ret = FALSE;
 	}
 
-	StrWndList= StrNewWndList;
-
-
-
-
-
+	StrWndList = StrNewWndList;
 	return Ret;
 }
 
@@ -2148,7 +2136,7 @@ void CPageProcesses::PreListItems(void)
 
 	mTaskList._GetRedrawColumn();
 	mTaskList.Invalidate();
-	mTaskList.CoolheaderCtrl.Invalidate();
+	mTaskList.CoolheaderCtrl.RedrawWindow(NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
 
 	//MSB(0)
 	
@@ -2246,8 +2234,6 @@ void CPageProcesses::FillAllItemData(BOOL LoadAllTrueData)
 		//StrItem.Format(L"%d",pDetailListData->IconIndex);
 		//mTaskList.SetItemText(i,PROCLIST_STATUS, StrItem );
 
-		mTaskList.SetItemText(i,PROCLIST_PNAME, pDetailListData->Name );
-
 		//------------------------------------   PID   --------------------------------------
 
 		StrItem.Format(L"%d",pDetailListData->PID);
@@ -2292,7 +2278,6 @@ void CPageProcesses::FillAllItemData(BOOL LoadAllTrueData)
 
 	}
 
-	mTaskList.CoolheaderCtrl.Invalidate();
 
 
 

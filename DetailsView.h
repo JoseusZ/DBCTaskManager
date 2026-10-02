@@ -84,6 +84,7 @@ protected:
 public:
 	CDBCListCtrl   mDetailsList;
 	CCoolListCtrl *pTaskList;
+	CWnd *pTaskPage;
 	CFormView *pUsersView;
 	CFormView *pServiceView;
 	afx_msg void OnSize(UINT nType, int cx, int cy);

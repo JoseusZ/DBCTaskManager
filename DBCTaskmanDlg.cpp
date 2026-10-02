@@ -625,6 +625,7 @@ void CDBCTaskmanDlg::InitAll(void)
 
 	
 	pPageDetails->pTaskList = & pPageProcesses->mTaskList;	//Ԥ�ȸ�ֵ ���� ��ʼ������	 ��ʼʱpPageDetails���䷢����Ϣ
+	pPageDetails->pTaskPage = pPageProcesses;
 	pPageDetails->InitList();//���������б� ���� pPageDetails  �б���������ȳ�ʼ��
 
 	pPageProcesses->pPageDetails = pPageDetails;  

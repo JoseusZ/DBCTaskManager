@@ -84,9 +84,8 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 
 		//�������̿��գ�������ʾÿ�����̵���Ϣ
 		BOOL bMore = ::Process32First(hProcessSnap,&pe32);		
-		int n =0;
 
-	   
+
 		while (bMore)
 		{			
 			map<DWORD,PVOID>::iterator Iter= TempMap_PidToData.find(pe32.th32ProcessID); 
@@ -108,8 +107,6 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 		}
 
 
-		CString StrPID;
-
 		for (map<DWORD,PVOID>::iterator ProcToDel=TempMap_PidToData.begin(); ProcToDel!=TempMap_PidToData.end();  ProcToDel++ )
 		{
 
@@ -120,17 +117,14 @@ static UINT Thread_MonitorCreateAndExit(LPVOID pParam)
 
 		}
 
-		 TempMap_PidToData.clear();
-
+		::CloseHandle(hProcessSnap);
 		Sleep(1000);
 	}
 
 
 
- 
 
-	//�����snapshot����
-	::CloseHandle(hProcessSnap);
+
 	AfxEndThread(0,TRUE);
 	return 0;
 
@@ -156,8 +150,7 @@ static UINT Thread_SetAllListData(LPVOID pParam)
 	Dlg->SetAllListItemData(TRUE);
 	Dlg->FlagEnableRefresh = TRUE;
 	Dlg->ReSort(FALSE);//����������
-	Dlg->PostMessage(UM_ALLINFO_OK); //֪ͨ ��һҳ�б���ʼ��������	 
-	Dlg->mDetailsList.Invalidate();
+	Dlg->pTaskPage->PostMessage(UM_ALLINFO_OK);	Dlg->mDetailsList.Invalidate();
 	AfxEndThread(0,TRUE);
 	return 0;
 
@@ -171,8 +164,7 @@ static UINT Thread_ReloadAllListData(LPVOID pParam)
 
 	Dlg->SetAllListItemData(FALSE);	
 	Dlg->ReSort(FALSE);//����������
-	Dlg->pTaskList->PostMessage(UM_ALLINFO_OK); //֪ͨ ��һҳ�б���ʼ��������	 
-	Dlg->mDetailsList.Invalidate();
+	Dlg->pTaskPage->PostMessage(UM_ALLINFO_OK);	Dlg->mDetailsList.Invalidate();
 	AfxEndThread(0,TRUE);
 	return 0;
 
@@ -1336,13 +1328,10 @@ void CPageDetails::_RemoveProcessFromList( DWORD PID)
 	//ReSort(FALSE);
 }
 
-void CPageDetails::_AddToTaskList( PROCLISTDATA *pListData)  //���ӵ���һҳ�б�
+void CPageDetails::_AddToTaskList( PROCLISTDATA *pListData)
 {
-
-
-	if(pTaskList==NULL) return;
-	pTaskList->PostMessageW(UM_PROCSTART,0,(LPARAM)pListData);
-
+	if(pTaskPage==NULL) return;
+	pTaskPage->PostMessageW(UM_PROCSTART,0,(LPARAM)pListData);
 }
 
 void CPageDetails::_AddToUserList(PROCLISTDATA *pListData)
@@ -1640,7 +1629,10 @@ void CPageDetails::PreLoadProcesses(void)
 	pPLdata->IconIndex = _GetIconIndex(StrFullPath);
 		mDetailsList.InsertItem(0,StrProcessName,pPLdata->IconIndex); //ʵ�ʲ���
 		mDetailsList.SetItemData(0,(DWORD_PTR)pPLdata);
-	
+		EnterCriticalSection(&g_MapDataLock);
+		Map_PidToData[pPLdata->PID] = pPLdata;
+		LeaveCriticalSection(&g_MapDataLock);
+
 
 		StrTemp.Format(L"%d",pPLdata->PID);
 
@@ -1676,7 +1668,7 @@ void CPageDetails::PreLoadProcesses(void)
 		CString StrProcessFullPathName;
 		if(hProcess  > 0)
 		{
-			StrProcessFullPathName = mProcInfo.GetPathName(hProcess);
+			StrProcessFullPathName = StrFullPath;
 		}
 		else
 		{
@@ -1749,7 +1741,7 @@ void CPageDetails::PreLoadProcesses(void)
 
 
 
-	pTaskList->PostMessageW(UM_BASELISTOK);
+	pTaskPage->PostMessageW(UM_BASELISTOK);
 
 
 
