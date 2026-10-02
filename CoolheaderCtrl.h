@@ -55,7 +55,8 @@ public:
 	BOOL *pFlagSortUp;
 	int *pCurrentSortCol;
 	HTHEME hTheme;
-protected:
+		int m_iHoverItem;
+	protected:
 	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
 public:
 	Gdiplus::Color GColor1;
