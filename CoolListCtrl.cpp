@@ -1071,8 +1071,24 @@ void CCoolListCtrl::OnHdnItemchanging(NMHDR* pNMHDR, LRESULT* pResult)
 
 	if (!(GetParent()->IsWindowVisible()))return;
 
-	//	if(phdr->pitem->cxy<5&& phdr->pitem->)phdr->pitem->cxy=5;
-	if (pColStatusArray != NULL)
+		// Limite minimo para las columnas de metricas (CPU/Memory/Disk/Network)
+		// en la lista de procesos: no se permite al usuario colapsarlas por
+		// debajo de su ancho por defecto (80 px). Solo aplica a estas 4
+		// columnas del ProcessesView (indices 7,8,9,10); NAME y STATUS
+		// quedan libres. Se usan indices numericos para no acoplar
+		// CoolListCtrl a ProcessesView.h.
+		if (phdr->iItem == 7 || phdr->iItem == 8
+			|| phdr->iItem == 9 || phdr->iItem == 10)
+		{
+			const int MIN_METRIC_COL_WIDTH = 80;
+			if (phdr->pitem != NULL && phdr->pitem->cxy < MIN_METRIC_COL_WIDTH)
+			{
+				phdr->pitem->cxy = MIN_METRIC_COL_WIDTH;
+			}
+		}
+
+		//	if(phdr->pitem->cxy<5&& phdr->pitem->)phdr->pitem->cxy=5;
+		if (pColStatusArray != NULL)
 	{
 		if (!PopMenuAction) //NotPopMenu????????????
 		{
