@@ -20,6 +20,7 @@ CCoolheaderCtrl::CCoolheaderCtrl()
 , WillSwapToID(0)
 , pFlagSortUp(NULL)
 , pCurrentSortCol(NULL)
+, m_iHoverItem(-1)
 {
 	//MyFont.CreateFont(17,0,0,0,FW_NORMAL,FALSE,FALSE,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY, 	DEFAULT_PITCH | FF_SWISS,_T("Tahoma"));
 
@@ -103,7 +104,7 @@ void CCoolheaderCtrl::DrawItem(LPDRAWITEMSTRUCT  lpDrawItemStruct )
 
  
 	
-	pDC->FillSolidRect(rcItem,theApp.WndBkgColor);
+	pDC->SetBkMode(TRANSPARENT);
 
 	
 
@@ -119,10 +120,8 @@ void CCoolheaderCtrl::DrawItem(LPDRAWITEMSTRUCT  lpDrawItemStruct )
 	CRect rcDrageImage;
 	rcDrageImage.CopyRect(rcItem);
 	rcDrageImage.DeflateRect(1,1);
-	pDC->FillSolidRect(rcDrageImage,theApp.WndBkgColor);
 
 	pDC->SetBkColor(theApp.WndBkgColor);
-	// pDC->SetBkMode(0);
 
 
 	UINT Align = DT_LEFT ;
@@ -142,7 +141,7 @@ void CCoolheaderCtrl::DrawItem(LPDRAWITEMSTRUCT  lpDrawItemStruct )
  
 
 
-	if(*pCurrentSortCol == nItem) //Õý°´´ËÁÐÅÅÐò
+	if(*pCurrentSortCol == nItem) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{
 		rcArrow.CopyRect(&rcItem);
 
@@ -179,7 +178,7 @@ void CCoolheaderCtrl::DrawItem(LPDRAWITEMSTRUCT  lpDrawItemStruct )
 	}
 	
 	
-	pDC->DrawText(StrTitle,&rcText,DT_BOTTOM|DT_SINGLELINE|DT_END_ELLIPSIS|Align);//ÄÚÈÝ´Ó¶¨ÒåÊý¾ÝÖÐÈ¡
+	pDC->DrawText(StrTitle,&rcText,DT_BOTTOM|DT_SINGLELINE|DT_END_ELLIPSIS|Align);//ï¿½ï¿½ï¿½Ý´Ó¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡
 	 
 
 
@@ -223,7 +222,7 @@ LRESULT CCoolheaderCtrl::OnLayout(WPARAM wParam, LPARAM lParam)
 	HD_LAYOUT &hdl = *( HD_LAYOUT * ) lParam; 
 	RECT *prc = hdl.prc; 
 	WINDOWPOS *pwpos = hdl.pwpos; 
-	//±íÍ·¸ß¶ÈÎªÔ­À´1.5±¶£¬Èç¹ûÒª¶¯Ì¬ÐÞ¸Ä±íÍ·¸ß¶ÈµÄ»°£¬½«1.5Éè³ÉÒ»¸öÈ«¾Ö±äÁ¿ 
+	//ï¿½ï¿½Í·ï¿½ß¶ï¿½ÎªÔ­ï¿½ï¿½1.5ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½Ì¬ï¿½Þ¸Ä±ï¿½Í·ï¿½ß¶ÈµÄ»ï¿½ï¿½ï¿½ï¿½ï¿½1.5ï¿½ï¿½ï¿½Ò»ï¿½ï¿½È«ï¿½Ö±ï¿½ï¿½ï¿½ 
 	//int nHeight = (int)(pwpos->cy * );
 
 
@@ -231,7 +230,7 @@ LRESULT CCoolheaderCtrl::OnLayout(WPARAM wParam, LPARAM lParam)
 	pwpos->y = 0;
 	//pwpos->cx = Width ;
 	pwpos->cy = Height;//46+10; 
-	prc->top = 0;//46+10;  //ÁÐ±íÏîÆðÊ¼Î»ÖÃ
+	prc->top = 0;//46+10;  //ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Î»ï¿½ï¿½
 
 
 	 
@@ -251,7 +250,7 @@ void CCoolheaderCtrl::OnPaint()
 	//this->GetItemRect(n-1,rcLastItem); 
 	this->GetClientRect(rc);
 
-	//Ó¦Îª¿ÉÒÔ½»»»ÁÐ ËùÒÔÒªÇó³öÊµ¼Ê×îÓÒ²àÁÐµÄÎ»ÖÃ
+	//Ó¦Îªï¿½ï¿½ï¿½Ô½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½Ðµï¿½Î»ï¿½ï¿½
 
 	int  SumColWidth=0 ;
 
@@ -262,7 +261,7 @@ void CCoolheaderCtrl::OnPaint()
 
 
 
-	CDC MemDC;//ÄÚ´æID±í  
+	CDC MemDC;//ï¿½Ú´ï¿½IDï¿½ï¿½  
 	CBitmap MemMap;
 	CBitmap *pOldBm;
 
@@ -275,7 +274,7 @@ void CCoolheaderCtrl::OnPaint()
 
 	MemDC.FillSolidRect(rc,theApp.WndBkgColor);
 
-	//ÕâÒ»¾äÊÇµ÷ÓÃÄ¬ÈÏµÄOnPaint(),°ÑÍ¼ÐÎ»­ÔÚÄÚ´æDC±íÉÏ  
+	//ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Çµï¿½ï¿½ï¿½Ä¬ï¿½Ïµï¿½OnPaint(),ï¿½ï¿½Í¼ï¿½Î»ï¿½ï¿½ï¿½ï¿½Ú´ï¿½DCï¿½ï¿½ï¿½ï¿½  
 
 	DefWindowProc(WM_PAINT,(WPARAM)MemDC.m_hDC,(LPARAM)0);
 
@@ -310,15 +309,20 @@ void CCoolheaderCtrl::OnPaint()
 	for(int i=0;i<n;i++)
 	{
 
-		
+		if(theApp.FlagThemeActive && hTheme && i == m_iHoverItem)
+		{
+			CRect rcHot;
+			if(this->GetItemRect(i, rcHot))
+			{
+				DrawThemeBackground(hTheme, MemDC.m_hDC, HP_HEADERITEM, HIS_HOT, &rcHot, NULL);
+			}
+		}
+
+
 		this->GetItemRect(i,rcItem);
 		rcStore.CopyRect(rcItem);
 		SumColWidth=SumColWidth+rcItem.Width();
-		rcItem.left=rcItem.right-6;
-		MemDC.FillSolidRect(rcItem,theApp.WndBkgColor);
-		if(!theApp.FlagThemeActive){rcItem.right-=1;}//Êµ²â½á¹û
-		Grap.FillRectangle(&LBr,rcItem.right,10,1,rc.Height());
-		
+
 
 		if(ColStatusArray[i].Percents>90)
 		{
@@ -326,7 +330,7 @@ void CCoolheaderCtrl::OnPaint()
 			//MemDC.Draw3dRect(rcStore.left,rcStore.top,rcStore.Width(),rcStore.Height(),RGB(200,99,0),RGB(200,99,0));
 		}
 
-		
+
 	}
 
 
@@ -351,10 +355,51 @@ void CCoolheaderCtrl::OnPaint()
 	MemDC.FillSolidRect(rc,theApp.WndBkgColor);
 //	MemDC.FillSolidRect(CRect(SumColWidth,0,SumColWidth+2,10),RGB(255,255,255));
 
-	
-	GetItemRect(0,rcItem);//ÐÞ²¹×î×ó²à²»¸Ã»­³öµÄÏß
-	rcItem.right=rcItem.left+1;
-	MemDC.FillSolidRect(rcItem,theApp.WndBkgColor);
+
+	if(theApp.FlagThemeActive && hTheme && m_iHoverItem >= 0 && m_iHoverItem < n)
+	{
+		int hIdx = m_iHoverItem;
+		CRect rcH;
+		if(this->GetItemRect(hIdx, rcH) && ColStatusArray[hIdx].ColWidth != 0)
+		{
+			WCHAR StrTitle[MAX_PATH];
+			HDITEM hd;
+			hd.mask = HDI_FORMAT|HDI_TEXT;
+			hd.pszText = StrTitle;
+			hd.cchTextMax = MAX_PATH;
+			if(this->GetItem(hIdx, &hd))
+			{
+				UINT Align = ColStatusArray[hIdx].Align;
+
+				CRect rcText(rcH);
+				rcText.top += 10;
+				rcText.InflateRect(-8,-5);
+
+				if(*pCurrentSortCol == hIdx)
+				{
+					CRect rcArrow(rcH);
+					rcArrow.bottom = rcArrow.top + 10;
+					int SortType = HSAS_SORTEDUP;
+					if(!(*pFlagSortUp)) SortType = HSAS_SORTEDDOWN;
+					DrawThemeBackground(hTheme, MemDC.m_hDC, HP_HEADERSORTARROW, SortType, rcArrow, NULL);
+				}
+
+				MemDC.SetBkMode(TRANSPARENT);
+				MemDC.SetTextColor(theApp.CoolHdrColor);
+				MemDC.DrawText(StrTitle, &rcText, DT_BOTTOM|DT_SINGLELINE|DT_END_ELLIPSIS|Align);
+
+				if(ColStatusArray[hIdx].Cool)
+				{
+					CFont *pOldFont = MemDC.SelectObject(&theApp.mTitleFont);
+					rcText.top = 16;
+					MemDC.SetTextColor(RGB(99,99,99));
+					MemDC.DrawText(ColStatusArray[hIdx].StrItem, &rcText, DT_TOP|DT_SINGLELINE|DT_END_ELLIPSIS|Align);
+					MemDC.SelectObject(pOldFont);
+				}
+			}
+		}
+	}
+
 
 	Grap.FillRectangle(&LBr,rc.left,10,1,rc.Height());
 
@@ -364,7 +409,7 @@ void CCoolheaderCtrl::OnPaint()
 
 
 
-	//ºáÏß
+	//ï¿½ï¿½ï¿½ï¿½
 	
 	CPen mPen;
 
@@ -417,7 +462,7 @@ void CCoolheaderCtrl::OnWindowPosChanging(WINDOWPOS* lpwndpos)
 {
 	//CRect rc;
 	//this->GetParent()->GetClientRect(rc);
-	lpwndpos->y =0; //·ÀÖ¹ÁÐ±í Ë®Æ½¹ö¶¯Ê± ÏòÉÏÒÆ¶¯
+	lpwndpos->y =0; //ï¿½ï¿½Ö¹ï¿½Ð±ï¿½ Ë®Æ½ï¿½ï¿½ï¿½ï¿½Ê± ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½
 	lpwndpos->x=PosX;
 	//lpwndpos->cx=PosX+rc.Width();
 
@@ -455,15 +500,15 @@ void CCoolheaderCtrl::OnMouseMove(UINT nFlags, CPoint point)
 {
 	// TODO: Add your message handler code here and/or call default
 
-	if (!MouseTrackNow)     //  ÔÊÐí¿ªÊ¼×·×Ù  
+	if (!MouseTrackNow)     //  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼×·ï¿½ï¿½  
 	{
 		TRACKMOUSEEVENT csTME;
 		csTME.cbSize = sizeof (csTME);
 		csTME.dwFlags = TME_LEAVE|TME_HOVER;
-		csTME.hwndTrack = m_hWnd ;// Ö¸¶¨Òª ×·×Ù µÄ´°¿Ú 
-		csTME.dwHoverTime = 10;  // Êó±êÔÚ°´Å¥ÉÏÍ£Áô³¬¹ý 10ms £¬²ÅÈÏÎª×´Ì¬Îª HOVER
-		::_TrackMouseEvent (&csTME); // ¿ªÆô Windows µÄ WM_MOUSELEAVE £¬ WM_MOUSEHOVER ÊÂ¼þÖ§³Ö 
-		MouseTrackNow=TRUE ;   // ÈôÒÑ¾­ ×·×Ù £¬ÔòÍ£Ö¹ ×·×Ù 
+		csTME.hwndTrack = m_hWnd ;// Ö¸ï¿½ï¿½Òª ×·ï¿½ï¿½ ï¿½Ä´ï¿½ï¿½ï¿½ 
+		csTME.dwHoverTime = 10;  // ï¿½ï¿½ï¿½ï¿½Ú°ï¿½Å¥ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 10ms ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª×´Ì¬Îª HOVER
+		::_TrackMouseEvent (&csTME); // ï¿½ï¿½ï¿½ï¿½ Windows ï¿½ï¿½ WM_MOUSELEAVE ï¿½ï¿½ WM_MOUSEHOVER ï¿½Â¼ï¿½Ö§ï¿½ï¿½ 
+		MouseTrackNow=TRUE ;   // ï¿½ï¿½ï¿½Ñ¾ï¿½ ×·ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Í£Ö¹ ×·ï¿½ï¿½ 
 	}
 
 	
@@ -505,6 +550,34 @@ void CCoolheaderCtrl::OnMouseMove(UINT nFlags, CPoint point)
 
 
 
+	int nCount = GetItemCount();
+	int iNewHover = -1;
+	for(int i = 0; i < nCount; i++)
+	{
+		CRect rcCol;
+		if(GetItemRect(i, rcCol) && rcCol.PtInRect(point))
+		{
+			iNewHover = i;
+			break;
+		}
+	}
+
+	if(iNewHover != m_iHoverItem)
+	{
+		int iOld = m_iHoverItem;
+		m_iHoverItem = iNewHover;
+
+		CRect rcInv;
+		if(iOld >= 0 && GetItemRect(iOld, rcInv))
+		{
+			InvalidateRect(rcInv, FALSE);
+		}
+		if(iNewHover >= 0 && GetItemRect(iNewHover, rcInv))
+		{
+			InvalidateRect(rcInv, FALSE);
+		}
+	}
+
 	CHeaderCtrl::OnMouseMove(nFlags, point);
 }
 
@@ -516,6 +589,18 @@ void CCoolheaderCtrl::OnMouseLeave()
 
 	FlagLeftBtnDown = FALSE;
 	MouseTrackNow=FALSE;
+
+	if(m_iHoverItem != -1)
+	{
+		int iOld = m_iHoverItem;
+		m_iHoverItem = -1;
+		CRect rc;
+		if(GetItemRect(iOld, rc))
+		{
+			InvalidateRect(rc, FALSE);
+		}
+	}
+
 	CHeaderCtrl::OnMouseLeave();
 }
 
@@ -540,9 +625,9 @@ void CCoolheaderCtrl::OnLButtonUp(UINT nFlags, CPoint point)
 			if(rc.PtInRect(point))
 			{
 				iClick = i;
-				Invalidate();//Ë¢ÐÂÅÅÐò¼ýÍ·×´Ì¬
+				Invalidate();//Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·×´Ì¬
 				GetParent()->PostMessageW(UM_HEADER_LCLICK,iClick);
-				//ÆäËûµØ·½µã»÷ÎÞÐ§
+				//ï¿½ï¿½ï¿½ï¿½ï¿½Ø·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§
 				break;
 			}
 		}

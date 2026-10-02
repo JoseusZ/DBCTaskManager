@@ -55,6 +55,7 @@ public:
 	BOOL *pFlagSortUp;
 	int *pCurrentSortCol;
 	HTHEME hTheme;
+	int m_iHoverItem;
 protected:
 	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
 public:
