@@ -1,4 +1,4 @@
-// CoolheaderCtrl.cpp : implementation file
+ï»¿// CoolheaderCtrl.cpp : implementation file
 //
 
 #include "stdafx.h"
@@ -11,25 +11,26 @@
 IMPLEMENT_DYNAMIC(CCoolheaderCtrl, CHeaderCtrl)
 
 CCoolheaderCtrl::CCoolheaderCtrl()
-: Height(0)
-, PosX(0)
-, Width(0)
-, MouseTrackNow(FALSE)
-, FlagLeftBtnDown(FALSE)
-, StartDragCurPos(0)
-, WillSwapToID(0)
-, pFlagSortUp(NULL)
-, pCurrentSortCol(NULL)
+	: Height(0)
+	, PosX(0)
+	, Width(0)
+	, MouseTrackNow(FALSE)
+	, FlagLeftBtnDown(FALSE)
+	, StartDragCurPos(0)
+	, WillSwapToID(0)
+	, pFlagSortUp(NULL)
+	, pCurrentSortCol(NULL)
+	, m_iHoverItem(-1)
 {
 	//MyFont.CreateFont(17,0,0,0,FW_NORMAL,FALSE,FALSE,0,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY, 	DEFAULT_PITCH | FF_SWISS,_T("Tahoma"));
 
-	hTheme=OpenThemeData(this->GetSafeHwnd(), L"HEADER");
-	 
-	ARGB aRGB(0  );
+	hTheme = OpenThemeData(this->GetSafeHwnd(), L"HEADER");
+
+	ARGB aRGB(0);
 	GColor1.SetValue(aRGB);
 	GColor2.SetFromCOLORREF(theApp.WndFrameColor);
-	
-	
+
+
 }
 
 CCoolheaderCtrl::~CCoolheaderCtrl()
@@ -41,14 +42,14 @@ CCoolheaderCtrl::~CCoolheaderCtrl()
 BEGIN_MESSAGE_MAP(CCoolheaderCtrl, CHeaderCtrl)
 
 	ON_MESSAGE(HDM_LAYOUT, OnLayout)
-	ON_WM_PAINT() 
+	ON_WM_PAINT()
 	ON_WM_ERASEBKGND()
 	ON_WM_WINDOWPOSCHANGING()
 	ON_WM_CONTEXTMENU()
 	ON_WM_MOUSEMOVE()
-	
+
 	ON_WM_MOUSELEAVE()
-	
+
 	ON_WM_LBUTTONUP()
 	ON_WM_LBUTTONDOWN()
 END_MESSAGE_MAP()
@@ -59,100 +60,98 @@ END_MESSAGE_MAP()
 
 
 
-void CCoolheaderCtrl::DrawItem(LPDRAWITEMSTRUCT  lpDrawItemStruct )
+void CCoolheaderCtrl::DrawItem(LPDRAWITEMSTRUCT  lpDrawItemStruct)
 {
-	 
-	
+
+
 	int nItem = lpDrawItemStruct->itemID;
- 
+
 	WCHAR StrTitle[MAX_PATH];
 
 	HDITEM              hdItem;
-    hdItem.mask  =  HDI_FORMAT|HDI_TEXT;   
+	hdItem.mask = HDI_FORMAT | HDI_TEXT;
 	hdItem.pszText = StrTitle;
 	hdItem.cchTextMax = MAX_PATH;
-	 
-	this->GetItem(nItem,&hdItem);
+
+	this->GetItem(nItem, &hdItem);
 
 
-	if(ColStatusArray[nItem].ColWidth == 0) return;
+	if (ColStatusArray[nItem].ColWidth == 0) return;
 
 
-	CRect  rcItem ;
+	CRect  rcItem;
 
-	rcItem.SetRect(lpDrawItemStruct->rcItem.left,lpDrawItemStruct->rcItem.top,lpDrawItemStruct->rcItem.right,lpDrawItemStruct->rcItem.bottom);
-
-
-
-//	hTheme
+	rcItem.SetRect(lpDrawItemStruct->rcItem.left, lpDrawItemStruct->rcItem.top, lpDrawItemStruct->rcItem.right, lpDrawItemStruct->rcItem.bottom);
 
 
 
-
-	//rcItem.InflateRect
-
-	//::DrawFrameControl(lpDrawItemStruct->hDC,       &lpDrawItemStruct->rcItem, DFC_BUTTON, DFCS_BUTTONPUSH);
-
-
-  
-
-	CDC   *pDC   =   new   CDC   ;   
-    pDC->Attach(lpDrawItemStruct->hDC)   ;   
+	//	hTheme
 
 
 
- 
-	
-	pDC->FillSolidRect(rcItem,theApp.WndBkgColor);
 
-	
+		//rcItem.InflateRect
+
+		//::DrawFrameControl(lpDrawItemStruct->hDC,       &lpDrawItemStruct->rcItem, DFC_BUTTON, DFCS_BUTTONPUSH);
+
+
+
+
+	CDC* pDC = new   CDC;
+	pDC->Attach(lpDrawItemStruct->hDC);
+
+
+
+
+
+	pDC->SetBkMode(TRANSPARENT);
+
+
 
 
 
 	Graphics  Grap(pDC->m_hDC);
 
-	RectF rcF((float)rcItem.left,(float)rcItem.top+10,(float)rcItem.Width(),(float)rcItem.Height());
+	RectF rcF((float)rcItem.left, (float)rcItem.top + 10, (float)rcItem.Width(), (float)rcItem.Height());
 
-	
+
 
 
 	CRect rcDrageImage;
 	rcDrageImage.CopyRect(rcItem);
-	rcDrageImage.DeflateRect(1,1);
-	pDC->FillSolidRect(rcDrageImage,theApp.WndBkgColor);
+	rcDrageImage.DeflateRect(1, 1);
 
 	pDC->SetBkColor(theApp.WndBkgColor);
-	// pDC->SetBkMode(0);
 
 
-	UINT Align = DT_LEFT ;
+	UINT Align = DT_LEFT;
 
-	Align =ColStatusArray[nItem].Align; 
+	Align = ColStatusArray[nItem].Align;
 
 
-	
 
-	CRect rcText,rcArrow;
-	
+
+	CRect rcText, rcArrow;
+
 
 	rcText.CopyRect(&rcItem);
-	
-	rcText.top+=10;
-	rcText.InflateRect(-8,-5);
- 
+
+	rcText.top += 10;
+	rcText.InflateRect(-8, -5);
 
 
-	if(*pCurrentSortCol == nItem) //Õý°´´ËÁÐÅÅÐò
+
+	if (*pCurrentSortCol == nItem) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	{
 		rcArrow.CopyRect(&rcItem);
 
-		rcArrow.bottom=rcArrow.top+10;
+		rcArrow.bottom = rcArrow.top + 10;
 
-		if(theApp.FlagThemeActive)
+		if (theApp.FlagThemeActive)
 		{
 			int SortType = HSAS_SORTEDUP;
-			if(!(*pFlagSortUp)) SortType = HSAS_SORTEDDOWN;
-			DrawThemeBackground(hTheme,pDC->m_hDC,  HP_HEADERSORTARROW ,    SortType ,rcArrow ,NULL); 
+			if (!(*pFlagSortUp)) SortType = HSAS_SORTEDDOWN;
+			DrawThemeBackground(hTheme, pDC->m_hDC, HP_HEADERSORTARROW, SortType, rcArrow, NULL);
 
 		}
 		else
@@ -162,37 +161,37 @@ void CCoolheaderCtrl::DrawItem(LPDRAWITEMSTRUCT  lpDrawItemStruct )
 
 
 
-	
+
 
 
 	//pDC->SetTextColor(::GetSysColor(COLOR_HOTLIGHT ));
 
 
-	if(theApp.FlagThemeActive)
+	if (theApp.FlagThemeActive)
 	{
-	
+
 		pDC->SetTextColor(theApp.CoolHdrColor);
 	}
 	else
 	{
-		pDC->SetTextColor(::GetSysColor(COLOR_HOTLIGHT ));
+		pDC->SetTextColor(::GetSysColor(COLOR_HOTLIGHT));
 	}
-	
-	
-	pDC->DrawText(StrTitle,&rcText,DT_BOTTOM|DT_SINGLELINE|DT_END_ELLIPSIS|Align);//ÄÚÈÝ´Ó¶¨ÒåÊý¾ÝÖÐÈ¡
-	 
 
 
-	if(ColStatusArray[nItem].Cool)
+	pDC->DrawText(StrTitle, &rcText, DT_BOTTOM | DT_SINGLELINE | DT_END_ELLIPSIS | Align);//ï¿½ï¿½ï¿½Ý´Ó¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¡
+
+
+
+	if (ColStatusArray[nItem].Cool)
 	{
-		
-		
-		
-		CFont *pOldFont = pDC->SelectObject(&theApp.mTitleFont);
 
-		rcText.top=16;
-		pDC->SetTextColor(RGB(99,99,99));
-		pDC->DrawText(ColStatusArray[nItem].StrItem,&rcText,DT_TOP|DT_SINGLELINE|DT_END_ELLIPSIS|Align);// 
+
+
+		CFont* pOldFont = pDC->SelectObject(&theApp.mTitleFont);
+
+		rcText.top = 16;
+		pDC->SetTextColor(RGB(99, 99, 99));
+		pDC->DrawText(ColStatusArray[nItem].StrItem, &rcText, DT_TOP | DT_SINGLELINE | DT_END_ELLIPSIS | Align);// 
 		pDC->SelectObject(pOldFont);
 		//MyFont.DeleteObject();
 
@@ -200,14 +199,14 @@ void CCoolheaderCtrl::DrawItem(LPDRAWITEMSTRUCT  lpDrawItemStruct )
 	}
 
 
-//	pDC->SelectObject(pOldBrush);
+	//	pDC->SelectObject(pOldBrush);
 
 	Grap.ReleaseHDC(pDC->m_hDC);
-	
-    pDC->Detach(); 
+
+	pDC->Detach();
 	pDC->DeleteDC();
-     delete   pDC; 
-	 pDC = NULL;
+	delete   pDC;
+	pDC = NULL;
 
 }
 
@@ -215,28 +214,28 @@ void CCoolheaderCtrl::DrawItem(LPDRAWITEMSTRUCT  lpDrawItemStruct )
 
 
 
-LRESULT CCoolheaderCtrl::OnLayout(WPARAM wParam, LPARAM lParam) 
+LRESULT CCoolheaderCtrl::OnLayout(WPARAM wParam, LPARAM lParam)
 {
 	//return 1;
 
-	LRESULT lResult = CHeaderCtrl::DefWindowProc(HDM_LAYOUT, 0, lParam); 
-	HD_LAYOUT &hdl = *( HD_LAYOUT * ) lParam; 
-	RECT *prc = hdl.prc; 
-	WINDOWPOS *pwpos = hdl.pwpos; 
-	//±íÍ·¸ß¶ÈÎªÔ­À´1.5±¶£¬Èç¹ûÒª¶¯Ì¬ÐÞ¸Ä±íÍ·¸ß¶ÈµÄ»°£¬½«1.5Éè³ÉÒ»¸öÈ«¾Ö±äÁ¿ 
+	LRESULT lResult = CHeaderCtrl::DefWindowProc(HDM_LAYOUT, 0, lParam);
+	HD_LAYOUT& hdl = *(HD_LAYOUT*)lParam;
+	RECT* prc = hdl.prc;
+	WINDOWPOS* pwpos = hdl.pwpos;
+	//ï¿½ï¿½Í·ï¿½ß¶ï¿½ÎªÔ­ï¿½ï¿½1.5ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½Ì¬ï¿½Þ¸Ä±ï¿½Í·ï¿½ß¶ÈµÄ»ï¿½ï¿½ï¿½ï¿½ï¿½1.5ï¿½ï¿½ï¿½Ò»ï¿½ï¿½È«ï¿½Ö±ï¿½ï¿½ï¿½ 
 	//int nHeight = (int)(pwpos->cy * );
 
 
-	
+
 	pwpos->y = 0;
 	//pwpos->cx = Width ;
 	pwpos->cy = Height;//46+10; 
-	prc->top = 0;//46+10;  //ÁÐ±íÏîÆðÊ¼Î»ÖÃ
+	prc->top = 0;//46+10;  //ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼Î»ï¿½ï¿½
 
 
-	 
-	return  lResult; 
-    
+
+	return  lResult;
+
 }  // OnLayout
 void CCoolheaderCtrl::OnPaint()
 {
@@ -244,44 +243,40 @@ void CCoolheaderCtrl::OnPaint()
 	// TODO: Add your message handler code here
 
 	// Do not call CHeaderCtrl::OnPaint() for painting messages
- 
 
-	CRect rc,rcItem;
+
+	CRect rc, rcItem;
 	int n = this->GetItemCount();
 	//this->GetItemRect(n-1,rcLastItem); 
 	this->GetClientRect(rc);
 
-	//Ó¦Îª¿ÉÒÔ½»»»ÁÐ ËùÒÔÒªÇó³öÊµ¼Ê×îÓÒ²àÁÐµÄÎ»ÖÃ
+	//Ó¦Îªï¿½ï¿½ï¿½Ô½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½Ò²ï¿½ï¿½Ðµï¿½Î»ï¿½ï¿½
 
-	int  SumColWidth=0 ;
-
-
-
-	 
+	int  SumColWidth = 0;
 
 
 
 
-	CDC MemDC;//ÄÚ´æID±í  
+
+
+
+
+	CDC MemDC;//ï¿½Ú´ï¿½IDï¿½ï¿½  
 	CBitmap MemMap;
-	CBitmap *pOldBm;
+	CBitmap* pOldBm;
 
-	MemDC.CreateCompatibleDC(&dc); 
-	MemMap.CreateCompatibleBitmap(&dc,rc.Width(),rc.Height());
-	pOldBm=MemDC.SelectObject(&MemMap);
+	MemDC.CreateCompatibleDC(&dc);
+	MemMap.CreateCompatibleBitmap(&dc, rc.Width(), rc.Height());
+	pOldBm = MemDC.SelectObject(&MemMap);
 
-	 
-	
 
-	MemDC.FillSolidRect(rc,theApp.WndBkgColor);
 
-	//ÕâÒ»¾äÊÇµ÷ÓÃÄ¬ÈÏµÄOnPaint(),°ÑÍ¼ÐÎ»­ÔÚÄÚ´æDC±íÉÏ  
 
-	DefWindowProc(WM_PAINT,(WPARAM)MemDC.m_hDC,(LPARAM)0);
+	MemDC.FillSolidRect(rc, theApp.WndBkgColor);
 
-	//DrawThemeBackground(hTheme,MemDC.m_hDC,  HP_HEADERITEM ,   HIS_PRESSED ,rc ,NULL); 
-
-	
+	// Dejar que el control pinte texto/arrow normalmente. Es la unica
+	// fuente de texto del header; no se duplica.
+	DefWindowProc(WM_PAINT, (WPARAM)MemDC.m_hDC, (LPARAM)0);
 
 
 
@@ -289,52 +284,58 @@ void CCoolheaderCtrl::OnPaint()
 
 	Graphics  Grap(MemDC.m_hDC);
 
-	RectF rcF((float)rc.left,(float)rc.top+10,1.0,(float)rc.Height());
-	LinearGradientBrush  LBr(rcF,GColor1,GColor2,LinearGradientModeVertical );
-	LinearGradientBrush  LBrRed(rcF,Color(0,255,0,0),Color(128,255,0,0),LinearGradientModeVertical );
+	RectF rcF((float)rc.left, (float)rc.top + 10, 1.0, (float)rc.Height());
+	LinearGradientBrush  LBr(rcF, GColor1, GColor2, LinearGradientModeVertical);
+	LinearGradientBrush  LBrRed(rcF, Color(0, 255, 0, 0), Color(128, 255, 0, 0), LinearGradientModeVertical);
 	//Grap.FillRectangle(&LBr,rc.left,10,1,rc.Height());
-	
+
 
 	CRect rcFix;
 	rcFix.CopyRect(rc);
 
-	if(!theApp.FlagThemeActive) 
-	{		
-		rcFix.top= rcFix.bottom-2;
-		MemDC.FillSolidRect(rcFix,theApp.WndBkgColor);
+	if (!theApp.FlagThemeActive)
+	{
+		rcFix.top = rcFix.bottom - 2;
+		MemDC.FillSolidRect(rcFix, theApp.WndBkgColor);
 	}
 
 	n = this->GetItemCount();
 
 	CRect rcStore;
-	for(int i=0;i<n;i++)
+	for (int i = 0;i < n;i++)
 	{
-
-		
-		this->GetItemRect(i,rcItem);
-		rcStore.CopyRect(rcItem);
-		SumColWidth=SumColWidth+rcItem.Width();
-		rcItem.left=rcItem.right-6;
-		MemDC.FillSolidRect(rcItem,theApp.WndBkgColor);
-		if(!theApp.FlagThemeActive){rcItem.right-=1;}//Êµ²â½á¹û
-		Grap.FillRectangle(&LBr,rcItem.right,10,1,rc.Height());
-		
-
-		if(ColStatusArray[i].Percents>90)
+		// Pintar el fondo HIS_HOT de la celda hover DESPUES de que
+		// DefWindowProc ya dibujo texto/arrow: asi el hover se ve, y el
+		// texto nativo queda debajo (sin repintarlo a mano).
+		if (theApp.FlagThemeActive && hTheme && i == m_iHoverItem)
 		{
-			Grap.FillRectangle(&LBrRed,rcStore.left,10,rcStore.Width(),rcStore.Height());
+			CRect rcHot;
+			if (this->GetItemRect(i, rcHot) && ColStatusArray[i].ColWidth != 0)
+			{
+				DrawThemeBackground(hTheme, MemDC.m_hDC, HP_HEADERITEM, HIS_HOT, &rcHot, NULL);
+			}
+		}
+
+		this->GetItemRect(i, rcItem);
+		rcStore.CopyRect(rcItem);
+		SumColWidth = SumColWidth + rcItem.Width();
+
+
+		if (ColStatusArray[i].Percents > 90)
+		{
+			Grap.FillRectangle(&LBrRed, rcStore.left, 10, rcStore.Width(), rcStore.Height());
 			//MemDC.Draw3dRect(rcStore.left,rcStore.top,rcStore.Width(),rcStore.Height(),RGB(200,99,0),RGB(200,99,0));
 		}
 
-		
+
 	}
 
 
 
 
 
-	
-	
+
+
 	//if(theApp.FlagThemeActive)
 	//{
 	//	//rc.left=SumColWidth+1;  
@@ -346,32 +347,113 @@ void CCoolheaderCtrl::OnPaint()
 
 
 
-	rc.left=SumColWidth;
+	rc.left = SumColWidth;
 
-	MemDC.FillSolidRect(rc,theApp.WndBkgColor);
-//	MemDC.FillSolidRect(CRect(SumColWidth,0,SumColWidth+2,10),RGB(255,255,255));
-
-	
-	GetItemRect(0,rcItem);//ÐÞ²¹×î×ó²à²»¸Ã»­³öµÄÏß
-	rcItem.right=rcItem.left+1;
-	MemDC.FillSolidRect(rcItem,theApp.WndBkgColor);
-
-	Grap.FillRectangle(&LBr,rc.left,10,1,rc.Height());
+	MemDC.FillSolidRect(rc, theApp.WndBkgColor);
+	//	MemDC.FillSolidRect(CRect(SumColWidth,0,SumColWidth+2,10),RGB(255,255,255));
 
 
+	if (theApp.FlagThemeActive && hTheme && m_iHoverItem >= 0 && m_iHoverItem < n)
+	{
+		// En la celda hover el fondo HIS_HOT (azul claro) tapa el texto
+		// que pinto DefWindowProc. Solo para ESA celda repintamos texto
+		// + flecha de orden (en caso de estar ordenando) con fondo
+		// transparente para que se vea el color del tema. En las demas
+		// celdas no tocamos nada -> no hay doble repintado.
+		int hIdx = m_iHoverItem;
+		CRect rcH;
+		if (this->GetItemRect(hIdx, rcH) && ColStatusArray[hIdx].ColWidth != 0)
+		{
+			WCHAR StrTitle[MAX_PATH];
+			HDITEM hd;
+			hd.mask = HDI_FORMAT | HDI_TEXT;
+			hd.pszText = StrTitle;
+			hd.cchTextMax = MAX_PATH;
+			if (this->GetItem(hIdx, &hd))
+			{
+				UINT Align = ColStatusArray[hIdx].Align;
+
+				CRect rcText(rcH);
+				rcText.top += 10;
+				rcText.InflateRect(-8, -5);
+
+				// Usar exactamente la misma fuente del control para que
+				// el texto del hover tenga el mismo tamano que las demas
+				// celdas (si no, el DC usa la fuente por defecto y se ve
+				// mucho mas grande).
+				CFont* pFont = GetFont();
+				CFont* pOldFont = NULL;
+				if (pFont != NULL && pFont->GetSafeHandle() != NULL)
+				{
+					pOldFont = MemDC.SelectObject(pFont);
+				}
+
+				if (*pCurrentSortCol == hIdx)
+				{
+					CRect rcArrow(rcH);
+					rcArrow.bottom = rcArrow.top + 10;
+					int SortType = HSAS_SORTEDUP;
+					if (!(*pFlagSortUp)) SortType = HSAS_SORTEDDOWN;
+					DrawThemeBackground(hTheme, MemDC.m_hDC, HP_HEADERSORTARROW, SortType, rcArrow, NULL);
+				}
+
+				MemDC.SetBkMode(TRANSPARENT);
+				MemDC.SetTextColor(theApp.CoolHdrColor);
+				MemDC.DrawText(StrTitle, &rcText, DT_BOTTOM | DT_SINGLELINE | DT_END_ELLIPSIS | Align);
+
+				if (ColStatusArray[hIdx].Cool)
+				{
+					CFont* pOldFont2 = MemDC.SelectObject(&theApp.mTitleFont);
+					rcText.top = 16;
+					MemDC.SetTextColor(RGB(99, 99, 99));
+					MemDC.DrawText(ColStatusArray[hIdx].StrItem, &rcText, DT_TOP | DT_SINGLELINE | DT_END_ELLIPSIS | Align);
+					MemDC.SelectObject(pOldFont2);
+				}
+
+				if (pOldFont != NULL)
+				{
+					MemDC.SelectObject(pOldFont);
+				}
+			}
+		}
+	}
+
+
+	Grap.FillRectangle(&LBr, rc.left, 10, 1, rc.Height());
+
+	// Lineas divisorias entre celdas del header: 1px de ancho, color
+	// negro, con un gradiente que va de transparente arriba a negro
+	// solido abajo (no llega al borde superior del header).
+	for (int k = 0; k < n; k++)
+	{
+		if (ColStatusArray[k].ColWidth == 0) continue;
+		CRect rcDiv;
+		if (!this->GetItemRect(k, rcDiv)) continue;
+		int x = rcDiv.right;
+		int h = rcDiv.Height();
+		if (h <= 0) continue;
+		RectF rcDG((REAL)x, (REAL)rcDiv.top, 1.0f, (REAL)h);
+		Color cTop(0, 0, 0, 0);
+		Color cBot(255, 0, 0, 0);
+		LinearGradientBrush LBrDiv(rcDG, cTop, cBot, LinearGradientModeVertical);
+		LBrDiv.SetWrapMode(WrapModeTile);
+		Grap.FillRectangle(&LBrDiv, (REAL)x, (REAL)rcDiv.top, 1.0f, (REAL)h);
+	}
 
 
 
 
 
-	//ºáÏß
-	
+
+
+	//ï¿½ï¿½ï¿½ï¿½
+
 	CPen mPen;
 
-	mPen.CreatePen(0,1,theApp.WndFrameColor);
+	mPen.CreatePen(0, 1, theApp.WndFrameColor);
 
-	CPen *OldPen= MemDC.SelectObject(&mPen);
- 
+	CPen* OldPen = MemDC.SelectObject(&mPen);
+
 	//MemDC.MoveTo(0,rc.bottom-1);
 	//MemDC.LineTo(rc.right,rc.bottom-1);
 
@@ -380,20 +462,20 @@ void CCoolheaderCtrl::OnPaint()
 
 
 
-	
-	
-	rc.left=0;
 
-	dc.BitBlt(0,0,rc.Width(),  rc.Height(),&MemDC,0, 0,SRCCOPY);  
+
+	rc.left = 0;
+
+	dc.BitBlt(0, 0, rc.Width(), rc.Height(), &MemDC, 0, 0, SRCCOPY);
 
 
 	Grap.ReleaseHDC(MemDC);
 
 	MemDC.SelectObject(pOldBm);
 
-	mPen.DeleteObject();    
+	mPen.DeleteObject();
 
-   	MemDC.DeleteDC();
+	MemDC.DeleteDC();
 	MemMap.DeleteObject();
 
 
@@ -417,8 +499,8 @@ void CCoolheaderCtrl::OnWindowPosChanging(WINDOWPOS* lpwndpos)
 {
 	//CRect rc;
 	//this->GetParent()->GetClientRect(rc);
-	lpwndpos->y =0; //·ÀÖ¹ÁÐ±í Ë®Æ½¹ö¶¯Ê± ÏòÉÏÒÆ¶¯
-	lpwndpos->x=PosX;
+	lpwndpos->y = 0; //ï¿½ï¿½Ö¹ï¿½Ð±ï¿½ Ë®Æ½ï¿½ï¿½ï¿½ï¿½Ê± ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½
+	lpwndpos->x = PosX;
 	//lpwndpos->cx=PosX+rc.Width();
 
 
@@ -440,11 +522,11 @@ void CCoolheaderCtrl::OnWindowPosChanging(WINDOWPOS* lpwndpos)
 
 void CCoolheaderCtrl::OnContextMenu(CWnd* pWnd, CPoint point)
 {
-	
-	
+
+
 	GetParent()->PostMessageW(UM_HEADER_RCLICK);
 
-	 
+
 
 }
 
@@ -455,18 +537,18 @@ void CCoolheaderCtrl::OnMouseMove(UINT nFlags, CPoint point)
 {
 	// TODO: Add your message handler code here and/or call default
 
-	if (!MouseTrackNow)     //  ÔÊÐí¿ªÊ¼×·×Ù  
+	if (!MouseTrackNow)     //  ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼×·ï¿½ï¿½  
 	{
 		TRACKMOUSEEVENT csTME;
-		csTME.cbSize = sizeof (csTME);
-		csTME.dwFlags = TME_LEAVE|TME_HOVER;
-		csTME.hwndTrack = m_hWnd ;// Ö¸¶¨Òª ×·×Ù µÄ´°¿Ú 
-		csTME.dwHoverTime = 10;  // Êó±êÔÚ°´Å¥ÉÏÍ£Áô³¬¹ý 10ms £¬²ÅÈÏÎª×´Ì¬Îª HOVER
-		::_TrackMouseEvent (&csTME); // ¿ªÆô Windows µÄ WM_MOUSELEAVE £¬ WM_MOUSEHOVER ÊÂ¼þÖ§³Ö 
-		MouseTrackNow=TRUE ;   // ÈôÒÑ¾­ ×·×Ù £¬ÔòÍ£Ö¹ ×·×Ù 
+		csTME.cbSize = sizeof(csTME);
+		csTME.dwFlags = TME_LEAVE | TME_HOVER;
+		csTME.hwndTrack = m_hWnd;// Ö¸ï¿½ï¿½Òª ×·ï¿½ï¿½ ï¿½Ä´ï¿½ï¿½ï¿½ 
+		csTME.dwHoverTime = 10;  // ï¿½ï¿½ï¿½ï¿½Ú°ï¿½Å¥ï¿½ï¿½Í£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 10ms ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª×´Ì¬Îª HOVER
+		::_TrackMouseEvent(&csTME); // ï¿½ï¿½ï¿½ï¿½ Windows ï¿½ï¿½ WM_MOUSELEAVE ï¿½ï¿½ WM_MOUSEHOVER ï¿½Â¼ï¿½Ö§ï¿½ï¿½ 
+		MouseTrackNow = TRUE;   // ï¿½ï¿½ï¿½Ñ¾ï¿½ ×·ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Í£Ö¹ ×·ï¿½ï¿½ 
 	}
 
-	
+
 	//---------------------------------------------
 
 
@@ -505,6 +587,34 @@ void CCoolheaderCtrl::OnMouseMove(UINT nFlags, CPoint point)
 
 
 
+	int nCount = GetItemCount();
+	int iNewHover = -1;
+	for (int i = 0; i < nCount; i++)
+	{
+		CRect rcCol;
+		if (GetItemRect(i, rcCol) && rcCol.PtInRect(point))
+		{
+			iNewHover = i;
+			break;
+		}
+	}
+
+	if (iNewHover != m_iHoverItem)
+	{
+		int iOld = m_iHoverItem;
+		m_iHoverItem = iNewHover;
+
+		CRect rcInv;
+		if (iOld >= 0 && GetItemRect(iOld, rcInv))
+		{
+			InvalidateRect(rcInv, FALSE);
+		}
+		if (iNewHover >= 0 && GetItemRect(iNewHover, rcInv))
+		{
+			InvalidateRect(rcInv, FALSE);
+		}
+	}
+
 	CHeaderCtrl::OnMouseMove(nFlags, point);
 }
 
@@ -515,7 +625,19 @@ void CCoolheaderCtrl::OnMouseLeave()
 	// TODO: Add your message handler code here and/or call default
 
 	FlagLeftBtnDown = FALSE;
-	MouseTrackNow=FALSE;
+	MouseTrackNow = FALSE;
+
+	if (m_iHoverItem != -1)
+	{
+		int iOld = m_iHoverItem;
+		m_iHoverItem = -1;
+		CRect rc;
+		if (GetItemRect(iOld, rc))
+		{
+			InvalidateRect(rc, FALSE);
+		}
+	}
+
 	CHeaderCtrl::OnMouseLeave();
 }
 
@@ -526,31 +648,31 @@ void CCoolheaderCtrl::OnLButtonUp(UINT nFlags, CPoint point)
 	// TODO: Add your message handler code here and/or call default
 
 
-	if(FlagLeftBtnDown)
+	if (FlagLeftBtnDown)
 	{
-			
+
 		FlagLeftBtnDown = FALSE;
 		int n = this->GetItemCount();
 		CRect rc;
 
 		int iClick = -1;
-		for( int i=0;i<n;i++ )
+		for (int i = 0;i < n;i++)
 		{
-			GetItemRect(i,rc);
-			if(rc.PtInRect(point))
+			GetItemRect(i, rc);
+			if (rc.PtInRect(point))
 			{
 				iClick = i;
-				Invalidate();//Ë¢ÐÂÅÅÐò¼ýÍ·×´Ì¬
-				GetParent()->PostMessageW(UM_HEADER_LCLICK,iClick);
-				//ÆäËûµØ·½µã»÷ÎÞÐ§
+				Invalidate();//Ë¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í·×´Ì¬
+				GetParent()->PostMessageW(UM_HEADER_LCLICK, iClick);
+				//ï¿½ï¿½ï¿½ï¿½ï¿½Ø·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§
 				break;
 			}
 		}
 
 
-		
-		
-		
+
+
+
 	}
 	CHeaderCtrl::OnLButtonUp(nFlags, point);
 }
@@ -561,11 +683,11 @@ void CCoolheaderCtrl::OnLButtonDown(UINT nFlags, CPoint point)
 
 
 
-	 
 
 
 
-	if(GetCursor()==AfxGetApp()->LoadStandardCursor(IDC_ARROW)) 
+
+	if (GetCursor() == AfxGetApp()->LoadStandardCursor(IDC_ARROW))
 	{
 		FlagLeftBtnDown = TRUE;
 		StartDragCurPos = point.x;
@@ -577,7 +699,7 @@ void CCoolheaderCtrl::OnLButtonDown(UINT nFlags, CPoint point)
 BOOL CCoolheaderCtrl::OnCommand(WPARAM wParam, LPARAM lParam)
 {
 	// TODO: Add your specialized code here and/or call the base class
- 
-	this->GetParent()->PostMessageW(WM_COMMAND, wParam,  lParam);
+
+	this->GetParent()->PostMessageW(WM_COMMAND, wParam, lParam);
 	return CHeaderCtrl::OnCommand(wParam, lParam);
 }
