@@ -705,13 +705,17 @@ BOOL CCoolheaderCtrl::OnCommand(WPARAM wParam, LPARAM lParam)
 	return CHeaderCtrl::OnCommand(wParam, lParam);
 }
 
-LRESULT CCoolheaderCtrl::OnThemeChanged(WPARAM, LPARAM)
+LRESULT CCoolheaderCtrl::OnThemeChanged(WPARAM wParam, LPARAM lParam)
 {
-	// Cuando el usuario cambia de Classic -> Aero (o Aero -> otro tema),
-	// el HTHEME cacheado en el constructor queda apuntando a datos del tema
-	// anterior y los DrawThemeBackground siguen devolviendo el aspecto viejo.
-	// Cerramos y reabrimos para que tome la nueva visualizacion y forzamos
-	// repintado para que HIS_HOT / fondo / texto reflejen el cambio.
+	// Primero: propagar al CHeaderCtrl nativo (subclasificado) para que
+	// su cache interna de tema se actualice. Si no lo hacemos, el header
+	// sigue pintando con la apariencia del tema anterior y al repintar
+	// se mezcla con los DrawThemeBackground nuestros que ya usan el
+	// hTheme nuevo -> recuadros grises y hover Aero sobre fondo Classic.
+	LRESULT lResult = DefWindowProc(WM_THEMECHANGED, wParam, lParam);
+
+	// Segundo: cerrar y reabrir nuestro hTheme (usado por
+	// DrawThemeBackground para HIS_HOT y HP_HEADERSORTARROW).
 	if (hTheme)
 	{
 		::CloseThemeData(hTheme);
@@ -721,5 +725,5 @@ LRESULT CCoolheaderCtrl::OnThemeChanged(WPARAM, LPARAM)
 
 	m_iHoverItem = -1;
 	Invalidate();
-	return 1;
+	return lResult;
 }
