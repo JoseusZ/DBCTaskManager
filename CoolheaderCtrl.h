@@ -62,6 +62,7 @@ public:
 public:
 	Gdiplus::Color GColor1;
 	Gdiplus::Color GColor2;
+	void PaintCellTextArrow(CDC& memDC, int iCol, const CRect& rcCell);
 };
 
 

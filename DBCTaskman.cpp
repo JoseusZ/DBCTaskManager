@@ -1108,7 +1108,7 @@ void CDBCTaskmanApp::SetUIColor(void)
 		List_NormalTextColor = ::GetSysColor(COLOR_WINDOWTEXT );
 		List_HotTextColor = ::GetSysColor(COLOR_HIGHLIGHTTEXT );
 
-		CoolHdrColor = WndBkgColor;
+		CoolHdrColor = WndTextColor;
 	}
 
 	

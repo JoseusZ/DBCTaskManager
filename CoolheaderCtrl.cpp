@@ -302,34 +302,53 @@ void CCoolheaderCtrl::OnPaint()
 
 	n = this->GetItemCount();
 
-	CRect rcStore;
-	for (int i = 0;i < n;i++)
-	{
-		// Pintar el fondo HIS_HOT de la celda hover DESPUES de que
-		// DefWindowProc ya dibujo texto/arrow: asi el hover se ve, y el
-		// texto nativo queda debajo (sin repintarlo a mano).
-		if (theApp.FlagThemeActive && hTheme && i == m_iHoverItem)
+		CRect rcStore;
+		for (int i = 0;i < n;i++)
 		{
-			CRect rcHot;
-			if (this->GetItemRect(i, rcHot) && ColStatusArray[i].ColWidth != 0)
+			this->GetItemRect(i, rcItem);
+
+			if (ColStatusArray[i].ColWidth == 0)
+				continue;
+
+			rcStore.CopyRect(rcItem);
+			SumColWidth = SumColWidth + rcItem.Width();
+
+			bool bIsHover = (theApp.FlagThemeActive && hTheme && i == m_iHoverItem);
+
+			if (theApp.FlagThemeActive)
 			{
-				DrawThemeBackground(hTheme, MemDC.m_hDC, HP_HEADERITEM, HIS_HOT, &rcHot, NULL);
+				// Aero: el HP_HEADERITEM/HIS_NORMAL pinta gris. Sobreescribimos
+				// con blanco. Sin esto, despues de un ciclo Classic -> Aero
+				// el header queda con tinte gris en lugar de blanco.
+				MemDC.FillSolidRect(rcItem, theApp.WndBkgColor);
+
+				if (bIsHover)
+				{
+					DrawThemeBackground(hTheme, MemDC.m_hDC, HP_HEADERITEM, HIS_HOT, &rcItem, NULL);
+				}
+
+				// Texto + flecha (lo repintamos porque el FillSolidRect
+				// borro lo que pinto DefWindowProc).
+				PaintCellTextArrow(MemDC, i, rcItem);
+			}
+			else
+			{
+				// Classic: dejamos intacto lo que pinto DefWindowProc
+				// (raised button + texto + flecha). Solo repintamos en la
+				// celda hover porque HIS_HOT tapa el texto nativo.
+				if (bIsHover)
+				{
+					DrawThemeBackground(hTheme, MemDC.m_hDC, HP_HEADERITEM, HIS_HOT, &rcItem, NULL);
+					PaintCellTextArrow(MemDC, i, rcItem);
+				}
+			}
+
+			if (ColStatusArray[i].Percents > 90)
+			{
+				Grap.FillRectangle(&LBrRed, rcStore.left, 10, rcStore.Width(), rcStore.Height());
+				//MemDC.Draw3dRect(rcStore.left,rcStore.top,rcStore.Width(),rcStore.Height(),RGB(200,99,0),RGB(200,99,0));
 			}
 		}
-
-		this->GetItemRect(i, rcItem);
-		rcStore.CopyRect(rcItem);
-		SumColWidth = SumColWidth + rcItem.Width();
-
-
-		if (ColStatusArray[i].Percents > 90)
-		{
-			Grap.FillRectangle(&LBrRed, rcStore.left, 10, rcStore.Width(), rcStore.Height());
-			//MemDC.Draw3dRect(rcStore.left,rcStore.top,rcStore.Width(),rcStore.Height(),RGB(200,99,0),RGB(200,99,0));
-		}
-
-
-	}
 
 
 
@@ -350,77 +369,11 @@ void CCoolheaderCtrl::OnPaint()
 
 	rc.left = SumColWidth;
 
-	MemDC.FillSolidRect(rc, theApp.WndBkgColor);
-	//	MemDC.FillSolidRect(CRect(SumColWidth,0,SumColWidth+2,10),RGB(255,255,255));
+		MemDC.FillSolidRect(rc, theApp.WndBkgColor);
+		//	MemDC.FillSolidRect(CRect(SumColWidth,0,SumColWidth+2,10),RGB(255,255,255));
 
 
-	if (theApp.FlagThemeActive && hTheme && m_iHoverItem >= 0 && m_iHoverItem < n)
-	{
-		// En la celda hover el fondo HIS_HOT (azul claro) tapa el texto
-		// que pinto DefWindowProc. Solo para ESA celda repintamos texto
-		// + flecha de orden (en caso de estar ordenando) con fondo
-		// transparente para que se vea el color del tema. En las demas
-		// celdas no tocamos nada -> no hay doble repintado.
-		int hIdx = m_iHoverItem;
-		CRect rcH;
-		if (this->GetItemRect(hIdx, rcH) && ColStatusArray[hIdx].ColWidth != 0)
-		{
-			WCHAR StrTitle[MAX_PATH];
-			HDITEM hd;
-			hd.mask = HDI_FORMAT | HDI_TEXT;
-			hd.pszText = StrTitle;
-			hd.cchTextMax = MAX_PATH;
-			if (this->GetItem(hIdx, &hd))
-			{
-				UINT Align = ColStatusArray[hIdx].Align;
-
-				CRect rcText(rcH);
-				rcText.top += 10;
-				rcText.InflateRect(-8, -5);
-
-				// Usar exactamente la misma fuente del control para que
-				// el texto del hover tenga el mismo tamano que las demas
-				// celdas (si no, el DC usa la fuente por defecto y se ve
-				// mucho mas grande).
-				CFont* pFont = GetFont();
-				CFont* pOldFont = NULL;
-				if (pFont != NULL && pFont->GetSafeHandle() != NULL)
-				{
-					pOldFont = MemDC.SelectObject(pFont);
-				}
-
-				if (*pCurrentSortCol == hIdx)
-				{
-					CRect rcArrow(rcH);
-					rcArrow.bottom = rcArrow.top + 10;
-					int SortType = HSAS_SORTEDUP;
-					if (!(*pFlagSortUp)) SortType = HSAS_SORTEDDOWN;
-					DrawThemeBackground(hTheme, MemDC.m_hDC, HP_HEADERSORTARROW, SortType, rcArrow, NULL);
-				}
-
-				MemDC.SetBkMode(TRANSPARENT);
-				MemDC.SetTextColor(theApp.CoolHdrColor);
-				MemDC.DrawText(StrTitle, &rcText, DT_BOTTOM | DT_SINGLELINE | DT_END_ELLIPSIS | Align);
-
-				if (ColStatusArray[hIdx].Cool)
-				{
-					CFont* pOldFont2 = MemDC.SelectObject(&theApp.mTitleFont);
-					rcText.top = 16;
-					MemDC.SetTextColor(RGB(99, 99, 99));
-					MemDC.DrawText(ColStatusArray[hIdx].StrItem, &rcText, DT_TOP | DT_SINGLELINE | DT_END_ELLIPSIS | Align);
-					MemDC.SelectObject(pOldFont2);
-				}
-
-				if (pOldFont != NULL)
-				{
-					MemDC.SelectObject(pOldFont);
-				}
-			}
-		}
-	}
-
-
-	Grap.FillRectangle(&LBr, rc.left, 10, 1, rc.Height());
+		Grap.FillRectangle(&LBr, rc.left, 10, 1, rc.Height());
 
 	// Lineas divisorias entre celdas del header: 1px de ancho, color
 	// negro, con un gradiente que va de transparente arriba a negro
@@ -726,4 +679,58 @@ LRESULT CCoolheaderCtrl::OnThemeChanged(WPARAM wParam, LPARAM lParam)
 	m_iHoverItem = -1;
 	Invalidate();
 	return lResult;
+}
+
+void CCoolheaderCtrl::PaintCellTextArrow(CDC& memDC, int iCol, const CRect& rcCell)
+{
+	if (ColStatusArray[iCol].ColWidth == 0)
+		return;
+
+	WCHAR StrTitle[MAX_PATH];
+	HDITEM hd;
+	hd.mask = HDI_FORMAT | HDI_TEXT;
+	hd.pszText = StrTitle;
+	hd.cchTextMax = MAX_PATH;
+	if (!this->GetItem(iCol, &hd))
+		return;
+
+	UINT Align = ColStatusArray[iCol].Align;
+
+	CRect rcText(rcCell);
+	rcText.top += 10;
+	rcText.InflateRect(-8, -5);
+
+	CFont* pFont = GetFont();
+	CFont* pOldFont = NULL;
+	if (pFont != NULL && pFont->GetSafeHandle() != NULL)
+	{
+		pOldFont = memDC.SelectObject(pFont);
+	}
+
+	if (*pCurrentSortCol == iCol && hTheme)
+	{
+		CRect rcArrow(rcCell);
+		rcArrow.bottom = rcArrow.top + 10;
+		int SortType = HSAS_SORTEDUP;
+		if (!(*pFlagSortUp)) SortType = HSAS_SORTEDDOWN;
+		DrawThemeBackground(hTheme, memDC.m_hDC, HP_HEADERSORTARROW, SortType, rcArrow, NULL);
+	}
+
+	memDC.SetBkMode(TRANSPARENT);
+	memDC.SetTextColor(theApp.CoolHdrColor);
+	memDC.DrawText(StrTitle, &rcText, DT_BOTTOM | DT_SINGLELINE | DT_END_ELLIPSIS | Align);
+
+	if (ColStatusArray[iCol].Cool)
+	{
+		CFont* pOldFont2 = memDC.SelectObject(&theApp.mTitleFont);
+		rcText.top = 16;
+		memDC.SetTextColor(RGB(99, 99, 99));
+		memDC.DrawText(ColStatusArray[iCol].StrItem, &rcText, DT_TOP | DT_SINGLELINE | DT_END_ELLIPSIS | Align);
+		memDC.SelectObject(pOldFont2);
+	}
+
+	if (pOldFont != NULL)
+	{
+		memDC.SelectObject(pOldFont);
+	}
 }
