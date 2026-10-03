@@ -52,6 +52,7 @@ BEGIN_MESSAGE_MAP(CCoolheaderCtrl, CHeaderCtrl)
 
 	ON_WM_LBUTTONUP()
 	ON_WM_LBUTTONDOWN()
+	ON_MESSAGE(WM_THEMECHANGED, OnThemeChanged)
 END_MESSAGE_MAP()
 
 
@@ -702,4 +703,23 @@ BOOL CCoolheaderCtrl::OnCommand(WPARAM wParam, LPARAM lParam)
 
 	this->GetParent()->PostMessageW(WM_COMMAND, wParam, lParam);
 	return CHeaderCtrl::OnCommand(wParam, lParam);
+}
+
+LRESULT CCoolheaderCtrl::OnThemeChanged(WPARAM, LPARAM)
+{
+	// Cuando el usuario cambia de Classic -> Aero (o Aero -> otro tema),
+	// el HTHEME cacheado en el constructor queda apuntando a datos del tema
+	// anterior y los DrawThemeBackground siguen devolviendo el aspecto viejo.
+	// Cerramos y reabrimos para que tome la nueva visualizacion y forzamos
+	// repintado para que HIS_HOT / fondo / texto reflejen el cambio.
+	if (hTheme)
+	{
+		::CloseThemeData(hTheme);
+		hTheme = NULL;
+	}
+	hTheme = ::OpenThemeData(this->GetSafeHwnd(), L"HEADER");
+
+	m_iHoverItem = -1;
+	Invalidate();
+	return 1;
 }

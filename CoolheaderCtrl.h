@@ -50,6 +50,7 @@ public:
 	BOOL FlagLeftBtnDown;
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	LRESULT OnThemeChanged(WPARAM, LPARAM);
 	int StartDragCurPos;
 	int WillSwapToID;
 	BOOL *pFlagSortUp;

@@ -2667,29 +2667,36 @@ void CDBCTaskmanDlg::DeleteFromSimpleList(PROCLISTDATA * pData)
 
 LRESULT CDBCTaskmanDlg::OnThemeChanged()
 {
-	 
-
-	Sleep(6000);
+	// Refresca el flag global: si la app arranco en Classic y el usuario
+	// cambia a Aero (o viceversa), FlagThemeActive quedaba con el valor
+	// capturado en InitInstance y los controles que ramifican por el caian
+	// en la rama equivocada.
+	theApp.FlagThemeActive = IsThemeActive();
 
 	CloseThemeData(theApp.hTheme);
-	theApp.hTheme=OpenThemeData(NULL, L"Explorer::ListView"); 
+	theApp.hTheme=OpenThemeData(NULL, L"Explorer::ListView");
 
 
 	CloseThemeData(pPageProcesses->mTaskList.hTheme);
 	CloseThemeData(pPageUsers->mUserList.hTheme);
 	CloseThemeData(pPageStartup->mStartupList.hTheme);
 
-	pPageProcesses->mTaskList.hTheme=OpenThemeData(this->GetSafeHwnd(), L"Explorer::TreeView"); 	
-	pPageUsers->mUserList.hTheme=OpenThemeData(this->GetSafeHwnd(), L"Explorer::TreeView"); 
-	pPageStartup->mStartupList.hTheme=OpenThemeData(this->GetSafeHwnd(), L"Explorer::TreeView"); 
+	pPageProcesses->mTaskList.hTheme=OpenThemeData(this->GetSafeHwnd(), L"Explorer::TreeView");
+	pPageUsers->mUserList.hTheme=OpenThemeData(this->GetSafeHwnd(), L"Explorer::TreeView");
+	pPageStartup->mStartupList.hTheme=OpenThemeData(this->GetSafeHwnd(), L"Explorer::TreeView");
 
 	theApp.SetUIColor();
+
+	// Propagar el cambio a todos los descendientes para que cada control
+	// con HTHEME cacheado (CoolheaderCtrl, CoolListCtrl, DBCBtn, etc.)
+	// pueda cerrar/reabrir su handle y repintarse. Windows envia
+	// WM_THEMECHANGED solo a las top-level windows; los hijos hay que
+	// avisarlos a mano.
+	SendMessageToDescendants(WM_THEMECHANGED, 0, 0, TRUE, TRUE);
+
 	this->RedrawWindow();
 	pPageProcesses->mTaskList.RedrawWindow();
-	 
 
-	
-	 
 	return 1;
 }
 
