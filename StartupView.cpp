@@ -237,6 +237,7 @@ void CPageStartup::InitList(void)
 	}
 
 	mStartupList.IsProcList = FALSE;
+	mStartupList.IsStartupList = TRUE;
 
 	mStartupList.InitAllColumn(ColIDS_StartupList,STR_COLUMN_STARTUP ,COL_COUNT_STARTUP);//  是全部的列数
 
@@ -871,6 +872,15 @@ void CPageStartup::OnPop_StartupColumnToggle(UINT nID)
 	if(iCol < 0 || iCol >= COL_COUNT_STARTUP) return;
 
 	COLUMNSTATUS_EX& Col = ColIDS_StartupList[iCol];
+
+	// LVM_SETCOLUMNWIDTH dispara HDN_ITEMCHANGING, y OnHdnItemchanging
+	// tiene limites minimos (80 px para Name/Publisher/Status del
+	// StartupView). Sin este flag, ocultar Name (cx=0) seria forzado
+	// otra vez a 80 px y la columna no se ocultaria (solo el dato
+	// desaparecia por Redraw=0). PopMenuAction desactiva ese minimo y
+	// la reescritura de IsHiddenColumn durante HDN_ITEMCHANGING, igual
+	// que ya hace ShowOrHideColumn en CoolListCtrl.
+	mStartupList.PopMenuAction = TRUE;
 
 	if (Col.IsHiddenColumn)
 	{

@@ -98,6 +98,7 @@ public:
  	
 
 	BOOL IsProcList;
+	BOOL IsStartupList;
 
 public:
 	CRect _GetRedrawColumn(void);

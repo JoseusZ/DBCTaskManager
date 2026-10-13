@@ -28,6 +28,7 @@ CCoolListCtrl::CCoolListCtrl()
 	: nHot(-1)
 	, DrawAllColForSubItem(FALSE)
 	, IsProcList(TRUE)
+	, IsStartupList(FALSE)
 	, FullColumnCount(0)
 	, PopMenuAction(FALSE)
 	, FlagSortUp(TRUE)
@@ -1076,11 +1077,31 @@ void CCoolListCtrl::OnHdnItemchanging(NMHDR* pNMHDR, LRESULT* pResult)
 		// debajo de su ancho por defecto (80 px). Solo aplica a estas 4
 		// columnas del ProcessesView (indices 7,8,9,10); NAME y STATUS
 		// quedan libres. Se usan indices numericos para no acoplar
-		// CoolListCtrl a ProcessesView.h.
-		if (phdr->iItem == 7 || phdr->iItem == 8
-			|| phdr->iItem == 9 || phdr->iItem == 10)
+		// CoolListCtrl a ProcessesView.h. Se respeta PopMenuAction para
+		// no interferir con toggles programaticos (ShowOrHideColumn y
+		// OnPop_StartupColumnToggle): cuando el menu contextual oculta una
+		// columna por debajo del minimo, queremos que se aplique el 0,
+		// no el minimo de 80 px.
+		const int MIN_METRIC_COL_WIDTH = 80;
+		if (!PopMenuAction
+			&& (phdr->iItem == 7 || phdr->iItem == 8
+				|| phdr->iItem == 9 || phdr->iItem == 10))
 		{
-			const int MIN_METRIC_COL_WIDTH = 80;
+			if (phdr->pitem != NULL && phdr->pitem->cxy < MIN_METRIC_COL_WIDTH)
+			{
+				phdr->pitem->cxy = MIN_METRIC_COL_WIDTH;
+			}
+		}
+
+		// Mismo limite minimo para las columnas visibles del StartupView
+		// (Name=0, Publisher=1, Status=2): no se permite al usuario
+		// colapsarlas por debajo de 80 px (mismo ancho minimo que las
+		// metricas de ProcessesView). Tambien respeta PopMenuAction por
+		// la misma razon que arriba.
+		if (!PopMenuAction
+			&& IsStartupList
+			&& (phdr->iItem == 0 || phdr->iItem == 1 || phdr->iItem == 2))
+		{
 			if (phdr->pitem != NULL && phdr->pitem->cxy < MIN_METRIC_COL_WIDTH)
 			{
 				phdr->pitem->cxy = MIN_METRIC_COL_WIDTH;
