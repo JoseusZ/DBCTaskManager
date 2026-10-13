@@ -1,12 +1,18 @@
-// StartupView.cpp
+// StartupView.cpp : implementation file
+//
+
 #include "stdafx.h"
 #include "DBCTaskman.h"
 #include "StartupView.h"
+//-----------------------
 #include "ProcessInfo.h"
-#include <TlHelp32.h>  
+#include <TlHelp32.h>  // CreateToolhelp32Snapshot / Process32FirstW for the
+					   // "Currently running" column. Native Win32, fully
+					   // supported on Windows 7.
 
 #define   MySetColumnWidth(n,x)    {mStartupList.SetColumnWidth(n,x); ColIDS_StartupList[n].ColWidth = x;}
 
+//*********************************************************************
 
 static UINT Thread_LoadSartupItem(LPVOID pParam)
 {
@@ -41,6 +47,8 @@ static UINT Thread_LoadSartupItem(LPVOID pParam)
 	return 0;
 }
 
+//**********************************************************************
+
 // CPageStartup
 IMPLEMENT_DYNCREATE(CPageStartup, CFormView)
 
@@ -48,6 +56,10 @@ CPageStartup::CPageStartup()
 	: CFormView(CPageStartup::IDD)
 	, m_bLoadInProgress(FALSE)
 {
+	// No saved layout on a fresh build. 0xFF acts as a sentinel meaning
+	// "this column was never shown yet" so OnPop_StartupColumnToggle can
+	// decide between "right end" and "restored position" on the first
+	// re-enable.
 	for (int i = 0; i < COL_COUNT_STARTUP; i++)
 		m_SavedIOrder[i] = 0xFF;
 }
@@ -71,7 +83,14 @@ BEGIN_MESSAGE_MAP(CPageStartup, CFormView)
 	ON_COMMAND(ID_STARTUPLIST_JUMPTOENTRY, &CPageStartup::OnPop_JumpToEntry)
 	ON_COMMAND(ID_STARTUPLIST_SEARCHONLINE, &CPageStartup::OnPop_Searchonline)
 	ON_COMMAND(ID_STARTUPLIST_DISABLE, &CPageStartup::OnPop_DisableEnable)
+
+	// Header right-click -> column visibility context menu items. A single
+	// ON_COMMAND_RANGE handler maps each ID_STARTUPCOL_* to the matching
+	// STARTUPLIST_* column index so the menu item index == column index.
 	ON_COMMAND_RANGE(ID_STARTUPCOL_NAME, ID_STARTUPCOL_CMDLINE, &CPageStartup::OnPop_StartupColumnToggle)
+	// Capture HDN_ENDDRAG from the list's header so the new column order
+	// can be persisted; CCoolListCtrl already blocks drag of the Name
+	// column on its own, we just need to observe the resulting order.
 	ON_NOTIFY(HDN_ENDDRAG, IDC_STARTUP, &CPageStartup::OnHdnEndDrag_Startup)
 END_MESSAGE_MAP()
 
@@ -977,6 +996,10 @@ BOOL CPageStartup::_LoadStartupColumnState()
 		ColIDS_StartupList[i].ColWidth = (dwVal & 0xFFFF);
 
 		BYTE SavedOrder = (BYTE)((dwVal >> 16) & 0xFF);
+
+		// CORRECCIÓN DE REGISTRO: Si el bug anterior grabó un 0 ilegítimo 
+		// en otra columna que no sea Name, la devolvemos a su índice natural
+		// para evitar que desplace a la columna Name.
 		if (SavedOrder == 0x00 && i != STARTUPLIST_NAME)
 			SavedOrder = (BYTE)i;
 
