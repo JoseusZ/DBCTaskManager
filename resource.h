@@ -482,12 +482,28 @@
 #define ID_32947                        32947
 #define ID_32948                        32948
 
+// Column toggle commands for the Startup header context menu.
+// Used by CPageStartup::PreTranslateMessage when handling UM_HEADER_RCLICK.
+// The order MUST match the order of the columns in STR_COLUMN_STARTUP
+// (DBCTaskman.rc) and the STARTUPLIST_* indices in StartupView.h:
+//   NAME=0, PUB=1, STATUS=2, TYPE=3, RUNNING=4, DISABLEDTIME=5, CMDLINE=6
+// (The Win10-only columns Initial impact / Disk I/O at startup / CPU at
+//  startup were removed: they need ETW tracing APIs that don't exist on
+//  Windows 7.)
+#define ID_STARTUPCOL_NAME              32950
+#define ID_STARTUPCOL_PUBLISHER         32951
+#define ID_STARTUPCOL_STATUS            32952
+#define ID_STARTUPCOL_STARTTYPE         32953
+#define ID_STARTUPCOL_RUNNING           32954
+#define ID_STARTUPCOL_DISABLEDTIME      32955
+#define ID_STARTUPCOL_CMDLINE           32956
+
 // Next default values for new objects
-// 
+//
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        169
-#define _APS_NEXT_COMMAND_VALUE         32949
+#define _APS_NEXT_COMMAND_VALUE         32960
 #define _APS_NEXT_CONTROL_VALUE         1081
 #define _APS_NEXT_SYMED_VALUE           168
 #endif

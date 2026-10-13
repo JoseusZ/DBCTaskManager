@@ -360,6 +360,16 @@ BEGIN
         MENUITEM "Hide column",                 ID_DETAILS_HIDECOLUMN
         MENUITEM "Select columns",              ID_DETAILS_SELECTCOLUMNS
     END
+    POPUP "Startup"
+    BEGIN
+        MENUITEM "Name",                       ID_STARTUPCOL_NAME
+        MENUITEM "Publisher",                  ID_STARTUPCOL_PUBLISHER
+        MENUITEM "Status",                     ID_STARTUPCOL_STATUS
+        MENUITEM "Startup type",               ID_STARTUPCOL_STARTTYPE
+        MENUITEM "Currently running",          ID_STARTUPCOL_RUNNING
+        MENUITEM "Time disabled",              ID_STARTUPCOL_DISABLEDTIME
+        MENUITEM "Command line",               ID_STARTUPCOL_CMDLINE
+    END
 END
 
 IDR_MENU_SHELL MENU 
@@ -836,7 +846,7 @@ BEGIN
     STR_ENDPROC_BTN         "End Process;Cancel;"
     IDS_STRING_SHOWGRAPH    "Show Graphs"
     IDS_STRING_HIDEGRAPH    "Hide Graphs"
-    STR_COLUMN_STARTUP      "Name;Status;Publisher;Startup type;Command line;"
+    STR_COLUMN_STARTUP      "Name;Publisher;Status;Startup type;Currently running;Time disabled;Command line;"
     STR_ENDPROCTREE_CONTENT "If open programs or processes are associated with this process tree,they will close and you will lose any unsaved data.If you end a system process,it might result in an unstable system.  Are you sure you want to continue?"
     STR_ENDPROCTREE_BTN     "End process tree;Cancel;"
     STR_ENDPROCTREE_MAINTIP "Do you want to end the process tree of '%s'?"

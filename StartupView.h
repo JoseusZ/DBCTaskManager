@@ -1,16 +1,20 @@
 #pragma once
 #include "afxcmn.h"
 #include "CoolListCtrl.h"
- 
-#define COL_COUNT_STARTUP  5
 
+#define COL_COUNT_STARTUP  7
 
-
-#define STARTUPLIST_NAME           0   
-#define STARTUPLIST_STATUS         1   
-#define STARTUPLIST_PUB            2
-#define STARTUPLIST_TYPE           3 
-#define STARTUPLIST_CMDLINE        4 
+// Default-visible columns (kept in header on first load and when the user
+// resets to defaults). Order MUST match STR_COLUMN_STARTUP and the
+// ID_STARTUPCOL_* menu IDs in DBCTaskman.rc / IDR_POPMENU_COLUMN.
+// Default visible on first load: Name, Publisher, Status (indices 0-2).
+#define STARTUPLIST_NAME           0
+#define STARTUPLIST_PUB            1
+#define STARTUPLIST_STATUS         2
+#define STARTUPLIST_TYPE           3
+#define STARTUPLIST_RUNNING        4
+#define STARTUPLIST_DISABLEDTIME   5
+#define STARTUPLIST_CMDLINE        6
 
 
 struct STARTUPITEMDATA
@@ -65,6 +69,22 @@ public:
 	void _JumpToRegKey(CString StrTargetKey);
 	afx_msg void OnPop_JumpToEntry();
 	afx_msg void OnPop_Searchonline();
+
+	// Header right-click -> column visibility context menu.
+	// Loads IDR_POPMENU_COLUMN submenu "Startup", checks currently visible
+	// ones with MF_CHECKED, then TrackPopupMenu. Identical visual pattern
+	// to CPageProcesses / CPageUsers, but with the Startup column IDs.
+	void _OnHeaderRClick_Startup(void);
+
+	// ON_COMMAND_RANGE entry for ID_STARTUPCOL_NAME..ID_STARTUPCOL_CMDLINE.
+	// Maps the command ID to the corresponding STARTUPLIST_* column index
+	// and calls mStartupList.ShowOrHideColumn() to flip visibility.
+	afx_msg void OnPop_StartupColumnToggle(UINT nID);
+
+	// Returns TRUE if an executable matching StrTargetPath (case-insensitive
+	// basename match) is currently running. Uses TlHelp32 which is native
+	// Win32 available since Windows 95 / fully supported on Windows 7.
+	BOOL _IsProcessRunning(const CString& StrTargetPath);
 };
 
 

@@ -6,6 +6,9 @@
 #include "StartupView.h"
 //-----------------------
 #include "ProcessInfo.h"
+#include <TlHelp32.h>  // CreateToolhelp32Snapshot / Process32FirstW for the
+                       // "Currently running" column. Native Win32, fully
+                       // supported on Windows 7.
 
 #define   MySetColumnWidth(n,x)    {mStartupList.SetColumnWidth(n,x); ColIDS_StartupList[n].ColWidth = x;}
 
@@ -81,6 +84,11 @@ BEGIN_MESSAGE_MAP(CPageStartup, CFormView)
 //ON_WM_PAINT()
 ON_COMMAND(ID_STARTUPLIST_JUMPTOENTRY, &CPageStartup::OnPop_JumpToEntry)
 ON_COMMAND(ID_STARTUPLIST_SEARCHONLINE, &CPageStartup::OnPop_Searchonline)
+
+// Header right-click -> column visibility context menu items. A single
+// ON_COMMAND_RANGE handler maps each ID_STARTUPCOL_* to the matching
+// STARTUPLIST_* column index so the menu item index == column index.
+ON_COMMAND_RANGE(ID_STARTUPCOL_NAME, ID_STARTUPCOL_CMDLINE, &CPageStartup::OnPop_StartupColumnToggle)
 END_MESSAGE_MAP()
 
 
@@ -202,15 +210,30 @@ void CPageStartup::InitList(void)
 	//---------------------------------------------------------------------
 
 	//mStartupList.pColStatusArray = COL_SAT_PROC;
+	// IsHiddenColumn and Redraw are seeded from a default-visibility table
+	// so the first header-context-menu toggle goes through the correct
+	// branch in the toggle logic. Leaving both at FALSE for hidden
+	// columns (as we did before) made the first toggle a no-op and forced
+	// the user to click twice.
+	const BOOL aDefaultVisible[COL_COUNT_STARTUP] =
+	{
+		TRUE,  // STARTUPLIST_NAME
+		TRUE,  // STARTUPLIST_PUB
+		TRUE,  // STARTUPLIST_STATUS
+		FALSE, // STARTUPLIST_TYPE
+		FALSE, // STARTUPLIST_RUNNING
+		FALSE, // STARTUPLIST_DISABLEDTIME
+		FALSE, // STARTUPLIST_CMDLINE
+	};
 	for(int i = 0;i<COL_COUNT_STARTUP;i++)
 	{
 		ColIDS_StartupList[i].ColWidth = 85;
 		ColIDS_StartupList[i].Align = (BYTE)DT_LEFT;
 		ColIDS_StartupList[i].Cool = FALSE;
 		ColIDS_StartupList[i].DrawInSubItem = TRUE;
-		ColIDS_StartupList[i].IsHiddenColumn = FALSE;
-		ColIDS_StartupList[i].Redraw = 1;
-	 
+		ColIDS_StartupList[i].IsHiddenColumn = !aDefaultVisible[i];
+		ColIDS_StartupList[i].Redraw = aDefaultVisible[i] ? 1 : 0;
+
 	}
 
 	mStartupList.IsProcList = FALSE;
@@ -222,9 +245,27 @@ void CPageStartup::InitList(void)
 	mStartupList.CoolheaderCtrl.Height = 45;
 
 
+	// Default widths for the always-visible columns.
 	MySetColumnWidth(STARTUPLIST_NAME,200);
-	MySetColumnWidth(STARTUPLIST_CMDLINE,250);
 	MySetColumnWidth(STARTUPLIST_PUB,150);
+	MySetColumnWidth(STARTUPLIST_STATUS,100);
+
+	// MySetColumnWidth(n,0) only stores ColWidth, so the desired
+	// restore-width is saved in ColWStore first (the toggle logic will
+	// read it back from there when the user enables the column).
+	ColIDS_StartupList[STARTUPLIST_CMDLINE].ColWStore  = 250;
+
+	// Default-hidden columns (Win10 task manager parity: user toggles via
+	// header right-click). ColWidth=0 hides the column; the ColWStore
+	// value above/below is what gets applied on the first toggle.
+	ColIDS_StartupList[STARTUPLIST_TYPE].ColWStore        = 100;
+	ColIDS_StartupList[STARTUPLIST_RUNNING].ColWStore     = 80;
+	ColIDS_StartupList[STARTUPLIST_DISABLEDTIME].ColWStore= 150;
+
+	MySetColumnWidth(STARTUPLIST_TYPE,0);
+	MySetColumnWidth(STARTUPLIST_RUNNING,0);
+	MySetColumnWidth(STARTUPLIST_DISABLEDTIME,0);
+	MySetColumnWidth(STARTUPLIST_CMDLINE,0);
 	
 
 	mStartupList.CurrentSortColumn = -1;
@@ -483,6 +524,30 @@ void CPageStartup::AddItem(int ID,CString StrTitle,CString StrCmd,CString StrFil
 	mStartupList.InsertItem(ID,StrTitle );
 	mStartupList.SetItemText(ID,STARTUPLIST_CMDLINE,StrCmd);
 	mStartupList.SetItemText(ID,STARTUPLIST_TYPE,StrStartupType);
+
+	// Status: Disable is currently a disabled/greyed menu item, so every
+	// registered startup is by definition Enabled in this build. When Disable
+	// is implemented, this is where the per-row state will be written.
+	mStartupList.SetItemText(ID, STARTUPLIST_STATUS, L"Enabled");
+
+	// Currently running uses CreateToolhelp32Snapshot + Process32First/Next
+	// (TlHelp32, available since Win95; full Win7 support). Cheap enough
+	// per-row because the snapshot is taken before the loop and reused.
+	CString StrResolved = StrFilePath;
+	if(StrResolved.Right(4).CompareNoCase(L".lnk")==0)
+	{
+		CString StrLnkTarget = _GetShortcuTarget(StrResolved);
+		if(!StrLnkTarget.IsEmpty()) StrResolved = StrLnkTarget;
+	}
+	mStartupList.SetItemText(ID, STARTUPLIST_RUNNING,
+		_IsProcessRunning(StrResolved) ? L"Yes" : L"No");
+
+	// Time disabled: the per-value FILETIME the Win10 taskmgr shows is
+	// not exposed by Win32; only the parent key's last-write time is.
+	// Since the Disable action isn't implemented yet we keep an em-dash
+	// placeholder so the column is rendered but obviously inactive.
+	mStartupList.SetItemText(ID, STARTUPLIST_DISABLEDTIME, L"\u2014");
+
 	mStartupList.SetItemData(ID,(DWORD_PTR)pData);
 	pData->SubType =  PARENT_ITEM_NOSUB;
 	pData->iImage = IconID;
@@ -498,7 +563,7 @@ void CPageStartup::AddItem(int ID,CString StrTitle,CString StrCmd,CString StrFil
 
 	//Sleep(1000);
 
-	
+
 
 
 }
@@ -537,6 +602,52 @@ CString CPageStartup::_GetShortcuTarget(CString StrLnkFile)
 
 }
 
+// Snapshot the running process list once and check whether any process is
+// hosting the executable whose path matches StrTargetPath. Matches by
+// filename only (case-insensitive), which is what the user means by
+// "this startup is currently running" and avoids being thrown off by
+// fully-qualified path variations / 32-vs-64 bit sys32 redirection.
+BOOL CPageStartup::_IsProcessRunning(const CString& StrTargetPath)
+{
+	if(StrTargetPath.IsEmpty()) return FALSE;
+
+	CString StrTargetName = StrTargetPath;
+	StrTargetName.MakeLower();
+	int SlashPos = StrTargetName.ReverseFind(L'\\');
+	if(SlashPos >= 0) StrTargetName = StrTargetName.Mid(SlashPos + 1);
+	if(StrTargetName.IsEmpty()) return FALSE;
+
+	HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if(hSnap == INVALID_HANDLE_VALUE) return FALSE;
+
+	PROCESSENTRY32W pe;
+	ZeroMemory(&pe, sizeof(pe));
+	pe.dwSize = sizeof(pe);
+
+	BOOL bFound = FALSE;
+	if(Process32FirstW(hSnap, &pe))
+	{
+		do
+		{
+			// pe.szExeFile can contain just the executable name for normal
+			// processes; for some host processes (svchost, etc.) it can
+			// include the full path. Lower-case and check both.
+			CString StrExe = pe.szExeFile;
+			StrExe.MakeLower();
+			int ExeSlash = StrExe.ReverseFind(L'\\');
+			CString StrExeName = (ExeSlash >= 0) ? StrExe.Mid(ExeSlash + 1) : StrExe;
+			if(StrExeName == StrTargetName || StrExe == StrTargetName)
+			{
+				bFound = TRUE;
+				break;
+			}
+		} while(Process32NextW(hSnap, &pe));
+	}
+
+	CloseHandle(hSnap);
+	return bFound;
+}
+
 
 
 BOOL CPageStartup::PreTranslateMessage(MSG* pMsg)
@@ -549,10 +660,56 @@ BOOL CPageStartup::PreTranslateMessage(MSG* pMsg)
 	//ListStartupItem(L"SOFTWARE\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Run");
 	//	ListStartupFromMenu();
 
-	
+
 
 	}
+
+	// Header right-click -> show the column visibility popup, identical
+	// visual behavior to ProcessesView/UsersView. CCoolheaderCtrl sends
+	// UM_HEADER_RCLICK via PostMessageW to the parent (this view) when the
+	// user right-clicks the header area.
+	if(pMsg->message == UM_HEADER_RCLICK)
+	{
+		_OnHeaderRClick_Startup();
+		return TRUE;
+	}
+
 	return CFormView::PreTranslateMessage(pMsg);
+}
+
+// Build and show the column visibility context menu for the Startup
+// header. IDR_POPMENU_COLUMN submenu 3 ("Startup") lists every toggleable
+// column with an MF_CHECKED marker on the ones that are currently shown.
+// The order of entries MUST match STARTUPLIST_* indices because the menu
+// position (i) is mapped to column i.
+void CPageStartup::_OnHeaderRClick_Startup(void)
+{
+	CPoint pt;
+	GetCursorPos(&pt);
+
+	CMenu PopMenu;
+	CMenu *pMenu = NULL;
+	PopMenu.LoadMenuW(MAKEINTRESOURCE(IDR_POPMENU_COLUMN));
+	pMenu = PopMenu.GetSubMenu(3);  // POPUP "Startup" is the 4th submenu
+
+	if(pMenu == NULL) return;
+
+	// Mark visible columns. IsHiddenColumn is the source of truth set by
+	// ShowOrHideColumn(); ColWidth==0 is the bootstrap default for the
+	// hidden-by-default columns.
+	int nItem = pMenu->GetMenuItemCount();
+	if(nItem > 0)
+	{
+		for(int i = 0; i < nItem; i++)
+		{
+			if(!ColIDS_StartupList[i].IsHiddenColumn && ColIDS_StartupList[i].ColWidth != 0)
+			{
+				pMenu->CheckMenuItem(i, MF_BYPOSITION | MF_CHECKED);
+			}
+		}
+	}
+
+	pMenu->TrackPopupMenu(TPM_LEFTALIGN, pt.x, pt.y, &(mStartupList.CoolheaderCtrl));
 }
 
 void CPageStartup::_JumpToRegKey(CString StrTargetKey)
@@ -693,4 +850,68 @@ void CPageStartup::OnPop_Searchonline()
 	int nSel = mStartupList.GetNextItem( -1, LVNI_SELECTED );
 	SearchOnline(mStartupList.GetItemText(nSel,0));
 
+}
+
+// Single ON_COMMAND_RANGE handler for every header-context-menu column
+// toggle. The mapping ID_STARTUPCOL_NAME + i == STARTUPLIST_* (i) is
+// guaranteed by the contiguous ID allocation in resource.h.
+//
+// We deliberately do NOT call CCoolListCtrl::ShowOrHideColumn here. That
+// function sets the hidden column's LVCOLUMN.iOrder to 0, which is the
+// project's documented way of making the cool header skip a column -
+// but it has the side effect of moving the hidden column to position 0
+// of the header, which causes every visible column to shift one slot to
+// the right (perceived as "items jumping to the beginning"). Since the
+// CListCtrl already drops 0-width columns from the header, we just
+// toggle ColWidth and the state flags in our own ColIDS array and let
+// the list control + cool header repaint.
+void CPageStartup::OnPop_StartupColumnToggle(UINT nID)
+{
+	int iCol = (int)(nID - ID_STARTUPCOL_NAME);
+	if(iCol < 0 || iCol >= COL_COUNT_STARTUP) return;
+
+	COLUMNSTATUS_EX& Col = ColIDS_StartupList[iCol];
+
+	if (Col.IsHiddenColumn)
+	{
+		// SHOW. Use ColWStore as the restore width; fall back to a
+		// per-column default if ColWStore was never set (first-time
+		// toggle of a default-hidden column).
+		int DefWidth = Col.ColWStore;
+		if (DefWidth <= 0)
+		{
+			switch (iCol)
+			{
+			case STARTUPLIST_NAME:    DefWidth = 200; break;
+			case STARTUPLIST_PUB:     DefWidth = 150; break;
+			case STARTUPLIST_STATUS:  DefWidth = 100; break;
+			case STARTUPLIST_TYPE:    DefWidth = 100; break;
+			case STARTUPLIST_RUNNING: DefWidth = 80;  break;
+			case STARTUPLIST_DISABLEDTIME: DefWidth = 150; break;
+			case STARTUPLIST_CMDLINE: DefWidth = 250; break;
+			default:                  DefWidth = 100; break;
+			}
+		}
+
+		Col.ColWidth    = DefWidth;
+		Col.ColWStore   = DefWidth;
+		Col.Redraw      = 1;
+		Col.IsHiddenColumn = FALSE;
+		mStartupList.SetColumnWidth(iCol, DefWidth);
+	}
+	else
+	{
+		// HIDE. Remember the current width so we can restore it on the
+		// next toggle, then collapse the column to 0 pixels. No iOrder
+		// change - the list control already drops 0-width columns from
+		// the header without re-shuffling the visible ones.
+		Col.ColWStore      = Col.ColWidth;
+		Col.ColWidth       = 0;
+		Col.Redraw         = 0;
+		Col.IsHiddenColumn = TRUE;
+		mStartupList.SetColumnWidth(iCol, 0);
+	}
+
+	mStartupList.CoolheaderCtrl.Invalidate();
+	mStartupList.Invalidate();
 }
