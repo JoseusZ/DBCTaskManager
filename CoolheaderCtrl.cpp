@@ -43,6 +43,8 @@ BEGIN_MESSAGE_MAP(CCoolheaderCtrl, CHeaderCtrl)
 
 	ON_MESSAGE(HDM_LAYOUT, OnLayout)
 	ON_WM_PAINT()
+	ON_MESSAGE(WM_PRINTCLIENT, OnPrintClient)
+	ON_MESSAGE(WM_PRINT, OnPrintClient)
 	ON_WM_ERASEBKGND()
 	ON_WM_WINDOWPOSCHANGING()
 	ON_WM_CONTEXTMENU()
@@ -199,6 +201,68 @@ LRESULT CCoolheaderCtrl::OnLayout(WPARAM wParam, LPARAM lParam)
 void CCoolheaderCtrl::OnPaint()
 {
 	CPaintDC dc(this); // device context for painting
+	// FIX bug del cuadro negro durante drag nativo (HDS_DRAGDROP):
+	// toda la logica de pintado se ha extraido a DrawHeader() para que
+	// el handler de WM_PRINTCLIENT use exactamente el mismo render.
+	DrawHeader(&dc);
+}
+
+LRESULT CCoolheaderCtrl::OnPrintClient(WPARAM wParam, LPARAM lParam)
+{
+    CDC* pDC = CDC::FromHandle((HDC)wParam);
+    if (!pDC) return 0;
+
+    CRect rc;
+    GetClientRect(&rc);
+    int cx = rc.Width();
+    int cy = rc.Height();
+
+    // 1. Crear un DC en memoria compatible
+    CDC MemDC;
+    MemDC.CreateCompatibleDC(pDC);
+
+    // 2. Forzar la creación de un bitmap de 32-bits (DIBSection)
+    BITMAPINFO bmi = {0};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = cx;
+    bmi.bmiHeader.biHeight = cy;
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    void* pBits = NULL;
+    HBITMAP hDIB = CreateDIBSection(pDC->GetSafeHdc(), &bmi, DIB_RGB_COLORS, &pBits, NULL, 0);
+    if (!hDIB || !pBits) return 0;
+
+    HBITMAP hOldBitmap = (HBITMAP)SelectObject(MemDC.GetSafeHdc(), hDIB);
+
+    // 3. Dibujar TODO nuestro header en este bitmap de memoria
+    DrawHeader(&MemDC);
+
+    // 4. FIX AGRESIVO PARA WINDOWS 7:
+    // Las funciones GDI (FillSolidRect, BitBlt) dibujan los colores RGB pero
+    // destruyen el canal Alpha (lo dejan en 0x00). Win7 toma ese Alpha=0 y pinta negro.
+    // Iteramos pixel por pixel y forzamos el bit Alpha a 255 (0xFF).
+    DWORD* pPixels = (DWORD*)pBits;
+    int totalPixels = cx * cy;
+    for (int i = 0; i < totalPixels; ++i)
+    {
+        pPixels[i] |= 0xFF000000; // Mantiene el color RGB intacto, fuerza Alpha a opaco
+    }
+
+    // 5. Transferir la imagen ya corregida al DC del sistema que nos pidió la foto
+    pDC->BitBlt(0, 0, cx, cy, &MemDC, 0, 0, SRCCOPY);
+
+    // 6. Limpieza de memoria
+    SelectObject(MemDC.GetSafeHdc(), hOldBitmap);
+    DeleteObject(hDIB);
+    MemDC.DeleteDC();
+
+    return 0;
+}
+
+void CCoolheaderCtrl::DrawHeader(CDC* pDC)
+{
 	// TODO: Add your message handler code here
 
 	// Do not call CHeaderCtrl::OnPaint() for painting messages
@@ -206,7 +270,7 @@ void CCoolheaderCtrl::OnPaint()
 
 	CRect rc, rcItem;
 	int n = this->GetItemCount();
-	//this->GetItemRect(n-1,rcLastItem); 
+	//this->GetItemRect(n-1,rcLastItem);
 	this->GetClientRect(rc);
 
 	int  SumColWidth = 0;
@@ -215,8 +279,8 @@ void CCoolheaderCtrl::OnPaint()
 	CBitmap MemMap;
 	CBitmap* pOldBm;
 
-	MemDC.CreateCompatibleDC(&dc);
-	MemMap.CreateCompatibleBitmap(&dc, rc.Width(), rc.Height());
+	MemDC.CreateCompatibleDC(pDC);
+	MemMap.CreateCompatibleBitmap(pDC, rc.Width(), rc.Height());
 	pOldBm = MemDC.SelectObject(&MemMap);
 
 
@@ -327,7 +391,7 @@ void CCoolheaderCtrl::OnPaint()
 
 	rc.left = 0;
 
-	dc.BitBlt(0, 0, rc.Width(), rc.Height(), &MemDC, 0, 0, SRCCOPY);
+	pDC->BitBlt(0, 0, rc.Width(), rc.Height(), &MemDC, 0, 0, SRCCOPY);
 
 
 	Grap.ReleaseHDC(MemDC);
@@ -397,31 +461,38 @@ void CCoolheaderCtrl::OnMouseMove(UINT nFlags, CPoint point)
 	}
 
 
-	int nCount = GetItemCount();
-	int iNewHover = -1;
-	for (int i = 0; i < nCount; i++)
+	// FIX hover mezclado con drag: mientras el boton izquierdo este
+	// presionado (p. ej. arrastrando un divisor de columna con
+	// HDS_DRAGDROP) NO actualizar m_iHoverItem. Asi las columnas
+	// bajo el cursor durante un drag no se "iluminan".
+	if ((nFlags & MK_LBUTTON) == 0)
 	{
-		CRect rcCol;
-		if (GetItemRect(i, rcCol) && rcCol.PtInRect(point))
+		int nCount = GetItemCount();
+		int iNewHover = -1;
+		for (int i = 0; i < nCount; i++)
 		{
-			iNewHover = i;
-			break;
+			CRect rcCol;
+			if (GetItemRect(i, rcCol) && rcCol.PtInRect(point))
+			{
+				iNewHover = i;
+				break;
+			}
 		}
-	}
 
-	if (iNewHover != m_iHoverItem)
-	{
-		int iOld = m_iHoverItem;
-		m_iHoverItem = iNewHover;
+		if (iNewHover != m_iHoverItem)
+		{
+			int iOld = m_iHoverItem;
+			m_iHoverItem = iNewHover;
 
-		CRect rcInv;
-		if (iOld >= 0 && GetItemRect(iOld, rcInv))
-		{
-			InvalidateRect(rcInv, FALSE);
-		}
-		if (iNewHover >= 0 && GetItemRect(iNewHover, rcInv))
-		{
-			InvalidateRect(rcInv, FALSE);
+			CRect rcInv;
+			if (iOld >= 0 && GetItemRect(iOld, rcInv))
+			{
+				InvalidateRect(rcInv, FALSE);
+			}
+			if (iNewHover >= 0 && GetItemRect(iNewHover, rcInv))
+			{
+				InvalidateRect(rcInv, FALSE);
+			}
 		}
 	}
 

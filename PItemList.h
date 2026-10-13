@@ -2,6 +2,7 @@
 
 #include "wavebox.h"
 #include "InfoBox.h"
+#include "NormalHeaderCtrl.h"
 
 #include <Pdh.h>
 #pragma comment ( lib, "Pdh.lib" )
@@ -64,14 +65,18 @@ class CPItemList : public CListCtrl
 public:
 	CPItemList();
 	virtual ~CPItemList();
-	afx_msg void MeasureItem(LPMEASUREITEMSTRUCT lpMeasureItemStruct); 
+	afx_msg void MeasureItem(LPMEASUREITEMSTRUCT lpMeasureItemStruct);
 
 protected:
+	virtual void PreSubclassWindow();
 	DECLARE_MESSAGE_MAP()
 public:
 	virtual void DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnLvnDeleteitem(NMHDR *pNMHDR, LRESULT *pResult);
+	// Subclase del header nativo → CNormalHeaderCtrl (que ya pinta con
+	// alpha=0xFF para que el drag nativo HDS_DRAGDROP se vea bien en Win7).
+	CNormalHeaderCtrl mHdCtrl;
 
 
 

@@ -1235,7 +1235,12 @@ void CCoolListCtrl::OnHdnBegindrag(NMHDR *pNMHDR, LRESULT *pResult)
 	LPNMHEADER phdr = reinterpret_cast<LPNMHEADER>(pNMHDR);
 	// TODO: Add your control notification handler code here
 
-	if (phdr->iItem == 0)
+	// FIX columnas inamovibles: ni la fija (0) ni la inmediatamente
+	// siguiente (1) pueden iniciar drag. Devolviendo *pResult = 1 el
+	// sistema cancela el drag de inmediato. NO se toca OnHdnEnddrag
+	// (la pieza "luego de soltar" sigue manejando el caso de soltar
+	// dentro del bloque fijo).
+	if (phdr->iItem == 0 || phdr->iItem == 1)
 	{
 		*pResult = 1;
 		return;

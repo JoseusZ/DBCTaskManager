@@ -31,7 +31,7 @@ CPItemList::~CPItemList()
 
 
 BEGIN_MESSAGE_MAP(CPItemList, CListCtrl)
-	ON_WM_MEASUREITEM_REFLECT() 
+	ON_WM_MEASUREITEM_REFLECT()
 	ON_WM_SIZE()
 	ON_NOTIFY_REFLECT(LVN_DELETEITEM, &CPItemList::OnLvnDeleteitem)
 	
@@ -42,12 +42,28 @@ END_MESSAGE_MAP()
 
 
 
+void CPItemList::PreSubclassWindow()
+{
+    // FIX bug del cuadro negro en drag HDS_DRAGDROP (Win7): subclasea
+    // el header nativo CHeaderCtrl (que ignora el canal Alpha) por un
+    // CNormalHeaderCtrl con OnPrintClient + DIBSection + Alpha=0xFF.
+    // Sin esto la pestaÃ±a Performance muestra el preview del drag en
+    // negro durante HDS_DRAGDROP.
+    if (mHdCtrl.GetSafeHwnd() == NULL)
+    {
+        mHdCtrl.SubclassWindow(::GetDlgItem(m_hWnd, 0));
+    }
+    CListCtrl::PreSubclassWindow();
+}
+
+
 // CPItemList message handlers
 
 
-void CPItemList::MeasureItem(LPMEASUREITEMSTRUCT lpMeasureItemStruct)  //Ö»ÓÐ×Ô»æ·ç¸ñÕâ¸ö²ÅÓÐÐ§
+
+void CPItemList::MeasureItem(LPMEASUREITEMSTRUCT lpMeasureItemStruct)  //Ö»ï¿½ï¿½ï¿½Ô»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§
 {
-	// TODO: ÔÚ´ËÌí¼ÓÏûÏ¢´¦Àí³ÌÐò´úÂëºÍ/»òµ÷ÓÃÄ¬ÈÏÖµ
+	// TODO: ï¿½Ú´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½Ä¬ï¿½ï¿½Öµ
 
 	//MSB(0);
 
@@ -58,7 +74,7 @@ void CPItemList::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 {
 
 	CDC *pDC;
-	//²»¿ÉÒÔÓÃ  GetDC ·ñÔòÆôÓÃ°ëÍ¸Ã÷Ñ¡ÇøÊ± ÏÔÊ¾ÓÐÎÊÌâ £¡£¡£¡£¡ 
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  GetDC ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã°ï¿½Í¸ï¿½ï¿½Ñ¡ï¿½ï¿½Ê± ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
 	pDC = CDC::FromHandle(lpDrawItemStruct->hDC);  
 
 	CRect rcItem;
@@ -68,7 +84,7 @@ void CPItemList::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 	CRect rcMain;
 	theApp.m_pMainWnd->GetClientRect(rcMain);
 
-	CDC MemDC;//ÄÚ´æID±í  
+	CDC MemDC;//ï¿½Ú´ï¿½IDï¿½ï¿½  
 	CBitmap MemMap;
 	CBitmap *pOldBm;
 
@@ -95,7 +111,7 @@ void CPItemList::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 	rcMem.top=0;
 	rcMem.bottom=rcItem.Height();
 
-	//DrawThemeBackground(hThe,MemDC.m_hDC,  LVP_COLLAPSEBUTTON ,    LVCB_HOVER,rcMem ,NULL);  Ô²ÐÎÕ¹¿ª°´Å¥
+	//DrawThemeBackground(hThe,MemDC.m_hDC,  LVP_COLLAPSEBUTTON ,    LVCB_HOVER,rcMem ,NULL);  Ô²ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½ï¿½Å¥
 	if ( lpDrawItemStruct->itemState & ODS_SELECTED )
 	{
 		if(theApp.FlagSummaryView)
@@ -103,7 +119,7 @@ void CPItemList::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 			rcMem.right= rcMem.left+rcMain.Width()-6;
 		}
 
-		MemDC.FillSolidRect(0,0,rcItem.Width(),rcItem.Height(),theApp.WndBkgColor); //Ô¤ÏÈÌî³ä´°¿Ú±³¾°É« µ×·ÀÖ¹ÖØµþ
+		MemDC.FillSolidRect(0,0,rcItem.Width(),rcItem.Height(),theApp.WndBkgColor); //Ô¤ï¿½ï¿½ï¿½ï¿½ä´°ï¿½Ú±ï¿½ï¿½ï¿½É« ï¿½×·ï¿½Ö¹ï¿½Øµï¿½
 		if(theApp.FlagThemeActive)  
 		{
 			
@@ -132,9 +148,9 @@ void CPItemList::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 	PerferListData *pData = NULL;
 	pData = (PerferListData*) GetItemData(lpDrawItemStruct->itemID);
 
-	///----------------------//²¨ÐÎÍ¼±ê·½Ê½-----
+	///----------------------//ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ê·½Ê½-----
 
-	int IconWidth = 80;	//²¨ÐÎÍ¼±ê·½Ê½
+	int IconWidth = 80;	//ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ê·½Ê½
 	
 
 	CRect rcIcon;
@@ -156,7 +172,7 @@ void CPItemList::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 		 
 		MemDC.FillSolidRect(rcIcon,pData->pWaveBox->BkgColor);
 
-		//²¨ÐÎ»æÖÆ²»°üº¬±³¾°¼°±ß¿ò
+		//ï¿½ï¿½ï¿½Î»ï¿½ï¿½Æ²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¿ï¿½
 
 		if(lpDrawItemStruct->itemID == 0)
 		{
@@ -212,7 +228,7 @@ void CPItemList::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 
 
 	rcText.CopyRect(rcMem);
-	rcText.DeflateRect(0,10);//Ö»ÐèÒª×ÝÏòËõÐ¡
+	rcText.DeflateRect(0,10);//Ö»ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡
 	rcText.left+=IconWidth; 
 	rcText.bottom = rcMem.Height()/2;
 
@@ -281,7 +297,7 @@ void CPItemList::DrawItem(LPDRAWITEMSTRUCT lpDrawItemStruct)
 
 
 
-	//µÚ¶þÐÐ×Ö
+	//ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½
 
 	rcText.OffsetRect(0,	rcText.Height()+2);
 	StrTip=GetItemText(lpDrawItemStruct->itemID,1);
@@ -357,7 +373,7 @@ void CPItemList::DrawWaveBox( Graphics *pGraph , CRect rc, float * pNum, PerferL
 
 	PointF  PArray[60+1+2];
 
-	int  Seg=60; //±ê×¼ËÙ¶È 60  ¸ß 120  µÍ 30  
+	int  Seg=60; //ï¿½ï¿½×¼ï¿½Ù¶ï¿½ 60  ï¿½ï¿½ 120  ï¿½ï¿½ 30  
 
 	float StepX  = (float)rc.Width()/Seg;
  

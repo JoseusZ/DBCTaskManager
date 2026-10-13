@@ -27,7 +27,13 @@ public:
 
 	afx_msg  LRESULT OnLayout(WPARAM wParam, LPARAM lParam) ;
 	afx_msg void OnPaint();
-	
+	// FIX bug del cuadro negro durante drag nativo (HDS_DRAGDROP):
+	// toda la logica de OnPaint se extrae a DrawHeader(CDC*) para que
+	// tambien la use el handler de WM_PRINTCLIENT. Asi el snapshot que
+	// toma el sistema durante el drag sale en color, no invertido/negro.
+	void DrawHeader(CDC* pDC);
+	afx_msg LRESULT OnPrintClient(WPARAM wParam, LPARAM lParam);
+
 
 	int Height;
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);	 
