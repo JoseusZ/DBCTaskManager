@@ -151,4 +151,28 @@ public:
 	// re-enabling it drops it back in its old slot instead of the right
 	// edge. 0xFF marks "no saved position" (treat as right-end on show).
 	BYTE m_SavedIOrder[COL_COUNT_STARTUP];
+
+	// -1 = no active sort; otherwise the index of the column currently
+	// driving the order. m_bSortAscending holds the direction (TRUE =
+	// ascending, FALSE = descending). The pair is reapplied after every
+	// reload so enable/disable keeps the order the user picked.
+	int  m_nSortColumn;
+	BOOL m_bSortAscending;
+
+	// Sort the list by the text in column nCol. bFlipDirection = TRUE
+	// when the call comes from a header click (toggle ascending/descending
+	// when the same column is clicked twice); FALSE when re-applying the
+	// current sort after a reload so the direction is preserved.
+	//
+	// Mirrors the pattern used by CPageProcesses / CPageUsers: sets the
+	// CCoolListCtrl's CurrentSortColumn + FlagSortUp (the cool header
+	// arrow is drawn from them), repopulates each APPLISTDATA::SortID
+	// with the current visual index, and calls SortItems (not Ex).
+	void Sort(int nCol, BOOL bFlipDirection = TRUE);
+
+	// SortItems callback. lParam1/lParam2 are the APPLISTDATA* stored
+	// via SetItemData in AddItem (NOT visual indices); the visual index
+	// is pData->SortID which Sort() refreshes right before calling
+	// SortItems. CompareNoCase matches the native Task Manager.
+	static int CALLBACK SortFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort);
 };

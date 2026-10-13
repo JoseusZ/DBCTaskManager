@@ -55,6 +55,8 @@ IMPLEMENT_DYNCREATE(CPageStartup, CFormView)
 CPageStartup::CPageStartup()
 	: CFormView(CPageStartup::IDD)
 	, m_bLoadInProgress(FALSE)
+	, m_nSortColumn(-1)
+	, m_bSortAscending(TRUE)
 {
 	// No saved layout on a fresh build. 0xFF acts as a sentinel meaning
 	// "this column was never shown yet" so OnPop_StartupColumnToggle can
@@ -544,6 +546,17 @@ BOOL CPageStartup::PreTranslateMessage(MSG* pMsg)
 	{
 	}
 
+	if (pMsg->message == UM_HEADER_LCLICK)
+	{
+		// CCoolheaderCtrl intercepta el click izquierdo sobre la cabecera
+		// y lo reenvia al padre via UM_HEADER_LCLICK con wParam = indice
+		// de columna. Mismo patron que CPageProcesses / CPageUsers.
+		// Sort() se encarga de invertir el sentido si se vuelve a hacer
+		// click en la misma columna.
+		Sort((int)pMsg->wParam);
+		return TRUE;
+	}
+
 	if (pMsg->message == UM_HEADER_RCLICK)
 	{
 		_OnHeaderRClick_Startup();
@@ -945,6 +958,16 @@ void CPageStartup::_LoadStartupItemsSync()
 	ListStartupFromMenu();
 	ListMsConfigDisabledReg();
 	ListMsConfigDisabledFolder();
+
+	// Si el usuario tenía un orden activo, reaplicarlo para que los items
+	// no se desordenen al deshabilitar/habilitar (Recargar tras Enable/
+	// Disable pasa por aquí). Se omite si todavía no hay columna elegida.
+	// bFlipDirection=FALSE conserva el sentido elegido por el usuario.
+	if (m_nSortColumn != -1)
+	{
+		Sort(m_nSortColumn, FALSE);
+	}
+
 	mStartupList.SetRedraw(1);
 	mStartupList.CoolheaderCtrl.Invalidate();
 	mStartupList.Invalidate();
@@ -1221,4 +1244,94 @@ void CPageStartup::OnHdnEndDrag_Startup(NMHDR* pNMHDR, LRESULT* pResult)
 
 	_SaveStartupColumnState();
 	*pResult = 0;
+}
+
+// ============================================================================
+// LÓGICA DE ORDENAMIENTO DE COLUMNAS
+// ============================================================================
+//
+// CCoolheaderCtrl intercepta el click izquierdo sobre la cabecera y lo
+// reenvía al padre via UM_HEADER_LCLICK (ver CCoolheaderCtrl::OnLButtonUp).
+// Esto se traduce en CPageStartup::PreTranslateMessage -> Sort().
+//
+// CCoolListCtrl ya tiene Cableado pCurrentSortCol -> CurrentSortColumn y
+// pFlagSortUp -> FlagSortUp en su InitAllColumn, asi que con solo asignar
+// esos dos miembros la cabecera redibuja la flecha nativa arriba de la
+// columna activa (DrawItem + PaintCellTextArrow en CCoolheaderCtrl leen
+// esos punteros para decidir si pintar HP_HEADERSORTARROW/HSAS_SORTED*).
+//
+// Sort() reusa el mismo patron que CPageProcesses / CPageUsers:
+//   1. Decide sentido (flip si se repite la columna, TRUE si es nueva).
+//   2. Repuebla APPLISTDATA::SortID con el indice visual actual para que
+//      el callback tenga un mapa valido (lParam1/lParam2 en SortItems
+//      son los punteros de SetItemData, NO indices visuales).
+//   3. mStartupList.SortItems(SortFunc, nCol) -- NO SortItemsEx.
+
+void CPageStartup::Sort(int nCol, BOOL bFlipDirection)
+{
+	if (nCol < 0 || nCol >= COL_COUNT_STARTUP) return;
+
+	// Columnas con ancho 0 estan ocultas; ordenarlas no tiene sentido y
+	// ademas GetItemText devuelve "" para celdas vacias.
+	if (ColIDS_StartupList[nCol].ColWidth == 0) return;
+
+	if (bFlipDirection)
+	{
+		if (mStartupList.CurrentSortColumn == nCol)
+		{
+			mStartupList.FlagSortUp = !mStartupList.FlagSortUp;
+		}
+		else
+		{
+			mStartupList.FlagSortUp = TRUE;
+		}
+	}
+
+	// Persistir el estado para que un Reload (Enable/Disable) lo pueda
+	// reaplicar sin volver a pedirselo al usuario.
+	mStartupList.CurrentSortColumn = nCol;
+	m_nSortColumn = nCol;
+	m_bSortAscending = mStartupList.FlagSortUp;
+
+	// Repoblar SortID en cada APPLISTDATA. SortFunc lo necesita para
+	// traducir los punteros lParam1/lParam2 al indice visual que va a
+	// pasar a GetItemText.
+	int nCount = mStartupList.GetItemCount();
+	for (int i = 0; i < nCount; i++)
+	{
+		APPLISTDATA* pData = (APPLISTDATA*)mStartupList.GetItemData(i);
+		if (pData != NULL) pData->SortID = i;
+	}
+
+	mStartupList.SortItems(SortFunc, nCol);
+
+	// Forzar repintado de la cabecera para que se vea la flecha al cambiar
+	// de columna. El cool header lee CurrentSortColumn/FlagSortUp en
+	// DrawItem y en PaintCellTextArrow (OnPaint).
+	mStartupList.CoolheaderCtrl.Invalidate();
+}
+
+int CALLBACK CPageStartup::SortFunc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
+{
+	int nCol = (int)lParamSort;
+
+	APPLISTDATA* pData1 = (APPLISTDATA*)lParam1;
+	APPLISTDATA* pData2 = (APPLISTDATA*)lParam2;
+
+	if (pData1 == NULL || pData2 == NULL) return 0;
+
+	// Mismo patron que Sort_Details / Sort_Processes / Sort_Users:
+	// la lista se obtiene a traves de theApp.pSelPage porque el callback
+	// SortItems no recibe un puntero explicito al CListCtrl.
+	CCoolListCtrl* pList = &((CPageStartup*)theApp.pSelPage)->mStartupList;
+
+	// SortID es el indice visual, repoblado por Sort() justo antes de
+	// llamar a SortItems. GetItemText(SortID, nCol) devuelve el texto
+	// que se va a comparar.
+	CString s1 = pList->GetItemText(pData1->SortID, nCol);
+	CString s2 = pList->GetItemText(pData2->SortID, nCol);
+
+	int nRes = s1.CompareNoCase(s2);
+	if (!pList->FlagSortUp) nRes = -nRes;
+	return nRes;
 }
