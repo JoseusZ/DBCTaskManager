@@ -128,8 +128,15 @@ public:
  
 	afx_msg void OnLvnItemchanged(NMHDR *pNMHDR, LRESULT *pResult);
  
-	afx_msg void OnHdnBegindrag(NMHDR *pNMHDR, LRESULT *pResult);
-	afx_msg void OnHdnEnddrag(NMHDR *pNMHDR, LRESULT *pResult);
+	// Native HDS_DRAGDROP handlers (same as the original DBCTaskManager
+	// code). OnHdnBegindrag cancels the drag of the first column (and
+	// the column visually attached to it) and clears FlagLeftBtnDown so
+	// the post-drop OnLButtonUp does not synthesize a stray
+	// UM_HEADER_LCLICK on the column the cursor sits on after the
+	// system rearranged the columns. OnHdnEnddrag rejects drops into
+	// the fixed column block.
+	afx_msg void OnHdnBegindrag(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnHdnEnddrag(NMHDR* pNMHDR, LRESULT* pResult);
 	
 	BOOL FlagSortUp;
 	int CurrentSortColumn;

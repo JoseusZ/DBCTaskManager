@@ -102,10 +102,6 @@ public:
 	// and calls mStartupList.ShowOrHideColumn() to flip visibility.
 	afx_msg void OnPop_StartupColumnToggle(UINT nID);
 
-	// Called after the user finishes dragging a header column. Persists
-	// the new iOrder values so the layout survives a restart.
-	afx_msg void OnHdnEndDrag_Startup(NMHDR* pNMHDR, LRESULT* pResult);
-
 	// Returns TRUE if an executable matching StrTargetPath (case-insensitive
 	// basename match) is currently running. Uses TlHelp32 which is native
 	// Win32 available since Windows 95 / fully supported on Windows 7.

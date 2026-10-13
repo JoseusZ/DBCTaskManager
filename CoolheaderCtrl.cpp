@@ -258,7 +258,11 @@ void CCoolheaderCtrl::OnPaint()
 			rcStore.CopyRect(rcItem);
 			SumColWidth = SumColWidth + rcItem.Width();
 
-			bool bIsHover = (theApp.FlagThemeActive && hTheme && i == m_iHoverItem);
+			// Hover state is driven by m_iHoverItem (set in OnMouseMove).
+			// The drag preview is painted by the system via HDS_DRAGDROP
+			// so we do not need any extra logic here during drag.
+			const bool bIsHover =
+				(theApp.FlagThemeActive && hTheme && i == m_iHoverItem);
 
 			if (theApp.FlagThemeActive)
 			{
@@ -387,9 +391,9 @@ void CCoolheaderCtrl::OnMouseMove(UINT nFlags, CPoint point)
 		csTME.cbSize = sizeof(csTME);
 		csTME.dwFlags = TME_LEAVE | TME_HOVER;
 		csTME.hwndTrack = m_hWnd;
-		csTME.dwHoverTime = 10;  
-		::_TrackMouseEvent(&csTME); 
-		MouseTrackNow = TRUE;  
+		csTME.dwHoverTime = 10;
+		::_TrackMouseEvent(&csTME);
+		MouseTrackNow = TRUE;
 	}
 
 
@@ -452,15 +456,15 @@ void CCoolheaderCtrl::OnMouseLeave()
 void CCoolheaderCtrl::OnLButtonUp(UINT nFlags, CPoint point)
 {
 	// TODO: Add your message handler code here and/or call default
+
 	if (FlagLeftBtnDown)
 	{
-
 		FlagLeftBtnDown = FALSE;
 		int n = this->GetItemCount();
 		CRect rc;
 
 		int iClick = -1;
-		for (int i = 0;i < n;i++)
+		for (int i = 0; i < n; i++)
 		{
 			GetItemRect(i, rc);
 			if (rc.PtInRect(point))
@@ -471,11 +475,6 @@ void CCoolheaderCtrl::OnLButtonUp(UINT nFlags, CPoint point)
 				break;
 			}
 		}
-
-
-
-
-
 	}
 	CHeaderCtrl::OnLButtonUp(nFlags, point);
 }
@@ -483,6 +482,7 @@ void CCoolheaderCtrl::OnLButtonUp(UINT nFlags, CPoint point)
 void CCoolheaderCtrl::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	// TODO: Add your message handler code here and/or call default
+
 	if (GetCursor() == AfxGetApp()->LoadStandardCursor(IDC_ARROW))
 	{
 		FlagLeftBtnDown = TRUE;
@@ -499,6 +499,7 @@ BOOL CCoolheaderCtrl::OnCommand(WPARAM wParam, LPARAM lParam)
 	this->GetParent()->PostMessageW(WM_COMMAND, wParam, lParam);
 	return CHeaderCtrl::OnCommand(wParam, lParam);
 }
+
 
 LRESULT CCoolheaderCtrl::OnThemeChanged(WPARAM wParam, LPARAM lParam)
 {
@@ -570,3 +571,4 @@ void CCoolheaderCtrl::PaintCellTextArrow(CDC& memDC, int iCol, const CRect& rcCe
 		memDC.SelectObject(pOldFont);
 	}
 }
+

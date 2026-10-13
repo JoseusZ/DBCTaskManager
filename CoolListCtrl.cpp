@@ -77,6 +77,11 @@ BEGIN_MESSAGE_MAP(CCoolListCtrl, CListCtrl)
 	ON_NOTIFY(HDN_ENDTRACKW, 0, &CCoolListCtrl::OnHdnEndtrack)
 	ON_NOTIFY_REFLECT(LVN_ITEMCHANGED, &CCoolListCtrl::OnLvnItemchanged)
 
+	// Native HDS_DRAGDROP. The header sends HDN_BEGINDRAG when the user
+	// starts dragging a column; we cancel it for the first (fixed)
+	// column so the system never even starts a drag of it. HDN_ENDDRAG
+	// fires when the user releases; we refuse drops that would land in
+	// the fixed block. Same logic as the original DBCTaskManager code.
 	ON_NOTIFY(HDN_BEGINDRAG, 0, &CCoolListCtrl::OnHdnBegindrag)
 	ON_NOTIFY(HDN_ENDDRAG, 0, &CCoolListCtrl::OnHdnEnddrag)
 
@@ -741,14 +746,12 @@ void CCoolListCtrl::OnLvnHotTrack(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-void CCoolListCtrl::PreSubclassWindow() 
+void CCoolListCtrl::PreSubclassWindow()
 {
 	// TODO: Add your specialized code here and/or call the base class
 
 	CListCtrl::PreSubclassWindow();
 	CoolheaderCtrl.SubclassWindow(::GetDlgItem(m_hWnd, 0));
-
-
 }
 
 
@@ -1225,7 +1228,9 @@ void CCoolListCtrl::OnLvnItemchanged(NMHDR* pNMHDR, LRESULT* pResult)
 }
 
 
-void CCoolListCtrl::OnHdnBegindrag(NMHDR* pNMHDR, LRESULT* pResult)
+// Native HDS_DRAGDROP handlers (same logic as the original
+// DBCTaskManager code).
+void CCoolListCtrl::OnHdnBegindrag(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMHEADER phdr = reinterpret_cast<LPNMHEADER>(pNMHDR);
 	// TODO: Add your control notification handler code here
@@ -1243,7 +1248,7 @@ void CCoolListCtrl::OnHdnBegindrag(NMHDR* pNMHDR, LRESULT* pResult)
 	*pResult = 0;
 }
 
-void CCoolListCtrl::OnHdnEnddrag(NMHDR* pNMHDR, LRESULT* pResult)
+void CCoolListCtrl::OnHdnEnddrag(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMHEADER phdr = reinterpret_cast<LPNMHEADER>(pNMHDR);
 	// TODO: Add your control notification handler code here
@@ -1255,14 +1260,11 @@ void CCoolListCtrl::OnHdnEnddrag(NMHDR* pNMHDR, LRESULT* pResult)
 	int iOrder_FirstShow = Col.iOrder;
 
 
-
-	if (phdr->pitem->iOrder <= iOrder_FirstShow) //??????? ????
+	if (phdr->pitem->iOrder <= iOrder_FirstShow) // 防止用户移动到第一列前
 	{
-
 		phdr->pitem->iOrder += 2;
 		*pResult = 1;
 		return;
-
 	}
 	if (phdr->iItem == 0)
 	{
@@ -1271,18 +1273,13 @@ void CCoolListCtrl::OnHdnEnddrag(NMHDR* pNMHDR, LRESULT* pResult)
 	}
 
 
-
 	this->CoolheaderCtrl.FlagLeftBtnDown = FALSE;
-
 
 
 	this->Invalidate();
 
 	*pResult = 0;
 }
-
-
-
 
 void CCoolListCtrl::OnLvnGetdispinfo(NMHDR* pNMHDR, LRESULT* pResult)
 {

@@ -90,10 +90,6 @@ BEGIN_MESSAGE_MAP(CPageStartup, CFormView)
 	// ON_COMMAND_RANGE handler maps each ID_STARTUPCOL_* to the matching
 	// STARTUPLIST_* column index so the menu item index == column index.
 	ON_COMMAND_RANGE(ID_STARTUPCOL_NAME, ID_STARTUPCOL_CMDLINE, &CPageStartup::OnPop_StartupColumnToggle)
-	// Capture HDN_ENDDRAG from the list's header so the new column order
-	// can be persisted; CCoolListCtrl already blocks drag of the Name
-	// column on its own, we just need to observe the resulting order.
-	ON_NOTIFY(HDN_ENDDRAG, IDC_STARTUP, &CPageStartup::OnHdnEndDrag_Startup)
 END_MESSAGE_MAP()
 
 // CPageStartup diagnostics
@@ -1214,36 +1210,6 @@ void CPageStartup::ListMsConfigDisabledFolder(void)
 	}
 
 	regParent.Close();
-}
-
-void CPageStartup::OnHdnEndDrag_Startup(NMHDR* pNMHDR, LRESULT* pResult)
-{
-	LPNMHEADER pHdr = (LPNMHEADER)pNMHDR;
-	if (pHdr == NULL) return;
-
-	for (int i = 0; i < COL_COUNT_STARTUP; i++)
-	{
-		LVCOLUMNW lvCol;
-		lvCol.mask = LVCF_ORDER;
-		if (!mStartupList.GetColumn(i, &lvCol)) continue;
-		const BYTE NewOrder = (BYTE)lvCol.iOrder;
-		ColIDS_StartupList[i].iOrder = NewOrder;
-
-		if (!ColIDS_StartupList[i].IsHiddenColumn)
-			m_SavedIOrder[i] = NewOrder;
-	}
-
-	{
-		LVCOLUMNW lvName;
-		lvName.mask = LVCF_ORDER;
-		lvName.iOrder = 0;
-		mStartupList.SetColumn(STARTUPLIST_NAME, &lvName);
-		ColIDS_StartupList[STARTUPLIST_NAME].iOrder = 0;
-		m_SavedIOrder[STARTUPLIST_NAME] = 0;
-	}
-
-	_SaveStartupColumnState();
-	*pResult = 0;
 }
 
 // ============================================================================

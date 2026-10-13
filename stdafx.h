@@ -158,9 +158,9 @@ using namespace std;
 
 
 
-#define  UM_HEADER_LCLICK   (WM_USER+108)  
-#define  UM_HEADER_RCLICK   (WM_USER+109)  
-#define  UM_NOTIFYICON   (WM_USER+110)  
+#define  UM_HEADER_LCLICK   (WM_USER+108)
+#define  UM_HEADER_RCLICK   (WM_USER+109)
+#define  UM_NOTIFYICON   (WM_USER+110)
 #define  UM_ITEMCHANGED_COOLLIST   (WM_USER+111) 
 #define  UM_TIMER   (WM_USER+112) 
 #define  UM_REFRESH   (WM_USER+113) 
