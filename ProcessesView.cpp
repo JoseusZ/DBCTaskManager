@@ -151,6 +151,15 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 	//	int Data1,Data2;
 	if((pData1==NULL) || (pData2 == NULL) )return result;
 
+	// FIX: si uno es sub-item del otro, el padre va SIEMPRE primero.
+	// Sin esto, cuando el padre es el ultimo item de la lista, ReSort tras
+	// _OpenSubList puede recolocar el sub-item ARRIBA del padre: QuickSort
+	// no es estable y al comparar el sub-item con OTROS procesos (claves
+	// distintas), el tiebreak por SubType (1<3) solo aplica cuando las
+	// claves principales empatan. Forzamos la relacion padre->hijo de
+	// forma explicita para que el sub-item NUNCA quede por encima del padre.
+	if (pData1->SubType == SUB_ITEM && pData1->pParent == pData2) return 1;
+	if (pData2->SubType == SUB_ITEM && pData2->pParent == pData1) return -1;
 
 	CString Str1,Str2;
 
@@ -1435,6 +1444,13 @@ int CPageProcesses::_CloseSubList(int ID,BOOL LockDraw)
 	while(1)
 	{
 		pDelData = (APPLISTDATA * )mTaskList.GetItemData(Pos);
+		// FIX CRASH: si el padre es el último item de la lista (Pos fuera
+		// de rango), GetItemData devuelve NULL y pDelData->SubType crashea
+		// con 0xC0000005. Esto ocurre en ListItemWindows cuando se
+		// re-construye la sublista y el padre quedó al final de su grupo
+		// tras ReSort (los sub-items se ordenaron antes que el nombre del
+		// padre). Salimos del bucle limpiamente.
+		if(pDelData == NULL) break;
 		if(pDelData->SubType == SUB_ITEM)
 		{
 			// Defensa: nulificar pParent antes de DeleteItem para
