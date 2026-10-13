@@ -1319,6 +1319,14 @@ void CPageStartup::ListMsConfigDisabledReg(void)
 			{
 				StrPath = StrPath.Mid(1, StrPath.GetLength() - 2);
 			}
+			// msconfig copies the original command verbatim, so REG_EXPAND_SZ
+			// values like %SystemRoot%\system32\VBoxTray.exe reach us as the
+			// literal token '%SystemRoot%'. SHGetFileInfo and the version-info
+			// reader both need a real path, so expand env vars first - same
+			// trick ListStartupItem uses for the live Run key.
+			WCHAR BufExp[MAX_PATH] = {0};
+			if(ExpandEnvironmentStringsW(StrPath, BufExp, MAX_PATH) > 0)
+				StrPath = BufExp;
 			SHGetFileInfo(StrPath, FILE_ATTRIBUTE_NORMAL, &sfi, sizeof(sfi),
 				SHGFI_SMALLICON | SHGFI_SYSICONINDEX |
 				SHGFI_USEFILEATTRIBUTES | SHGFI_ICON);
@@ -1393,11 +1401,19 @@ void CPageStartup::ListMsConfigDisabledFolder(void)
 
 			SHFILEINFO sfi;
 			memset(&sfi, 0, sizeof(sfi));
-			SHGetFileInfo(StrCmd, FILE_ATTRIBUTE_NORMAL, &sfi, sizeof(sfi),
+			// msconfig stores the original command verbatim, so expand env
+			// vars first - matches the fix in ListMsConfigDisabledReg and
+			// keeps the icon + publisher lookup working for paths that
+			// originally sat under %SystemRoot% or %ProgramFiles%.
+			WCHAR BufExp[MAX_PATH] = {0};
+			CString StrPath = StrCmd;
+			if(ExpandEnvironmentStringsW(StrCmd, BufExp, MAX_PATH) > 0)
+				StrPath = BufExp;
+			SHGetFileInfo(StrPath, FILE_ATTRIBUTE_NORMAL, &sfi, sizeof(sfi),
 				SHGFI_SMALLICON | SHGFI_SYSICONINDEX |
 				SHGFI_USEFILEATTRIBUTES | SHGFI_ICON);
 
-			AddItem(nStartID, StrItem, StrCmd, StrCmd, StrFolder,
+			AddItem(nStartID, StrItem, StrCmd, StrPath, StrFolder,
 				L"Startup folder", sfi.iIcon, L"Disabled", StrTime);
 			nStartID++;
 		}
