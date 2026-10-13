@@ -1,7 +1,6 @@
 // ProcessesView.cpp : implementation file
 
-}
-	}
+
 // ProcessesView.cpp : implementation file
 //
 
@@ -1373,24 +1372,14 @@ APPLISTDATA* CPageProcesses::AddNewItem(PROCLISTDATA * pDetailData, int ID,BOOL 
 	//---------------------------------�ڴ�------------------------
 
 	_GetMemDataAndSetItemText(ID,(APPLISTDATA*)pNewAppListData );
-	
-	/*if(MemUsage>1.0)
-	{
-		CString StrOut;
-		StrItem.Format(L"%d",  (int)MemUsage);
-		GetNumberFormat(LOCALE_USER_DEFAULT,LOCALE_NOUSEROVERRIDE,StrItem,NULL, StrOut.GetBuffer(MAX_PATH),MAX_PATH);
-		StrOut.ReleaseBuffer();
-		StrItem = StrOut;
-		StrItem = StrItem.Left(StrItem.GetLength()-3); 
-		StrItem=StrItem+L" KB";
-	}*/
-	/*else
-	{
-		StrItem.Format(L"%.2f KB",MemUsage);
-	}*/
 
-
-	mTaskList.SetItemText(ID,PROCLIST_MEMORY,StrItem);
+	// NOTE: the line below used to be `mTaskList.SetItemText(ID, PROCLIST_MEMORY, StrItem);`
+	// but StrItem is the outer-scope buffer that was filled with the publisher
+	// (CompanyName, e.g. "Microsoft Corporation") at line ~1359, so that call
+	// was overwriting the just-set MEM column with the publisher text whenever
+	// the per-row pass hit this function. _GetMemDataAndSetItemText owns the
+	// MEM column now, and writes "0 MB" / "0%" itself on read failure, so we
+	// must not write to MEM here at all.
 
 	//---------------------------------------Disk----------------------------------
 
