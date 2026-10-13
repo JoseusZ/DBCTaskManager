@@ -337,8 +337,6 @@ copy /Y "$(OutDir)$(TargetName)$(TargetExt)" "$(SolutionDir)AllRelease\X64\$(Tar
     <ResourceCompile Include="DBCTaskman.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="fix_thread.py" />
-    <None Include="probe.py" />
     <None Include="res\DBCTaskman.rc2" />
   </ItemGroup>
   <ItemGroup>

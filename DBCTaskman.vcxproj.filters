@@ -326,8 +326,6 @@
     <None Include="res\DBCTaskman.rc2">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="fix_thread.py" />
-    <None Include="probe.py" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />

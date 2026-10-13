@@ -1,3 +1,4 @@
+// StartupView.h
 #pragma once
 #include "afxcmn.h"
 #include "CoolListCtrl.h"
@@ -16,7 +17,6 @@
 #define STARTUPLIST_DISABLEDTIME   5
 #define STARTUPLIST_CMDLINE        6
 
-
 struct STARTUPITEMDATA
 {
 	CString  FilePath;
@@ -31,20 +31,13 @@ struct STARTUPITEMDATA
 	BOOL     bIsHkcu;
 };
 
-
-
-
-
 // CPageStartup form view
-
 class CPageStartup : public CFormView
 {
 	DECLARE_DYNCREATE(CPageStartup)
-
 protected:
 	CPageStartup();           // protected constructor used by dynamic creation
 	virtual ~CPageStartup();
-
 public:
 	enum { IDD = IDD_PAGE_STARTUP };
 #ifdef _DEBUG
@@ -53,7 +46,6 @@ public:
 	virtual void Dump(CDumpContext& dc) const;
 #endif
 #endif
-
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
 
@@ -84,7 +76,7 @@ public:
 
 	COLUMNSTATUS_EX     ColIDS_StartupList[COL_COUNT_STARTUP];
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
-	afx_msg void OnNMRClickStartup(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnNMRClickStartup(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnPop_Openfilelocation();
 	afx_msg void OnPop_Properties();
 	int ListStartupFromMenu(void);
@@ -109,6 +101,10 @@ public:
 	// Maps the command ID to the corresponding STARTUPLIST_* column index
 	// and calls mStartupList.ShowOrHideColumn() to flip visibility.
 	afx_msg void OnPop_StartupColumnToggle(UINT nID);
+
+	// Called after the user finishes dragging a header column. Persists
+	// the new iOrder values so the layout survives a restart.
+	afx_msg void OnHdnEndDrag_Startup(NMHDR* pNMHDR, LRESULT* pResult);
 
 	// Returns TRUE if an executable matching StrTargetPath (case-insensitive
 	// basename match) is currently running. Uses TlHelp32 which is native
@@ -137,10 +133,22 @@ public:
 	// before with STATUS_HEAP_CORRUPTION 0xc0000374).
 	void _LoadStartupItemsSync();
 
+	// Persist the column visibility/width state across runs.
+	// Storage: HKCU\Software\DBCTaskManager\Startup\Columns,
+	// one DWORD value per column ("ColName".."ColCmdline") so a
+	// partial read or a future column insertion doesn't disturb the
+	// other slots.
+	void _SaveStartupColumnState();
+	BOOL _LoadStartupColumnState();
+
 	// Set to TRUE for the duration of any background load and checked at
 	// the top of the reload path so we never spawn a second load while
 	// the first is still walking the registry.
 	volatile BOOL m_bLoadInProgress;
+
+	// Per-column iOrder cached from HKCU at load time. Used by the toggle
+	// handler to remember where a hidden column was last positioned, so
+	// re-enabling it drops it back in its old slot instead of the right
+	// edge. 0xFF marks "no saved position" (treat as right-end on show).
+	BYTE m_SavedIOrder[COL_COUNT_STARTUP];
 };
-
-
