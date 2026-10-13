@@ -3090,7 +3090,7 @@ void CPageProcesses::OnPop_Memory_ShowAsValues()
 
 void CPageProcesses::_GetMemDataAndSetItemText(int iItem, APPLISTDATA * PData)
 {
-	
+
 	double  MemUsage;
 	MemUsage = mProcInfo.GetWsPrivate_PDH( (PROCLISTDATA*)PData->pPData );
 
@@ -3100,74 +3100,29 @@ void CPageProcesses::_GetMemDataAndSetItemText(int iItem, APPLISTDATA * PData)
 
 	if(MemUsage<= (double)theApp.PerformanceInfo.TotalPhysMem   &&   MemUsage>0 && theApp.PerformanceInfo.InUsePhysMem>0)//��ֹ��ʾ���ҵ� ����
 	{
-		
-		((PROCLISTDATA*)PData->pPData)->Mem_PrivateWS = MemUsage; 
+
+		((PROCLISTDATA*)PData->pPData)->Mem_PrivateWS = MemUsage;
 
 		double Percents =  (double)( MemUsage/(theApp.PerformanceInfo.InUsePhysMem )*100);
 		if(Percents<0.1&&Percents>0)Percents=0.1;
 
-		if(theApp.AppSettings.ProcList_MemPercents)//���ٷֱ���ʾ 
-		{		
-			// User format: idle shows "0%", non-idle uses one decimal ("0.1%").
-			if(Percents == 0.0)
-				StrItem = L"0%";
-			else
-				StrItem.Format(L"%.1f%%",  Percents );
+		if(theApp.AppSettings.ProcList_MemPercents)//���ٷֱ���ʾ
+		{
+
+			StrItem.Format(L"%.1f%%",  Percents );
 			mTaskList.MySetItemText(iItem,PROCLIST_MEMORY,StrItem);
 
 
 		}
 		else
 		{
-			double MemMb = MemUsage/1024/1024;
-			// User format: idle shows "0 MB", non-idle uses one decimal ("0.1 MB").
-			// >=1000 MB also gets a thousands separator like Win10/8 Task Manager.
-			if(MemMb == 0.0)
-			{
-				StrItem = L"0 MB";
-			}
-			else if(MemMb >= 1000.0)
-			{
-				CString StrNum;
-				StrNum.Format(L"%.1f", MemMb);
-				int dotPos = StrNum.Find(L'.');
-				if(dotPos > 3)
-				{
-					CString intPart = StrNum.Left(dotPos);
-					CString decPart = StrNum.Mid(dotPos);
-					CString formatted;
-					int len = intPart.GetLength();
-					for(int i = 0; i < len; i++)
-					{
-						if(i > 0 && (len - i) % 3 == 0)
-							formatted += L',';
-						formatted += intPart[i];
-					}
-					StrItem = formatted + decPart;
-				}
-				else
-				{
-					StrItem = StrNum;
-				}
-			}
-			else
-			{
-				StrItem.Format(L"%.1f",  MemMb);
-			}
+			StrItem.Format(L"%.1f",  MemUsage/1024/1024);
 			mTaskList.MySetItemText(iItem,PROCLIST_MEMORY,StrItem+L" MB");
 
 		}
 
-		// Memory heat map is now driven by absolute megabytes (private
-		// working-set, in MB) instead of a fraction of total used memory.
-		// The renderer (CoolListCtrl.cpp) detects values > 1.0 and dispatches
-		// to GetMemoryHeatColor() which interpolates smoothly between the
-		// 620 MB and 1072 MB anchors specified by the user. Below 1 MB the
-		// smooth gradient is indistinguishable from the default neutral
-		// color (RGB(255,244,196)), so we store 0 to suppress the heat
-		// overlay and avoid any colour banding at the threshold.
-		double MemMb = MemUsage/1024.0/1024.0;
-		PData->CoolUsageArray[PROCLIST_MEMORY] = (MemMb >= 1.0) ? MemMb : 0.0; // MemMb for GetMemoryHeatColor
+		if(Percents>1&&Percents<10)Percents=20;//����ܶ඼����ʾ��ɫ
+		PData->CoolUsageArray[PROCLIST_MEMORY]= Percents/100; //���ڱ�ɫ��ʾ������
 	}
 
 }
