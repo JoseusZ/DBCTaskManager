@@ -102,13 +102,6 @@ typedef struct tagWNDINFO
 	HWND Dll_hwnd;
 } WNDINFO, *LPWNDINFO;
 
-struct PROCWNDCOUNTS
-{
-	int AppWndCount;
-	int BkgWndCount;
-};
-
-static map<DWORD, PROCWNDCOUNTS> g_ProcWndCounts;
 
 
 
@@ -546,23 +539,20 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 
 	int nCount = mTaskList.GetItemCount();
-	if(nCount > 0)
+	APPLISTDATA * pData = (APPLISTDATA *)mTaskList.GetItemData(nCount-1);
+	if(pData->SubType == -1)
 	{
-		APPLISTDATA * pData = (APPLISTDATA *)mTaskList.GetItemData(nCount-1);
-		if(pData != NULL && pData->SubType == -1)
-		{
 
 
-			mTaskList.CurrentSortColumn = PROCLIST_NAME ;
-			Sort(0,FALSE);
-		}
+
+		mTaskList.CurrentSortColumn = PROCLIST_NAME ;
+		Sort(0,FALSE);
 	}
 
 
-		BOOL  UpdateWndList = CheckWndChange();
+	BOOL  UpdateWndList = CheckWndChange();
 
-	CRect rcItem,rc,rcTemp, rcClient;
-	mTaskList.GetClientRect(&rcClient);
+	CRect rcItem,rc,rcTemp;
 
 	rc = mTaskList._GetRedrawColumn();
 
@@ -586,62 +576,15 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 		if(mTaskList.GetItemCount() == i) break ;
 
 		mTaskList.GetItemRect(i,rcItem,LVIR_BOUNDS);
-		// CPU FIX: saltar items no visibles en pantalla. Ya tenemos rcItem
-		// calculado; si la fila esta totalmente fuera del client rect no
-		// tiene sentido leer contadores NT (CPU/Mem/Disk/Net) ni repintar.
-		// Items parciales (recortados arriba/abajo) SI se procesan.
-		//
-		// FIX CONTADOR: el conteo por categoria (NewAppCount, etc.) se
-		// hace ANTES del continue para que abarque TODOS los procesos,
-		// no solo los visibles. Antes el contador quedaba en "lo que
-		// cabia en pantalla" en lugar del total real, dando "Apps (3)"
-		// cuando en realidad habia "Apps (10)".
+		BOOL RedrawItem =  IntersectRect (rcTemp,rcItem,rc);
+
+
 		APPLISTDATA *pListData = (APPLISTDATA *)mTaskList.GetItemData(i);
 
 		if( (pListData == NULL) || (pListData->pPData == NULL ))  //ע���ų��������
 		{
 			i++; continue ;
 		}
-
-		//---- Conteo de categoria: se hace SIEMPRE, antes de cualquier
-		//---- continue de visibilidad. Solo cuenta items "reales" (con
-		//---- pPData valido, o sea procesos reales, no headers de grupo).
-		//
-		// FIX SUB-ITEM CONTADOR: contar SOLO procesos padre, no sub-items
-		// de ventanas. Si Clover.exe tiene 2 ventanas visibles y el
-		// usuario expande para verlas, el taskmgr nativo NO incrementa
-		// el contador "Apps" porque sigue siendo 1 proceso unico.
-		// El bug era que mi fix anterior del contador (mover antes del
-		// filtro de viewport) tambien incluia los sub-items, mostrando
-		// "Apps (5)" en lugar de "Apps (4)" al expandir. Solucion:
-		// ignorar SubType == SUB_ITEM en el conteo.
-		if( pListData->SubType == SUB_ITEM )
-		{
-			// Sub-item: pertenece a un proceso padre que ya se conto.
-			// No incrementa NewAppCount.
-		}
-		else if( pListData->ItemType == APP  )
-		{
-			NewAppCount ++ ;
-		}
-		else if( pListData->ItemType == BKGPROC  )
-		{
-			NewBkgPrcCount++;
-		}
-		else if( pListData->ItemType == WINPROC  )
-		{
-			NewWinPrcCount++;
-		}
-
-		// Filtrado por viewport para el resto del trabajo (lectura de
-		// contadores NT, repintado de celdas, etc.).
-		if (rcItem.bottom <= rcClient.top || rcItem.top >= rcClient.bottom)
-		{
-			i++;
-			continue;
-		}
-
-		BOOL RedrawItem =  IntersectRect (rcTemp,rcItem,rc);
 
 		if(  pListData->SubType == SUB_ITEM)    //ע���ų�����  ���� ֻ����´��ڱ��� //��״̬
 		{
@@ -650,25 +593,7 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 			if( RedrawItem && COL_SAT_PROC[PROCLIST_NAME].Redraw   )
 			{
 
-				// FIX T6b: usar pParent (identidad) en lugar de la fila
-				// anterior (i-1). El codigo legacy copiaba los
-				// CoolUsageArray del item inmediatamente arriba, lo cual
-				// es fragil: tras un ReSort() el sub-item puede no estar
-				// justo debajo de su padre y estar copiando datos del
-				// proceso equivocado. Esto provocaba barras de calor
-				// pintadas con valores incorrectos.
-				//
-				// pParent se asigna en _OpenSubList al insertar el
-				// sub-item, y es estable a lo largo de la vida del item.
-				// Fallback al legacy (i-1) para sub-items legados de
-				// binarios anteriores al fix T5 que tengan pParent NULL.
-				APPLISTDATA *pAboveData = pListData->pParent;
-				if (pAboveData == NULL)
-				{
-					// Legacy fallback: la fila inmediatamente arriba
-					// se asume que es el padre.
-					pAboveData = (APPLISTDATA *)mTaskList.GetItemData(i-1);
-				}
+				APPLISTDATA *pAboveData = (APPLISTDATA *)mTaskList.GetItemData(i-1);
 
 				if(pAboveData!=NULL)
 				{
@@ -697,16 +622,28 @@ LRESULT CPageProcesses::OnUMTimer( WPARAM wParam, LPARAM lParam)
 
 
 		//---------------- ǰ��ļ������ ƽ̨� ��С �ǰ  ��----------------
-		// (El conteo de categoria ya se hizo arriba, antes del filtro
-		// de viewport, para que incluya TODOS los procesos, no solo los
-		// visibles.)
 
 
 
 
 
+		if( pListData->ItemType == APP  )
+		{
+			NewAppCount ++ ;
+		}
+		else if( pListData->ItemType == BKGPROC  )
+		{
+			NewBkgPrcCount++;
+		}
+		else if( pListData->ItemType == WINPROC  )
+		{
+			NewWinPrcCount++;
+		}
 
-		if( (pListData->ItemType != WINPROC)  &&  UpdateWndList) //UpdateWndList��־�� �����б��б仯
+
+
+
+		if( (pListData->ItemType != WINPROC)  &&  UpdateWndList)
 		{
 
 			ListItemWindows(i,pListData);	
@@ -1407,7 +1344,7 @@ APPLISTDATA* CPageProcesses::AddNewItem(PROCLISTDATA * pDetailData, int ID,BOOL 
 int CPageProcesses::_OpenSubList(int ID,BOOL LockDraw)
 {
 
-	int n=0; 
+	int n=0;
 	CWnd *pDeskTop=CWnd::GetDesktopWindow();
 	CWnd  *pAppWnd = pDeskTop->GetWindow(GW_CHILD);
 
@@ -1418,20 +1355,9 @@ int CPageProcesses::_OpenSubList(int ID,BOOL LockDraw)
 	APPLISTDATA *pData = NULL;
 	APPLISTDATA *pDataNew = NULL;
 	pData=(APPLISTDATA * )mTaskList.GetItemData(ID);
-	if(pData == NULL || pData->pPData == NULL) return 0;
 	ItemPID = ((PROCLISTDATA * )pData->pPData)->PID ;
 
 	int Pos=ID+1;
-
-	// DIAG: log contexto del padre ANTES de expandir
-	if (_ListDiagEnabled())
-	{
-		CString parentStr = mTaskList.GetItemText(ID, 0);
-		_ListDiagLog("_OpenSubList START ID=%d PID=%lu ItemType=%d SubType=%d Pos=%d parentStr=\"%s\" GroupByType=%d CurrentSortCol=%d",
-			ID, (unsigned long)ItemPID, (int)pData->ItemType, (int)pData->SubType, Pos,
-			(LPCSTR)(CStringA)parentStr.Left(40),
-			(int)theApp.AppSettings.GroupByType, mTaskList.CurrentSortColumn);
-	}
 
 	if(LockDraw) mTaskList.SetRedraw(0);
 
@@ -1442,7 +1368,7 @@ int CPageProcesses::_OpenSubList(int ID,BOOL LockDraw)
 
 		GetWindowThreadProcessId(pAppWnd->m_hWnd,&WindowPID);
 		if(ItemPID == WindowPID)
-		{	
+		{
 			if( ((pData->ItemType== APP) && (pAppWnd->IsWindowVisible()))  || (pData->ItemType==BKGPROC) )
 			{
 				if((!(pAppWnd->GetExStyle()&WS_EX_TOOLWINDOW))&&(pAppWnd->GetParent()==NULL))
@@ -1465,40 +1391,7 @@ int CPageProcesses::_OpenSubList(int ID,BOOL LockDraw)
 						mTaskList.SetItemText(Pos,0,StrWndCaption);
 						pDataNew->SubType = SUB_ITEM;
 						pDataNew->ItemType =pData->ItemType;
-						pDataNew->pParent = pData;  // FIX T5: enlace al padre real
-
-						// FIX T4: poblar las columnas numericas del sub-item con el
-						// mismo texto que usa AddNewItem/FillAllItemData para los padres.
-						// Esto es defensa redundante: ReSort() tambien copiara el texto
-						// desde el padre via pParent, pero dejarlo aqui evita que el
-						// PRIMER sort tras expandir vea "".
-						{
-							CString sTxt;
-							sTxt = mTaskList.GetItemText(pData->SortID, PROCLIST_CPU);
-							if (sTxt.IsEmpty()) sTxt = L"0%";
-							mTaskList.SetItemText(Pos, PROCLIST_CPU, sTxt);
-
-							sTxt = mTaskList.GetItemText(pData->SortID, PROCLIST_MEMORY);
-							if (sTxt.IsEmpty())
-								sTxt = theApp.AppSettings.ProcList_MemPercents ? L"0%" : L"0 MB";
-							mTaskList.SetItemText(Pos, PROCLIST_MEMORY, sTxt);
-
-							sTxt = mTaskList.GetItemText(pData->SortID, PROCLIST_DISK);
-							if (sTxt.IsEmpty()) sTxt = L"0 MB/s";
-							mTaskList.SetItemText(Pos, PROCLIST_DISK, sTxt);
-
-							sTxt = mTaskList.GetItemText(pData->SortID, PROCLIST_NETWORK);
-							if (sTxt.IsEmpty()) sTxt = L"0 KB/s";
-							mTaskList.SetItemText(Pos, PROCLIST_NETWORK, sTxt);
-						}
-
-						// DIAG: log del sub-item insertado
-						if (_ListDiagEnabled())
-						{
-							_ListDiagLog("  inserted sub-item Pos=%d WindowPID=%lu SubWnd=\"%s\"",
-								Pos, (unsigned long)WindowPID,
-								(LPCSTR)(CStringA)StrWndCaption.Left(40));
-						}
+						pDataNew->pParent = pData;  // enlazado al padre real (CoolListCtrl::_DelItem / DBCTaskman)
 
 						Pos++;
 						n++;
@@ -1522,12 +1415,6 @@ int CPageProcesses::_OpenSubList(int ID,BOOL LockDraw)
 
 	ReSort(FALSE);
 
-	// DIAG: trace opt-in tras expandir un proceso
-	if (_ListDiagEnabled()) {
-		_ListDiagLog("_OpenSubList ID=%d subItems=%d", ID, n);
-		_ListDiagDump("post-OpenSub", n, &mTaskList);
-	}
-
 	if(LockDraw)mTaskList.SetRedraw(1);
 	mTaskList.Invalidate();
 
@@ -1542,104 +1429,29 @@ int CPageProcesses::_CloseSubList(int ID,BOOL LockDraw)
 
 	pData=(APPLISTDATA * )mTaskList.GetItemData(ID);
 
-	// DIAG: log inicio
-	if (_ListDiagEnabled() && pData && pData->pPData)
-	{
-		_ListDiagLog("_CloseSubList START ID=%d PID=%lu SubType=%d CurrentSortCol=%d",
-			ID, (unsigned long)((PROCLISTDATA*)pData->pPData)->PID,
-			(int)pData->SubType, mTaskList.CurrentSortColumn);
-	}
 
-	// FIX T6: ya no asumimos que el sub-item esta en Pos = ID+1.
-	// Tras un ReSort() (cambio de columna o insercion concurrente),
-	// SortItems (QuickSort) puede haber movido al sub-item a otra
-	// posicion arbitraria. La busqueda legacy por Pos=ID+1 fallaba:
-	// si entre padre y sub-item habia otro item (PNoSub, otro POpen
-	// que se reordeno, etc.), el while salia con break y dejaba el
-	// sub-item huerfano en la lista con texto "" heredado del padre
-	// equivocado. Eso disparaba el bug T6 + reintroducia el bug T5.
-	//
-	// Solucion: iterar DESDE ID+1 y eliminar UNICAMENTE los sub-items
-	// cuyo pParent == pData (identidad de padre, no igualdad de PID).
-	// Esto es robusto frente a reordenamientos porque compara el
-	// puntero, no una posicion volatil.
+	int Pos = ID+1;
 	if(LockDraw)mTaskList.SetRedraw(0);
-	if (pData != NULL)
+	while(1)
 	{
-		int i = ID + 1;
-		while (i < mTaskList.GetItemCount())
+		pDelData = (APPLISTDATA * )mTaskList.GetItemData(Pos);
+		if(pDelData->SubType == SUB_ITEM)
 		{
-			pDelData = (APPLISTDATA *)mTaskList.GetItemData(i);
-			if (pDelData == NULL) break;
-
-			// Si no es SUB_ITEM, hemos llegado al siguiente item
-			// del bloque (puede ser otro POpen, PNoSub, PClose, o
-			// header de seccion). Fin del bucle.
-			if (pDelData->SubType != SUB_ITEM) break;
-
-			// Es SUB_ITEM. Verificamos que sea NUESTRO sub-item
-			// comparando el puntero al padre que guardamos en
-			// pDelData->pParent al insertarlo en _OpenSubList.
-			// Esto es robusto frente a reordenamientos porque el
-			// puntero es estable aunque la posicion cambie.
-			//
-			// Fallback: si pParent es NULL (sub-item legado de un
-			// binario anterior al fix T5, o construido por otro
-			// camino), usamos igualdad de PID como red de seguridad.
-			BOOL bMine = FALSE;
-			if (pDelData->pParent == pData)
-			{
-				bMine = TRUE;
-			}
-			else if (pDelData->pParent == NULL
-				&& pDelData->pPData != NULL
-				&& pData->pPData != NULL
-				&& ((PROCLISTDATA *)pDelData->pPData)->PID
-				   == ((PROCLISTDATA *)pData->pPData)->PID)
-			{
-				bMine = TRUE;
-			}
-
-			if (!bMine)
-			{
-				// No es nuestro sub-item. Esto NO deberia pasar
-				// en una lista coherente: todos los SUB_ITEM de
-				// un proceso estan fisicamente agrupados bajo su
-				// padre (la insercion siempre se hace en Pos=ID+1
-				// en _OpenSubList, y los sort no rompen esa
-				// adyacencia salvo bugs previos). Pero si pasa,
-				// salimos por seguridad para no borrar items
-				// ajenos.
-				if (_ListDiagEnabled())
-				{
-					_ListDiagLog(
-						"  _CloseSubList ABORT: sub at i=%d no pertenece al padre ID=%d (pParent=%p vs pData=%p, PIDSub=%lu PIDParent=%lu)",
-						i, ID,
-						(void*)pDelData->pParent, (void*)pData,
-						pDelData->pPData ? (unsigned long)((PROCLISTDATA*)pDelData->pPData)->PID : 0,
-						pData->pPData ? (unsigned long)((PROCLISTDATA*)pData->pPData)->PID : 0);
-				}
-				break;
-			}
-
-			// FIX T6 (defensa dangling): nulificar pParent antes de
-			// quitar la fila. NO hacer delete aqui: OnLvnDeleteitem
-			// en CoolListCtrl.cpp YA libera el APPLISTDATA cuando
-			// CListCtrl emite LVN_DELETEITEM al ejecutar DeleteItem.
-			// Hacer delete aqui provoca DOUBLE-FREE y heap
-			// corruption (0xc0000374) en cuanto se cierra un padre.
+			// Defensa: nulificar pParent antes de DeleteItem para
+			// que CoolListCtrl::_DelItem / DBCTaskman no vean un
+			// puntero colgando tras emitirse LVN_DELETEITEM.
 			pDelData->pParent = NULL;
-			mTaskList.DeleteItem(i);
-			// NO incrementamos i: tras DeleteItem, la fila en i+1
-			// pasa a ocupar i. Si hay mas sub-items nuestros, los
-			// iremos encontrando consecutivamente.
+			mTaskList.DeleteItem(Pos);
+
+		}
+		else
+		{
+			break ;
 		}
 
-		pData->SubType = PARENT_ITEM_CLOSE;
-		pData->nSubItem = 0;
 	}
 
-
+	pData->SubType = PARENT_ITEM_CLOSE ;
 	if(LockDraw)mTaskList.SetRedraw(1);
 	mTaskList.Invalidate();
 
@@ -1650,27 +1462,65 @@ int CPageProcesses::_CloseSubList(int ID,BOOL LockDraw)
 
 int CPageProcesses::ListItemWindows(int nItem,APPLISTDATA * pListData )
 {
-	APPLISTDATA *pData = NULL;
+
+
+	APPLISTDATA *  pData = NULL ;
 	if(pListData == NULL)
 	{
-		pData = (APPLISTDATA *)mTaskList.GetItemData(nItem);
+		pData = (APPLISTDATA *) mTaskList.GetItemData(nItem);
 	}
 	else
 	{
 		pData = pListData;
 	}
 
-	if(pData == NULL || pData->pPData == NULL) return -1;
+	if(pData == NULL) return -1;
+
+
+
+	//----------------------------------
+
 
 	DWORD PID = ((PROCLISTDATA *)pData->pPData)->PID;
-	int nAppWnd = 0;
-	int nBkgWnd = 0;
 
-	map<DWORD, PROCWNDCOUNTS>::iterator it = g_ProcWndCounts.find(PID);
-	if(it != g_ProcWndCounts.end())
+	CWnd *pDeskTop=CWnd::GetDesktopWindow();
+
+	CWnd  *pAppWnd = pDeskTop->GetWindow(GW_CHILD);
+
+	CString  StrWndCaptionF;
+	CString  StrWndCaptionB;
+	CString Strtemp;
+	DWORD WindowPID ;
+
+
+	int nAppWnd=0;
+	int nBkgWnd=0;
+
+
+
+	while( pAppWnd!=NULL)
 	{
-		nAppWnd = it->second.AppWndCount;
-		nBkgWnd = it->second.BkgWndCount;
+
+		GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID);
+
+		if(WindowPID ==PID)
+		{
+			DWORD  WndExStyle = pAppWnd->GetExStyle();
+			if(pAppWnd->IsWindowVisible()&& (!(WndExStyle&WS_EX_TOOLWINDOW))&&(pAppWnd->GetParent()==NULL)&&(!(WndExStyle&0x200000)))
+			{
+
+				nAppWnd ++;
+			}
+			else  if(pAppWnd->GetParent()==NULL)
+			{
+				pAppWnd->GetWindowText(Strtemp);
+				if(Strtemp!=L"")nBkgWnd ++ ;
+			}
+
+		}
+
+		pAppWnd=pAppWnd->GetWindow(GW_HWNDNEXT);
+
 	}
 
 	CString StrItem;
@@ -1761,79 +1611,61 @@ int CPageProcesses::ListItemWindows(int nItem,APPLISTDATA * pListData )
 
 BOOL CPageProcesses::CheckWndChange(void)
 {
-	CWnd *pDeskTop = CWnd::GetDesktopWindow();
-	CWnd *pAppWnd = pDeskTop->GetWindow(GW_CHILD);
+
+
+	int n=0;
+	CWnd *pDeskTop=CWnd::GetDesktopWindow();
+	CWnd  *pAppWnd = pDeskTop->GetWindow(GW_CHILD);
+
+	CString  StrWndCaption;
 
 	CString StrNewWndList;
-	StrNewWndList.Preallocate(8192);
 
-	CString StrTemp;
-	DWORD hWndNum;
+	CString StrTemp ;
 
-	g_ProcWndCounts.clear();
+	DWORD   hWndNum;
 
-	while (pAppWnd != NULL)
+	while( pAppWnd!=NULL)
 	{
-		DWORD WndExStyle = pAppWnd->GetExStyle();
-		if (!(WndExStyle & WS_EX_TOOLWINDOW))
+
+		DWORD  WndExStyle =  pAppWnd->GetExStyle();
+		if( !( WndExStyle & WS_EX_TOOLWINDOW)  )
 		{
-			hWndNum = (DWORD)pAppWnd->GetSafeHwnd();
 
-			CWnd *pParentWnd = pAppWnd->GetParent();
-			BOOL IsTopLevel = (pParentWnd == NULL);
-			BOOL IsAppWnd = (pAppWnd->IsWindowVisible() && IsTopLevel && (!(WndExStyle & 0x200000)));
-			BOOL IsBkgWnd = ((!IsAppWnd) && IsTopLevel);
-			int CaptionLen = 0;
-			if (IsBkgWnd)
-			{
-				CaptionLen = pAppWnd->GetWindowTextLengthW();
-			}
+			hWndNum = (DWORD) pAppWnd->GetSafeHwnd();
+			pAppWnd->GetWindowTextW(StrWndCaption);
+			StrTemp.Format(L"%x",hWndNum);
+			StrTemp=StrTemp+StrWndCaption;
 
-			DWORD WindowPID = 0;
-			if (IsTopLevel)
+			if(pAppWnd->IsWindowVisible()&&(pAppWnd->GetParent()==NULL)&& (!(WndExStyle & 0x200000)) )
 			{
-				GetWindowThreadProcessId(pAppWnd->m_hWnd, &WindowPID);
+				StrTemp = StrTemp+L"{APP}";
 			}
+			else if(pAppWnd->GetParent()==NULL)
+			{
+				StrTemp = StrTemp+L"{BKG}";
+			}
+			StrNewWndList= StrNewWndList+StrTemp;
 
-			// Solo codificamos señales que afectan la clasificacion/conteos:
-			// HWND + PID + estado APP/BKG(counted). Los cambios de caption
-			// que no alteran estos flags ya no disparan trabajo O(N procesos).
-			int SigState = 0;
-			if (IsAppWnd)
-			{
-				SigState = 1;
-			}
-			else if (IsBkgWnd)
-			{
-				SigState = (CaptionLen > 0) ? 2 : 3;
-			}
-			StrTemp.Format(L"%x:%lu:%d;", hWndNum, (unsigned long)WindowPID, SigState);
-			StrNewWndList += StrTemp;
 
-			if (WindowPID != 0)
-			{
-				PROCWNDCOUNTS &counts = g_ProcWndCounts[WindowPID];
-				if (IsAppWnd)
-				{
-					counts.AppWndCount++;
-				}
-				else if (IsBkgWnd && CaptionLen > 0)
-				{
-					counts.BkgWndCount++;
-				}
-			}
 		}
 
-		pAppWnd = pAppWnd->GetWindow(GW_HWNDNEXT);
+		pAppWnd=pAppWnd->GetWindow(GW_HWNDNEXT);
+
 	}
 
 	BOOL Ret = TRUE;
-	if (wcscmp(StrNewWndList, StrWndList) == 0)
+
+	if(	wcscmp(StrNewWndList,StrWndList)==0)
 	{
-		Ret = FALSE;
+		Ret =FALSE;
 	}
 
-	StrWndList = StrNewWndList;
+	StrWndList= StrNewWndList;
+
+
+
+
 	return Ret;
 }
 
