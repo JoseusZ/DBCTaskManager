@@ -150,14 +150,6 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 
 	//	int Data1,Data2;
 	if((pData1==NULL) || (pData2 == NULL) )return result;
-
-	// FIX: si uno es sub-item del otro, el padre va SIEMPRE primero.
-	// Sin esto, cuando el padre es el ultimo item de la lista, ReSort tras
-	// _OpenSubList puede recolocar el sub-item ARRIBA del padre: QuickSort
-	// no es estable y al comparar el sub-item con OTROS procesos (claves
-	// distintas), el tiebreak por SubType (1<3) solo aplica cuando las
-	// claves principales empatan. Forzamos la relacion padre->hijo de
-	// forma explicita para que el sub-item NUNCA quede por encima del padre.
 	if (pData1->SubType == SUB_ITEM && pData1->pParent == pData2) return 1;
 	if (pData2->SubType == SUB_ITEM && pData2->pParent == pData1) return -1;
 
@@ -165,13 +157,6 @@ int CALLBACK Sort_Processes(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort)
 
 	Str1= pList->GetItemText(pData1->SortID,iCol);
 	Str2= pList->GetItemText(pData2->SortID,iCol);
-
-
-
-
-
-
-
 
 
 	switch(iCol)

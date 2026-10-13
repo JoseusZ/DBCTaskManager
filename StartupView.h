@@ -21,6 +21,14 @@ struct STARTUPITEMDATA
 {
 	CString  FilePath;
 	CString  EntryPath;
+	// Name of the per-item subkey under MSConfig\startupreg (or
+	// MSConfig\startupfolder) for rows that came from there. Empty for
+	// rows read from a live Run key. Used by the right-click handler to
+	// relocate the entry back to the active Run key when re-enabling.
+	CString  MsConfigSubKey;
+	// True when the row originated from HKCU\...\Run. Required so the
+	// Enable handler re-opens HKCU when restoring the value.
+	BOOL     bIsHkcu;
 };
 
 
@@ -54,14 +62,35 @@ public:
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	CCoolListCtrl mStartupList;
 	void InitList(void);
-	void ListStartupItem(CString StrRegPath);
+
+	// Lists every enabled value under
+	//   HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+	//   HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Run
+	//   HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+	// bHklm selects the hive; StrRegPath is the path under that hive.
+	// Pass StrIsEmpty=TRUE when listing from HKCU (different open call).
+	void ListStartupItem(CString StrRegPath, BOOL bHklm = TRUE, BOOL bIsHkcu = FALSE);
+
+	// Reads the items msconfig moved out of the active Run keys when the
+	// user unchecked them in the "Inicio de Windows" tab. Each subkey of
+	//   HKLM\SOFTWARE\Microsoft\Shared Tools\MSConfig\startupreg
+	// carries the original (key, item, hkey, command) plus a DWORD
+	// timestamp (YEAR/MONTH/DAY/HOUR/MINUTE/SECOND).
+	void ListMsConfigDisabledReg(void);
+
+	// Same idea for items msconfig disabled from the Startup folder.
+	//   HKLM\SOFTWARE\Microsoft\Shared Tools\MSConfig\startupfolder
+	void ListMsConfigDisabledFolder(void);
+
 	COLUMNSTATUS_EX     ColIDS_StartupList[COL_COUNT_STARTUP];
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	afx_msg void OnNMRClickStartup(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnPop_Openfilelocation();
 	afx_msg void OnPop_Properties();
 	int ListStartupFromMenu(void);
-	void AddItem(int ID,CString StrTitle,CString StrCmd,CString StrFilePath,CString StrEntryPath,CString StrStartupType,int IconID);
+	void AddItem(int ID, CString StrTitle, CString StrCmd, CString StrFilePath, CString StrEntryPath, CString StrStartupType, int IconID,
+		const CString& StrStatus = CString(), const CString& StrDisabledTime = CString(),
+		const CString& StrMsCfgSubKey = CString(), BOOL bIsHkcuItem = FALSE);
 	CString _GetShortcuTarget(CString StrLnkFile);
 
 
@@ -85,6 +114,33 @@ public:
 	// basename match) is currently running. Uses TlHelp32 which is native
 	// Win32 available since Windows 95 / fully supported on Windows 7.
 	BOOL _IsProcessRunning(const CString& StrTargetPath);
+
+	// Right-click "Disable" / "Enable" handler. Moves the value between
+	// the live Run key and HKLM\...\Shared Tools\MSConfig\startupreg so
+	// the operator gets the exact same on-disk result msconfig produces.
+	// bDisable = TRUE to disable, FALSE to re-enable.
+	afx_msg void OnPop_DisableEnable();
+
+	// Clear and reload the entire startup list. Called after toggling an
+	// item so the visible row reflects the new registry state.
+	void ReloadStartupList();
+
+	// Generate a GUID-shaped subkey name (8 hex chars + suffix) that
+	// msconfig uses for entries under MSConfig\startupreg. The format
+	// mirrors what msconfig itself writes so a re-enabled item blends
+	// in with the rest of the registry tree.
+	static CString _MakeMsConfigSubKeyName();
+
+	// Synchronous variant of Thread_LoadSartupItem. Runs on the UI
+	// thread so the registry walk can't race with a stale worker
+	// thread still touching the list (which is what was crashing
+	// before with STATUS_HEAP_CORRUPTION 0xc0000374).
+	void _LoadStartupItemsSync();
+
+	// Set to TRUE for the duration of any background load and checked at
+	// the top of the reload path so we never spawn a second load while
+	// the first is still walking the registry.
+	volatile BOOL m_bLoadInProgress;
 };
 
 
